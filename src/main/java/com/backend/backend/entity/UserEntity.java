@@ -32,16 +32,16 @@ public class UserEntity {
     private boolean userActive = true;
     private boolean firstLogin = true;
 
-    @ManyToMany
-    @JoinTable(
-            name = "user_account_access",
-            joinColumns = @JoinColumn(name = "user_id"),
-            inverseJoinColumns = @JoinColumn(name = "account_id")
-    )
-    private Set<AccountEntity> accessibleAccounts;
+//    @ManyToMany
+//    @JoinTable(
+//            name = "user_account_access",
+//            joinColumns = @JoinColumn(name = "user_id"),
+//            inverseJoinColumns = @JoinColumn(name = "account_id")
+//    )
+//    private Set<AccountEntity> accessibleAccounts;
 
     @Enumerated(EnumType.STRING)
-    @Column()
+    @Column(name = "access_role")
     private AccessRole accessRole = AccessRole.USER;
 
     @Enumerated(EnumType.STRING)
