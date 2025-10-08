@@ -204,5 +204,24 @@ public class UserServiceImpl implements UserService {
         return userRepository.existsByUserNameAndIdNot(name, excludeId);
     }
 
+    @Override
+    public UserEntity createOrFindGoogleUser(UserEntity user) {
+        Optional<UserEntity> existingUser = userRepository.findByUserEmail(user.getUserEmail());
+
+        if (existingUser.isPresent()) {
+            // user already exists, just return
+            return existingUser.get();
+        }
+
+        user.setUserActive(true);
+        user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
+        user.setAccessRole(AccessRole.USER);  // default
+        user.setAppRole(AppRole.MEMBER);     // default
+
+        return userRepository.save(user);
+    }
+
+
 
 }

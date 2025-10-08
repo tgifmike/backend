@@ -102,4 +102,17 @@ public class UserController {
             return ResponseEntity.status(500).body("Failed to create user");
         }
     }
+
+    @PostMapping("/create/google")
+    public ResponseEntity<?> createGoogleUser(@RequestBody UserEntity user) {
+        try {
+            UserEntity savedUser = userService.createOrFindGoogleUser(user);
+            return ResponseEntity.ok(savedUser);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.badRequest().body(ex.getMessage());
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return ResponseEntity.status(500).body("Failed to create Google user");
+        }
+    }
 }
