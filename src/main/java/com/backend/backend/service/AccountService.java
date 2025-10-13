@@ -1,5 +1,7 @@
 package com.backend.backend.service;
 
+import com.backend.backend.dto.AccountDto;
+import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.AccountEntity;
 
 import java.util.List;
@@ -12,4 +14,5 @@ public interface AccountService {
     AccountEntity getAccountById(UUID id);
     AccountEntity getAccountByName(String accountName);
     List<AccountEntity> getAllAccounts();
+    AccountDto toggleActive(UUID id, boolean active);
 }
