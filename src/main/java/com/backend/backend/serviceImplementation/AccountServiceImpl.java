@@ -1,0 +1,72 @@
+package com.backend.backend.serviceImplementation;
+
+import com.backend.backend.entity.AccountEntity;
+import com.backend.backend.repositories.AccountRepository;
+import com.backend.backend.service.AccountService;
+import org.springframework.http.HttpStatus;
+import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
+
+import java.util.List;
+import java.util.UUID;
+
+@Service
+public class AccountServiceImpl implements AccountService {
+
+    private final AccountRepository accountRepository;
+
+    public AccountServiceImpl(AccountRepository accountRepository) {
+        this.accountRepository = accountRepository;
+    }
+
+    @Override
+    public AccountEntity createAccount(AccountEntity account) {
+        if (accountRepository.existsByAccountName(account.getAccountName())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account name already exists");
+        }
+        return accountRepository.save(account);
+    }
+
+    @Override
+    public AccountEntity updateAccount(UUID id, AccountEntity account) {
+        AccountEntity existing = accountRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+        if (!existing.getAccountName().equals(account.getAccountName())
+                && accountRepository.existsByAccountName(account.getAccountName())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account name already exists");
+        }
+
+        existing.setAccountName(account.getAccountName());
+        existing.setAccountActive(account.isAccountActive());
+        existing.setImageBase64(account.getImageBase64());
+
+        return accountRepository.save(existing);
+    }
+
+    @Override
+    public void deleteAccount(UUID id) {
+        if (!accountRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
+        }
+        accountRepository.deleteById(id);
+    }
+
+    @Override
+    public AccountEntity getAccountById(UUID id) {
+        return accountRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+    }
+
+    @Override
+    public AccountEntity getAccountByName(String accountName) {
+        return accountRepository.findByAccountName(accountName)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+    }
+
+    @Override
+    public List<AccountEntity> getAllAccounts() {
+        return accountRepository.findAll();
+    }
+}
+
