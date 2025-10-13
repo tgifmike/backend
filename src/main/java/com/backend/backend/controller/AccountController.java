@@ -4,6 +4,7 @@ import com.backend.backend.dto.AccountDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.service.AccountService;
+import com.backend.backend.service.UserAccountAccessService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -20,9 +21,11 @@ import java.util.UUID;
 public class AccountController {
 
     private final AccountService accountService;
+    private final UserAccountAccessService userAccountAccessService;
 
-    public AccountController(AccountService accountService) {
+    public AccountController(AccountService accountService, UserAccountAccessService userAccountAccessService) {
         this.accountService = accountService;
+        this.userAccountAccessService = userAccountAccessService;
     }
 
     @GetMapping("/getAll")
@@ -60,4 +63,22 @@ public class AccountController {
         AccountDto updated = accountService.toggleActive(id, active);
         return ResponseEntity.ok(updated);
     }
+
+    //checking is there is access
+    @GetMapping("/{accountId}")
+    public ResponseEntity<?> getAccountById(
+            @PathVariable UUID accountId,
+            @RequestParam UUID userId // can come from session token or query param
+    ) {
+        boolean hasAccess = userAccountAccessService.userHasAccessToAccount(userId, accountId);
+
+        if (!hasAccess) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("You do not have access to this account.");
+        }
+
+        AccountEntity account = accountService.getAccountById(accountId);
+        return ResponseEntity.ok(account);
+    }
+
 }
