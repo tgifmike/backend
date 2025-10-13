@@ -12,4 +12,5 @@ public interface UserAccountAccessRepository extends JpaRepository<UserAccountAc
     List<UserAccountAccessEntity> findByUser(UserEntity user);
     List<UserAccountAccessEntity> findByAccount(AccountEntity account);
     boolean existsByUserAndAccount(UserEntity user, AccountEntity account);
+    boolean existsByUserIdAndAccountId(UUID userId, UUID accountId);
 }

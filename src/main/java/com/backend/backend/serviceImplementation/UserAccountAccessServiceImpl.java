@@ -8,6 +8,7 @@ import com.backend.backend.service.UserAccountAccessService;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 
 @Service
 public class UserAccountAccessServiceImpl implements UserAccountAccessService {
@@ -46,5 +47,10 @@ public class UserAccountAccessServiceImpl implements UserAccountAccessService {
         accesses.stream()
                 .filter(a -> a.getAccount().getId().equals(account.getId()))
                 .forEach(userAccountAccessRepository::delete);
+    }
+
+    @Override
+    public boolean userHasAccessToAccount(UUID userId, UUID accountId) {
+        return userAccountAccessRepository.existsByUserIdAndAccountId(userId, accountId);
     }
 }
