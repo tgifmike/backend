@@ -1,12 +1,17 @@
 package com.backend.backend.serviceImplementation;
 
+import com.backend.backend.dto.AccountDto;
+import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.AccountEntity;
+import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.service.AccountService;
+import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -67,6 +72,27 @@ public class AccountServiceImpl implements AccountService {
     @Override
     public List<AccountEntity> getAllAccounts() {
         return accountRepository.findAll();
+    }
+
+    //toggle active
+    @Override
+    @Transactional
+    public AccountDto toggleActive(UUID id, boolean active) {
+        AccountEntity user = accountRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Account not found: " + id));
+
+        user.setAccountActive(active);
+        user.setUpdatedAt(LocalDateTime.now());
+
+        AccountEntity saved = accountRepository.save(user);
+
+        // Manually map Entity → DTO
+        return new AccountDto(
+                saved.getId(),
+                saved.getAccountName(),
+                saved.getImageBase64(),
+                saved.isAccountActive()
+        );
     }
 }
 

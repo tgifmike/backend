@@ -1,5 +1,7 @@
 package com.backend.backend.controller;
 
+import com.backend.backend.dto.AccountDto;
+import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.service.AccountService;
 import org.springframework.http.HttpStatus;
@@ -9,9 +11,9 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.UUID;
 
-@CrossOrigin(origins = {
-        "http://localhost:3000"
-})
+//@CrossOrigin(origins = {
+//        "http://localhost:3000"
+//})
 
 @RestController
 @RequestMapping("/accounts")
@@ -38,7 +40,7 @@ public class AccountController {
         return new ResponseEntity<>(accountService.createAccount(account), HttpStatus.CREATED);
     }
 
-    @PutMapping("/{id}")
+    @PatchMapping("/{id}")
     public ResponseEntity<AccountEntity> updateAccount(@PathVariable UUID id, @RequestBody AccountEntity account) {
         return ResponseEntity.ok(accountService.updateAccount(id, account));
     }
@@ -47,5 +49,15 @@ public class AccountController {
     public ResponseEntity<Void> deleteAccount(@PathVariable UUID id) {
         accountService.deleteAccount(id);
         return ResponseEntity.noContent().build();
+    }
+
+    //update user status
+    @PatchMapping("/{id}/active")
+    public ResponseEntity<AccountDto> toggleActive(
+            @PathVariable UUID id,
+            @RequestParam boolean active
+    ) {
+        AccountDto updated = accountService.toggleActive(id, active);
+        return ResponseEntity.ok(updated);
     }
 }
