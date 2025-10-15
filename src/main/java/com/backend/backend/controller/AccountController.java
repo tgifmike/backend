@@ -3,8 +3,10 @@ package com.backend.backend.controller;
 import com.backend.backend.dto.AccountDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.AccountEntity;
+import com.backend.backend.entity.UserEntity;
 import com.backend.backend.service.AccountService;
 import com.backend.backend.service.UserAccountAccessService;
+import com.backend.backend.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -22,10 +24,12 @@ public class AccountController {
 
     private final AccountService accountService;
     private final UserAccountAccessService userAccountAccessService;
+    private final UserService userService;
 
-    public AccountController(AccountService accountService, UserAccountAccessService userAccountAccessService) {
+    public AccountController(AccountService accountService, UserService userService, UserAccountAccessService userAccountAccessService) {
         this.accountService = accountService;
         this.userAccountAccessService = userAccountAccessService;
+        this.userService = userService;
     }
 
     @GetMapping("/getAll")
@@ -42,6 +46,27 @@ public class AccountController {
     public ResponseEntity<AccountEntity> createAccount(@RequestBody AccountEntity account) {
         return new ResponseEntity<>(accountService.createAccount(account), HttpStatus.CREATED);
     }
+
+    //giving access when user creates account
+    @PostMapping("/createAccountWithAccess/{userId}")
+    public ResponseEntity<AccountEntity> createAccountWithAccess(
+            @PathVariable UUID userId,
+            @RequestBody AccountEntity account) {
+
+        // 1. Create the account
+        AccountEntity createdAccount = accountService.createAccount(account);
+
+        // 2. Get the user by ID
+        UserEntity user = userService.getUserById(userId);
+
+        // 3. Grant access
+        userAccountAccessService.grantAccess(user, createdAccount);
+
+        // 4. Return the created account
+        return new ResponseEntity<>(createdAccount, HttpStatus.CREATED);
+    }
+
+
 
     @PatchMapping("/{id}")
     public ResponseEntity<AccountEntity> updateAccount(@PathVariable UUID id, @RequestBody AccountEntity account) {
