@@ -32,6 +32,7 @@ public class AccountServiceImpl implements AccountService {
         return accountRepository.save(account);
     }
 
+
     @Override
     public AccountEntity updateAccount(UUID id, AccountEntity account) {
         AccountEntity existing = accountRepository.findById(id)
