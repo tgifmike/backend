@@ -1,5 +1,6 @@
 package com.backend.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -33,6 +34,7 @@ public class LocationEntity {
 
     @ManyToOne
     @JoinColumn(name = "account_id")
+    @JsonBackReference
     private AccountEntity account;
 
     private boolean locationActive = true;
