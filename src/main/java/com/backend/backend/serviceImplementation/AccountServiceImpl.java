@@ -1,9 +1,7 @@
 package com.backend.backend.serviceImplementation;
 
 import com.backend.backend.dto.AccountDto;
-import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.AccountEntity;
-import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.service.AccountService;
 import jakarta.transaction.Transactional;

@@ -1,7 +1,6 @@
 package com.backend.backend.controller;
 
 import com.backend.backend.dto.AccountDto;
-import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.service.AccountService;
@@ -13,10 +12,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.UUID;
-
-//@CrossOrigin(origins = {
-//        "http://localhost:3000"
-//})
 
 @RestController
 @RequestMapping("/accounts")
@@ -105,5 +100,6 @@ public class AccountController {
         AccountEntity account = accountService.getAccountById(accountId);
         return ResponseEntity.ok(account);
     }
+
 
 }
