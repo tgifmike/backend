@@ -93,5 +93,16 @@ public class AccountServiceImpl implements AccountService {
                 saved.isAccountActive()
         );
     }
+
+    @Override
+    @Transactional
+    public void updateAccountImage(UUID id, String base64Image) {
+        AccountEntity account = accountRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+        account.setImageBase64(base64Image);
+        account.setUpdatedAt(LocalDateTime.now());
+        accountRepository.save(account);
+    }
 }
 
