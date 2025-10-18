@@ -14,4 +14,5 @@ public interface AccountService {
     AccountEntity getAccountByName(String accountName);
     List<AccountEntity> getAllAccounts();
     AccountDto toggleActive(UUID id, boolean active);
+    void updateAccountImage(UUID id, String base64Image);
 }

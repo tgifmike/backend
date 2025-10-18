@@ -9,8 +9,10 @@ import com.backend.backend.service.UserService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -101,5 +103,18 @@ public class AccountController {
         return ResponseEntity.ok(account);
     }
 
+    @PutMapping("/{id}/image")
+    public ResponseEntity<Void> uploadImage(
+            @PathVariable UUID id,
+            @RequestBody Map<String, String> request){
+
+        String base64Image = request.get("imageBase64");
+        if(base64Image == null || base64Image.isEmpty()){
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "No image");
+        }
+
+        accountService.updateAccountImage(id, base64Image);
+        return ResponseEntity.ok().build();
+    }
 
 }
