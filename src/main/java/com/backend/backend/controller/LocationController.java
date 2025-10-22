@@ -1,7 +1,6 @@
 package com.backend.backend.controller;
 
 import com.backend.backend.dto.LocationDto;
-import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.LocationEntity;
 import com.backend.backend.service.LocationService;
 import com.backend.backend.service.UserService;
@@ -10,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -40,15 +40,21 @@ public class LocationController {
         return ResponseEntity.ok(locationService.getLocationByName(locationName));
     }
 
-    @PostMapping("/createLocation")
-    public ResponseEntity<LocationEntity> createLocation(@RequestBody LocationEntity location) {
-        return new ResponseEntity<>(locationService.createLocation(location), HttpStatus.CREATED);
+    @PostMapping("/{accountId}/createLocation")
+    public ResponseEntity<LocationEntity> createLocation(
+            @PathVariable UUID accountId,
+            @RequestBody LocationDto locationDto) {
+        LocationEntity created = locationService.createLocation(accountId, locationDto);
+        return new ResponseEntity<>(created, HttpStatus.CREATED);
     }
 
-    @PatchMapping("/{id}")
-    public ResponseEntity<LocationEntity> updateLocation(@PathVariable UUID id, @RequestBody LocationEntity location){
-        return ResponseEntity.ok(locationService.updateLocation(id, location));
+    @PatchMapping("/{id}/updateLocation")
+    public ResponseEntity<LocationEntity> updateLocation(@PathVariable UUID id, @RequestBody Map<String, Object> updates) {
+        LocationEntity updated = locationService.partialUpdate(id, updates);
+        return ResponseEntity.ok(updated);
     }
+
+
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteLocation(@PathVariable UUID id){
@@ -60,7 +66,7 @@ public class LocationController {
     @PatchMapping("/{id}/active")
     public ResponseEntity<LocationDto> toggleActive(
             @PathVariable UUID id,
-            @RequestBody boolean active
+            @RequestParam boolean active
     ){
         LocationDto updated = locationService.toggleActive(id, active);
         return ResponseEntity.ok(updated);

@@ -66,9 +66,11 @@ public class AccountController {
 
 
     @PatchMapping("/{id}")
-    public ResponseEntity<AccountEntity> updateAccount(@PathVariable UUID id, @RequestBody AccountEntity account) {
-        return ResponseEntity.ok(accountService.updateAccount(id, account));
+    public ResponseEntity<AccountEntity> updateAccount(@PathVariable UUID id, @RequestBody Map<String, Object> updates) {
+        AccountEntity updated = accountService.partialUpdate(id, updates);
+        return ResponseEntity.ok(updated);
     }
+
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteAccount(@PathVariable UUID id) {
@@ -87,7 +89,7 @@ public class AccountController {
     }
 
     //checking is there is access
-    @GetMapping("/{accountId}")
+    @GetMapping("/by-id/{accountId}")
     public ResponseEntity<?> getAccountById(
             @PathVariable UUID accountId,
             @RequestParam UUID userId // can come from session token or query param
