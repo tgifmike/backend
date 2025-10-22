@@ -4,6 +4,7 @@ import com.backend.backend.dto.AccountDto;
 import com.backend.backend.entity.AccountEntity;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface AccountService {
@@ -15,4 +16,5 @@ public interface AccountService {
     List<AccountEntity> getAllAccounts();
     AccountDto toggleActive(UUID id, boolean active);
     void updateAccountImage(UUID id, String base64Image);
+    AccountEntity partialUpdate(UUID id, Map<String, Object> updates);
 }

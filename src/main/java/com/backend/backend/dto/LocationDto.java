@@ -16,7 +16,7 @@ public class LocationDto {
     private String locationStreet;
     private String locationTown;
     private String locationState;
-    private String locationZipcode;
+    private String locationZipCode;
     private String locationTimeZone;
     private boolean locationActive;
 }

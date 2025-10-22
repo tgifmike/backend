@@ -11,6 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -104,5 +105,21 @@ public class AccountServiceImpl implements AccountService {
         account.setUpdatedAt(LocalDateTime.now());
         accountRepository.save(account);
     }
+
+    public AccountEntity partialUpdate(UUID id, Map<String, Object> updates) {
+        AccountEntity existing = accountRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Account not found"));
+
+        if (updates.containsKey("accountName")) {
+            existing.setAccountName((String) updates.get("accountName"));
+        }
+        if (updates.containsKey("accountActive")) {
+            existing.setAccountActive((Boolean) updates.get("accountActive"));
+        }
+        // Do NOT touch imageBase64 unless explicitly sent
+
+        return accountRepository.save(existing);
+    }
+
 }
 

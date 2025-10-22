@@ -1,57 +1,108 @@
 package com.backend.backend.serviceImplementation;
 
 import com.backend.backend.dto.LocationDto;
+import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.LocationEntity;
+import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.repositories.LocationRepository;
 import com.backend.backend.service.LocationService;
 import jakarta.transaction.Transactional;
+import org.hibernate.query.sqm.mutation.internal.temptable.LocalTemporaryTableInsertStrategy;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
 public class LocationServiceImpl implements LocationService {
 
     private final LocationRepository locationRepository;
+    private final AccountRepository accountRepository;
 
-    public LocationServiceImpl(LocationRepository locationRepository){
+
+    public LocationServiceImpl(LocationRepository locationRepository, AccountRepository accountRepository){
         this.locationRepository = locationRepository;
+        this.accountRepository = accountRepository;
+
     }
 
     @Override
-    public LocationEntity createLocation(LocationEntity location){
-        if(locationRepository.existsByLocationName(location.getLocationName())){
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exits");
+    public LocationEntity createLocation(UUID accountId, LocationDto locationDto) {
+
+        if(locationRepository.existsByLocationName(locationDto.getLocationName())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists");
         }
+
+        // fetch account
+        AccountEntity account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+        // attach fields from DTO
+        LocationEntity location = new LocationEntity();
+        location.setAccount(account);
+        location.setLocationName(locationDto.getLocationName());
+        location.setLocationStreet(locationDto.getLocationStreet());
+        location.setLocationTown(locationDto.getLocationTown());
+        location.setLocationState(locationDto.getLocationState());
+        location.setLocationZipCode(locationDto.getLocationZipCode());
+        location.setLocationTimeZone(locationDto.getLocationTimeZone());
+
+
         return locationRepository.save(location);
     }
+
+
+//    @Override
+//    public LocationEntity updateLocation(UUID id, LocationDto updated) {
+//        LocationEntity existing = locationRepository.findById(id)
+//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+//
+//        if (!existing.getLocationName().equals(updated.getLocationName())
+//                && locationRepository.existsByLocationName(updated.getLocationName())){
+//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists.");
+//        }
+//
+//        existing.setLocationName(updated.getLocationName());
+//        existing.setLocationStreet(updated.getLocationStreet());
+//        existing.setLocationTown(updated.getLocationTown());
+//        existing.setLocationState(updated.getLocationState());
+//        existing.setLocationZipCode(updated.getLocationZipCode());
+//        existing.setLocationTimeZone(updated.getLocationTimeZone());
+//
+//        // optionally handle latitude/longitude/geocode updates if needed
+//        existing.setUpdatedAt(LocalDateTime.now());
+//
+//        return locationRepository.save(existing);
+//    }
 
     @Override
     public LocationEntity updateLocation(UUID id, LocationEntity location){
         LocationEntity existing = locationRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location no founds"));
+                .orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found"));
 
-        if(!existing.getLocationName().equals(location.getLocationName())
+        if (!existing.getLocationName().equals(location.getLocationName())
             && locationRepository.existsByLocationName(location.getLocationName())){
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists");
         }
 
         existing.setLocationName(location.getLocationName());
-        existing.setLocationActive(location.isLocationActive());
         existing.setLocationStreet(location.getLocationStreet());
-        existing.setLocationState(location.getLocationState());
         existing.setLocationTown(location.getLocationTown());
+        existing.setLocationState(location.getLocationState());
         existing.setLocationZipCode(location.getLocationZipCode());
-        existing.setLocationTimezone(location.getLocationTimezone());
-        existing.setLocationLatitude(location.getLocationLatitude());
-        existing.setLocationLongitude(location.getLocationLongitude());
+        existing.setLocationTimeZone(location.getLocationTimeZone());
 
         return locationRepository.save(existing);
     }
+
+
 
     @Override
     public void deleteLocation(UUID id){
@@ -105,9 +156,25 @@ public class LocationServiceImpl implements LocationService {
                 saved.getLocationTown(),
                 saved.getLocationState(),
                 saved.getLocationZipCode(),
-                saved.getLocationTimezone(),
+                saved.getLocationTimeZone(),
                 saved.isLocationActive()
 
         );
     }
+
+    @Override
+    public LocationEntity partialUpdate(UUID id, Map<String, Object> updates) {
+        LocationEntity existing = locationRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Location not found"));
+
+        if (updates.containsKey("locationName") && updates.get("locationName") != null) existing.setLocationName((String) updates.get("locationName"));
+        if (updates.containsKey("locationStreet") && updates.get("locationStreet") != null) existing.setLocationStreet((String) updates.get("locationStreet"));
+        if (updates.containsKey("locationTown") && updates.get("locationTown") != null) existing.setLocationTown((String) updates.get("locationTown"));
+        if (updates.containsKey("locationState") && updates.get("locationState") != null) existing.setLocationState((String) updates.get("locationState"));
+        if (updates.containsKey("locationZipCode") && updates.get("locationZipCode") != null) existing.setLocationZipCode((String) updates.get("locationZipCode"));
+        if (updates.containsKey("locationTimeZone") && updates.get("locationTimeZone") != null) existing.setLocationTimeZone((String) updates.get("locationTimeZone"));
+
+        return locationRepository.save(existing);
+    }
+
 }

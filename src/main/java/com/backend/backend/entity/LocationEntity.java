@@ -27,7 +27,7 @@ public class LocationEntity {
     private String locationStreet;
     private String locationTown;
     private String locationState;
-    private String locationTimezone;
+    private String locationTimeZone;
     private String locationZipCode;
     private Double locationLatitude;
     private Double locationLongitude;
