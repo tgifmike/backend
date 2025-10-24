@@ -1,6 +1,7 @@
 package com.backend.backend.controller;
 
 import com.backend.backend.dto.AccountDto;
+import com.backend.backend.dto.LocationDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserAccountAccessEntity;
 import com.backend.backend.entity.UserEntity;
@@ -64,4 +65,7 @@ public class UserAccountAccessController {
         AccountEntity account = accountService.getAccountById(accountId);
         userAccountAccessService.revokeAccess(user, account);
     }
+
+
+
 }

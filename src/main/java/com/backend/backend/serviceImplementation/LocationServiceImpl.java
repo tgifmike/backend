@@ -140,7 +140,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @Transactional
-    public LocationDto toggleActive(UUID id, boolean active){
+    public LocationDto toggleActive(UUID id, boolean active) {
         LocationEntity location = locationRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Location not found: " + id));
 
@@ -149,17 +149,8 @@ public class LocationServiceImpl implements LocationService {
 
         LocationEntity saved = locationRepository.save(location);
 
-        return new LocationDto(
-                saved.getId(),
-                saved.getLocationName(),
-                saved.getLocationStreet(),
-                saved.getLocationTown(),
-                saved.getLocationState(),
-                saved.getLocationZipCode(),
-                saved.getLocationTimeZone(),
-                saved.isLocationActive()
-
-        );
+        // Use the standardized converter
+        return LocationDto.fromEntity(saved);
     }
 
     @Override
