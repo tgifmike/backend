@@ -15,34 +15,31 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name= "locations")
-public class LocationEntity {
+@Table(name= "items")
+public class ItemEntity {
 
     @Id
     @GeneratedValue(generator = "UUID")
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    private String locationName;
-    private String locationStreet;
-    private String locationTown;
-    private String locationState;
-    private String locationTimeZone;
-    private String locationZipCode;
-    private Double locationLatitude;
-    private Double locationLongitude;
+    private String itemName;
+
+    private String itemTemperature;
+    private boolean isTempTaken;
+
+    private boolean isCheckMark;
+
+    private String notes;
+
 
     @ManyToOne
-    @JoinColumn(name = "account_id")
+    @JoinColumn(name = "station_id")
     @JsonBackReference
-    private AccountEntity account;
+    private StationEntity station;
 
-    private boolean locationActive = true;
+    private boolean itemActive = true;
 
-
-
-    @Column(name = "geocoded_from_zip_fallback")
-    private Boolean geocodedFromZipFallback;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

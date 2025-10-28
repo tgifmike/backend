@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -24,35 +25,56 @@ public class StationController {
         return ResponseEntity.ok(stationService.getAllStations());
     }
 
+    @GetMapping("/{locationId}/getStationByLocation")
+    public ResponseEntity<List<StationEntity>> getStationsByLocation(@PathVariable UUID locationId) {
+        return ResponseEntity.ok(stationService.getStationsByLocation(locationId));
+    }
+
+
     @GetMapping("/{stationName}")
         public ResponseEntity<StationEntity> getStationByName(@PathVariable String stationName){
         return ResponseEntity.ok(stationService.getStationByName(stationName));
         }
 
-    @PostMapping("/createStation")
-    public ResponseEntity<StationEntity> createStation(@RequestBody StationEntity station){
-        return new ResponseEntity<>(stationService.createStation(station), HttpStatus.CREATED);
+    @PostMapping("/{locationId}/createStation")
+    public ResponseEntity<StationEntity> createStation(
+            @PathVariable UUID locationId,
+            @RequestBody StationEntity station
+    ) {
+        StationEntity created = stationService.createStation(locationId, station);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
     }
 
-    @PatchMapping("/{id}")
-    public ResponseEntity<StationEntity> updateStation(@PathVariable UUID id, @RequestBody StationEntity station){
-        StationEntity updated = stationService.updateStation(id, station);
+
+    @PatchMapping("/{locationId}/updateStation/{stationId}")
+    public ResponseEntity<StationEntity> updateStation(
+            @PathVariable UUID locationId,
+            @PathVariable UUID stationId,
+            @RequestBody Map<String, Object> updates
+    ) {
+        StationEntity updated = stationService.updateStation(locationId, stationId, updates);
         return ResponseEntity.ok(updated);
     }
 
-    @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteStation(@PathVariable UUID id){
-        stationService.deleteStation(id);
+
+    @DeleteMapping("/{locationId}/deleteStation/{stationId}")
+    public ResponseEntity<Void> deleteStation(
+            @PathVariable UUID locationId,
+            @PathVariable UUID stationId
+    ) {
+        stationService.deleteStation(locationId, stationId);
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{id}/active")
-    public ResponseEntity<StationEntity> toggleActive(
-            @PathVariable UUID id,
+    @PatchMapping("/{locationId}/stations/{stationId}/active")
+    public ResponseEntity<StationEntity> toggleStationActive(
+            @PathVariable UUID locationId,
+            @PathVariable UUID stationId,
             @RequestParam boolean active
     ) {
-        StationEntity updated = stationService.toggleActive(id, active);
+        StationEntity updated = stationService.toggleActive(locationId, stationId, active);
         return ResponseEntity.ok(updated);
     }
+
 
 }
