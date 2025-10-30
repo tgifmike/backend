@@ -8,10 +8,12 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ItemRepository extends JpaRepository<ItemEntity, UUID> {
-    Optional<ItemEntity> findByItemName(String itemName);
+    //Optional<ItemEntity> findByItemName(String itemName);
     List<ItemEntity> findByStationId(UUID id);
-    boolean existsByItemName(String itemName);
+    //boolean existsByItemName(String itemName);
     boolean existsByItemNameAndStationId(String itemName, UUID stationId);
+    Optional<ItemEntity> findByItemNameAndStationId(String itemName, UUID stationId);
+    List<ItemEntity> findAllByStationIdOrderBySortOrderAsc(UUID stationId);
 }
 
 

@@ -1,6 +1,7 @@
 package com.backend.backend.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -23,22 +24,30 @@ public class ItemEntity {
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
+    @Column(nullable = false)
     private String itemName;
 
-    private String itemTemperature;
+    private double itemTemperature;
+
+    @JsonProperty("isTempTaken")
     private boolean isTempTaken;
 
+    @JsonProperty("isCheckMark")
     private boolean isCheckMark;
 
     private String notes;
 
+    private boolean itemActive = true;
 
-    @ManyToOne
-    @JoinColumn(name = "station_id")
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "station_id", nullable = false)
     @JsonBackReference
     private StationEntity station;
 
-    private boolean itemActive = true;
+
 
 
     @Column(name = "created_at", updatable = false)

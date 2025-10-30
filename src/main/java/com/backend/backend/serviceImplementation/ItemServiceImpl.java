@@ -10,6 +10,7 @@ import com.backend.backend.repositories.ItemRepository;
 import com.backend.backend.repositories.LocationRepository;
 import com.backend.backend.repositories.StationRepository;
 import com.backend.backend.service.ItemService;
+import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -37,107 +38,75 @@ public class ItemServiceImpl implements ItemService {
     @Override
     public ItemEntity createItem(UUID stationId, ItemEntity item) {
 
-        // check if the item name already exists within this station
-        if (itemRepository.existsByItemNameAndStationId(item.getItemName(), stationId)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Item name already exists in this station");
-        }
-
         // fetch station
         StationEntity station = stationRepository.findById(stationId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Station not found"));
 
+
+        // check if the item name already exists within this station
+        boolean exists = itemRepository.existsByItemNameAndStationId(item.getItemName(), stationId);
+        if (exists) {
+            throw new IllegalStateException("Item with name '" + item.getItemName() + "' already exists for this station.");
+        }
+
         // attach the station to item
         item.setStation(station);
+        item.setItemActive(true);
 
         return itemRepository.save(item);
     }
 
+    // get all items for station
+    @Override
+    @Transactional
+    public List<ItemEntity> getItemsByStation(UUID stationId){
+        return itemRepository.findByStationId(stationId);
+    }
 
 
+    //get item by id
+    @Override
+    @Transactional
+    public ItemEntity getItemById(UUID id) {
+        return itemRepository.findById(id)
+                .orElseThrow(() -> new EntityNotFoundException("Item not found with ID: " + id));
+    }
 
-//    @Override
-//    public LocationEntity updateLocation(UUID id, LocationEntity location){
-//        LocationEntity existing = locationRepository.findById(id)
-//                .orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found"));
-//
-//        if (!existing.getLocationName().equals(location.getLocationName())
-//                && locationRepository.existsByLocationNameAndAccountId(location.getLocationName(), existing.getAccount().getId())) {
-//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists in this account");
-//        }
-//
-//        existing.setLocationName(location.getLocationName());
-//        existing.setLocationStreet(location.getLocationStreet());
-//        existing.setLocationTown(location.getLocationTown());
-//        existing.setLocationState(location.getLocationState());
-//        existing.setLocationZipCode(location.getLocationZipCode());
-//        existing.setLocationTimeZone(location.getLocationTimeZone());
-//
-//        return locationRepository.save(existing);
-//    }
-//
-//
-//
-//    @Override
-//    public void deleteLocation(UUID id){
-//        if(!locationRepository.existsById(id)){
-//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found");
-//        }
-//        locationRepository.deleteById(id);
-//    }
-//
-//    @Override
-//    public LocationEntity getLocationById(UUID id){
-//        return locationRepository.findById(id)
-//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found"));
-//    }
-//
-//    @Override
-//    public LocationEntity getLocationByName(String locationName){
-//        return locationRepository.findByLocationName(locationName)
-//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Locaiton not found"));
-//    }
-//
-//    @Override
-//    public List<LocationEntity> getLocationByAccount(UUID accountId) {
-//        List<LocationEntity> locations = locationRepository.findByAccountId(accountId);
-//        if (locations.isEmpty()) {
-//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No locations found for this account");
-//        }
-//        return locations;
-//    }
-//
-//    @Override
-//    public List<LocationEntity> getAllLocations() {
-//        return  locationRepository.findAll();
-//    }
-//
-//    @Override
-//    @Transactional
-//    public LocationDto toggleActive(UUID id, boolean active) {
-//        LocationEntity location = locationRepository.findById(id)
-//                .orElseThrow(() -> new RuntimeException("Location not found: " + id));
-//
-//        location.setLocationActive(active);
-//        location.setUpdatedAt(LocalDateTime.now());
-//
-//        LocationEntity saved = locationRepository.save(location);
-//
-//        // Use the standardized converter
-//        return LocationDto.fromEntity(saved);
-//    }
-//
-//    @Override
-//    public LocationEntity partialUpdate(UUID id, Map<String, Object> updates) {
-//        LocationEntity existing = locationRepository.findById(id)
-//                .orElseThrow(() -> new RuntimeException("Location not found"));
-//
-//        if (updates.containsKey("locationName") && updates.get("locationName") != null) existing.setLocationName((String) updates.get("locationName"));
-//        if (updates.containsKey("locationStreet") && updates.get("locationStreet") != null) existing.setLocationStreet((String) updates.get("locationStreet"));
-//        if (updates.containsKey("locationTown") && updates.get("locationTown") != null) existing.setLocationTown((String) updates.get("locationTown"));
-//        if (updates.containsKey("locationState") && updates.get("locationState") != null) existing.setLocationState((String) updates.get("locationState"));
-//        if (updates.containsKey("locationZipCode") && updates.get("locationZipCode") != null) existing.setLocationZipCode((String) updates.get("locationZipCode"));
-//        if (updates.containsKey("locationTimeZone") && updates.get("locationTimeZone") != null) existing.setLocationTimeZone((String) updates.get("locationTimeZone"));
-//
-//        return locationRepository.save(existing);
-//    }
+    //update item
+    @Override
+    public ItemEntity updateItem(UUID id, ItemEntity updatedItem) {
+        ItemEntity existingItem = getItemById(id);
+
+        if (!existingItem.getItemName().equals(updatedItem.getItemName())) {
+            boolean nameExists = itemRepository.existsByItemNameAndStationId(updatedItem.getItemName(), existingItem.getStation().getId());
+            if (nameExists) {
+                throw new IllegalStateException("Item with name '" + updatedItem.getItemName() + "' already exists for this station.");
+            }
+        }
+
+        existingItem.setItemName(updatedItem.getItemName());
+        existingItem.setItemTemperature(updatedItem.getItemTemperature());
+        existingItem.setTempTaken(updatedItem.isTempTaken());
+        existingItem.setCheckMark(updatedItem.isCheckMark());
+        existingItem.setNotes(updatedItem.getNotes());
+        existingItem.setItemActive(updatedItem.isItemActive());
+
+        return itemRepository.save(existingItem);
+    }
+
+    //toggle active item
+    @Override
+    public ItemEntity toggleActive(UUID id, boolean active) {
+        ItemEntity item = getItemById(id);
+        item.setItemActive(active);
+        return itemRepository.save(item);
+    }
+
+    //delete item
+    @Override
+    public void deleteItem(UUID id) {
+        ItemEntity item = getItemById(id);
+        itemRepository.delete(item);
+    }
+
 }
