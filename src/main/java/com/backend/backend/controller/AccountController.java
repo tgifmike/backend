@@ -15,6 +15,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
+@CrossOrigin(origins = {
+        "http://localhost:3000",
+        "https://www.themanagerlife.com"
+})
+
+
 @RestController
 @RequestMapping("/accounts")
 public class AccountController {
