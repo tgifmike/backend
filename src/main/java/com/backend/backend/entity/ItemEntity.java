@@ -1,6 +1,7 @@
 package com.backend.backend.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -15,34 +16,39 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name= "locations")
-public class LocationEntity {
+@Table(name= "items")
+public class ItemEntity {
 
     @Id
     @GeneratedValue(generator = "UUID")
     @Column(name = "id", updatable = false, nullable = false)
     private UUID id;
 
-    private String locationName;
-    private String locationStreet;
-    private String locationTown;
-    private String locationState;
-    private String locationTimeZone;
-    private String locationZipCode;
-    private Double locationLatitude;
-    private Double locationLongitude;
+    @Column(nullable = false)
+    private String itemName;
 
-    @ManyToOne
-    @JoinColumn(name = "account_id")
+    private double itemTemperature;
+
+    @JsonProperty("isTempTaken")
+    private boolean isTempTaken;
+
+    @JsonProperty("isCheckMark")
+    private boolean isCheckMark;
+
+    private String notes;
+
+    private boolean itemActive = true;
+
+    @Column(name = "sort_order")
+    private Integer sortOrder;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "station_id", nullable = false)
     @JsonBackReference
-    private AccountEntity account;
-
-    private boolean locationActive = true;
+    private StationEntity station;
 
 
 
-    @Column(name = "geocoded_from_zip_fallback")
-    private Boolean geocodedFromZipFallback;
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

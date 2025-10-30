@@ -36,8 +36,8 @@ public class LocationServiceImpl implements LocationService {
     @Override
     public LocationEntity createLocation(UUID accountId, LocationDto locationDto) {
 
-        if(locationRepository.existsByLocationName(locationDto.getLocationName())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists");
+        if (locationRepository.existsByLocationNameAndAccountId(locationDto.getLocationName(), accountId)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists in this account");
         }
 
         // fetch account
@@ -88,8 +88,8 @@ public class LocationServiceImpl implements LocationService {
                 .orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found"));
 
         if (!existing.getLocationName().equals(location.getLocationName())
-            && locationRepository.existsByLocationName(location.getLocationName())){
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists");
+                && locationRepository.existsByLocationNameAndAccountId(location.getLocationName(), existing.getAccount().getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists in this account");
         }
 
         existing.setLocationName(location.getLocationName());

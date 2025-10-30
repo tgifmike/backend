@@ -1,5 +1,6 @@
 package com.backend.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -7,6 +8,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -26,10 +28,14 @@ public class StationEntity {
         private String stationName;
         private boolean stationActive = true;
 
+        @ManyToOne
+        @JoinColumn(name = "location_id")
+        private LocationEntity location;
+
         //need to add when i add items
-//        @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-//        @JsonManagedReference
-//        private List<LocationEntity> locations;
+        @OneToMany(mappedBy = "station", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+        @JsonManagedReference
+        private List<ItemEntity> items = new ArrayList<>();
 
         @Column(name = "created_at", updatable = false)
         private LocalDateTime createdAt;

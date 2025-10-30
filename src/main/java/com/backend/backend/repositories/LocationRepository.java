@@ -12,4 +12,6 @@ public interface LocationRepository extends JpaRepository<LocationEntity, UUID> 
     List<LocationEntity> findByAccountId(UUID accountId);
     boolean existsByLocationName(String locationName);
     List<LocationEntity> findByAccount_IdIn(List<UUID> accountIds);
+    boolean existsByLocationNameAndAccountId(String locationName, UUID accountId);
+
 }
