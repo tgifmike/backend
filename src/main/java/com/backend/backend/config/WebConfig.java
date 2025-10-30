@@ -20,7 +20,8 @@ public class WebConfig {
                                 "https://www.themanagerlife.com"
                         )
                         .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                        .allowCredentials(true);
+                        .allowCredentials(true)
+                        .allowedHeaders("*");
             }
         };
     }
