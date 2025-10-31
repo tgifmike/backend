@@ -2,6 +2,7 @@ package com.backend.backend.controller;
 
 import com.backend.backend.dto.AccountDto;
 import com.backend.backend.dto.LocationDto;
+import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserAccountAccessEntity;
 import com.backend.backend.entity.UserEntity;
@@ -11,6 +12,7 @@ import com.backend.backend.service.UserService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -47,6 +49,28 @@ public class UserAccountAccessController {
                 .toList();
         return ResponseEntity.ok(accounts);
     }
+
+    @GetMapping("/{accountId}/getUsersForAccount")
+    public ResponseEntity<List<UserDto>> getUsersForAccount(@PathVariable UUID accountId){
+        AccountEntity account = accountService.getAccountById(accountId);
+        List<UserDto> users = userAccountAccessService.getUsersForAccount(account)
+                .stream()
+                .map( access -> new UserDto(
+                        access.getUser().getId(),
+                        access.getUser().getUserName(),
+                        access.getUser().getUserEmail(),
+                        access.getUser().getUserImage(),
+                        access.getUser().isUserActive(),
+                        access.getUser().getAccessRole().name(),
+                        access.getUser().getAppRole().name(),
+                        access.getUser().getCreatedAt(),
+                        access.getUser().getUpdatedAt()
+                ))
+                .toList();
+        return  ResponseEntity.ok(users);
+    }
+
+
 
 
 
