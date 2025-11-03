@@ -1,6 +1,7 @@
 package com.backend.backend.controller;
 
 import com.backend.backend.entity.StationEntity;
+import com.backend.backend.repositories.StationRepository;
 import com.backend.backend.service.StationService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -10,14 +11,18 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/stations")
 public class StationController {
     private final StationService stationService;
+    private final StationRepository stationRepository;
 
-    public StationController(StationService stationService) {
+    public StationController(StationService stationService, StationRepository stationRepository) {
         this.stationService = stationService;
+        this.stationRepository = stationRepository;
     }
 
     @GetMapping("/getAll")
@@ -76,5 +81,29 @@ public class StationController {
         return ResponseEntity.ok(updated);
     }
 
+    //reodering
+    @PutMapping("/{locationId}/stations/reorder")
+    public ResponseEntity<Void> reorderItems(
+            @PathVariable UUID locationId,
+            @RequestBody List<UUID> stationIdsInOrder
+    ) {
+        List<StationEntity> stations = stationRepository.findAllById(stationIdsInOrder);
+
+        // Create a lookup map for items by ID
+        Map<UUID, StationEntity> stationMap = stations.stream()
+                .collect(Collectors.toMap(StationEntity::getId, Function.identity()));
+
+        // Assign new order directly
+        for (int i = 0; i < stationIdsInOrder.size(); i++) {
+            UUID stationId = stationIdsInOrder.get(i);
+            StationEntity station = stationMap.get(stationId);
+            if (station != null) {
+                station.setSortOrder(i + 1);
+            }
+        }
+
+        stationRepository.saveAll(stations);
+        return ResponseEntity.ok().build();
+    }
 
 }
