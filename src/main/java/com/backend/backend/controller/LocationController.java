@@ -51,6 +51,9 @@ public class LocationController {
     @PatchMapping("/{id}/updateLocation")
     public ResponseEntity<LocationEntity> updateLocation(@PathVariable UUID id, @RequestBody Map<String, Object> updates) {
         LocationEntity updated = locationService.partialUpdate(id, updates);
+
+        locationService.updateGeocodeForLocation(updated.getAccount().getId(), updated.getId());
+
         return ResponseEntity.ok(updated);
     }
 
@@ -70,6 +73,24 @@ public class LocationController {
     ){
         LocationDto updated = locationService.toggleActive(id, active);
         return ResponseEntity.ok(updated);
+    }
+
+    //update lat/long
+    @PostMapping("/accounts/{accountId}/locations/{locationId}/update-geocode")
+    public ResponseEntity<?> updateLocationGeocode(
+            @PathVariable UUID accountId,
+            @PathVariable UUID locationId) {
+
+        locationService.updateGeocodeForLocation(accountId, locationId);
+
+        return ResponseEntity.ok(Map.of("message", "Geocode updated"));
+    }
+
+    //backfill geocodes
+    @PostMapping("/locations/backfill-geocodes")
+    public ResponseEntity<String> backfillGeocodes() {
+        locationService.backfillLatLonForAllLocations();
+        return ResponseEntity.ok("Geocoding backfill completed.");
     }
 
 }

@@ -28,6 +28,9 @@ public class StationEntity {
         private String stationName;
         private boolean stationActive = true;
 
+        @Column(name = "sort_order")
+        private Integer sortOrder;
+
         @ManyToOne
         @JoinColumn(name = "location_id")
         private LocationEntity location;

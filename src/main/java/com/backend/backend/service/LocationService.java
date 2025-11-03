@@ -18,4 +18,6 @@ public interface LocationService {
     List<LocationEntity> getAllLocations();
     LocationDto toggleActive(UUID id, boolean active);
     LocationEntity partialUpdate(UUID id, Map<String, Object> updates);
+    void updateGeocodeForLocation(UUID accountId, UUID locationId);
+    void backfillLatLonForAllLocations();
 }

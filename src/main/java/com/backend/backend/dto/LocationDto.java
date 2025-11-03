@@ -20,6 +20,9 @@ public class LocationDto {
     private String locationZipCode;
     private String locationTimeZone;
     private boolean locationActive;
+    private Double locationLongitude;
+    private Double locationLatitude;
+    private boolean geocodedFromZipFallback;
     private UUID accountId;
 
 //    public LocationDto(UUID id, String locationName, boolean locationActive) {
@@ -39,6 +42,9 @@ public class LocationDto {
                 .locationState(loc.getLocationState())
                 .locationZipCode(loc.getLocationZipCode())
                 .locationTimeZone(loc.getLocationTimeZone())
+                .locationLatitude(loc.getLocationLatitude())
+                .locationLongitude(loc.getLocationLongitude())
+                .geocodedFromZipFallback(loc.getGeocodedFromZipFallback())
                 .locationActive(loc.isLocationActive())
                 .accountId(loc.getAccount() != null ? loc.getAccount().getId() : null)
                 .build();
