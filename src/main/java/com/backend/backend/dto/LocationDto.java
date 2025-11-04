@@ -44,7 +44,10 @@ public class LocationDto {
                 .locationTimeZone(loc.getLocationTimeZone())
                 .locationLatitude(loc.getLocationLatitude())
                 .locationLongitude(loc.getLocationLongitude())
-                .geocodedFromZipFallback(loc.getGeocodedFromZipFallback())
+                .geocodedFromZipFallback(
+                        loc.getGeocodedFromZipFallback() != null ? loc.getGeocodedFromZipFallback() : false
+                )
+
                 .locationActive(loc.isLocationActive())
                 .accountId(loc.getAccount() != null ? loc.getAccount().getId() : null)
                 .build();
