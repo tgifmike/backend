@@ -85,10 +85,17 @@ public class ItemServiceImpl implements ItemService {
         }
 
         existingItem.setItemName(updatedItem.getItemName());
+        existingItem.setShelfLife(updatedItem.getShelfLife());
+        existingItem.setPanSize(updatedItem.getPanSize());
+        existingItem.setToolName(updatedItem.getToolName());
+        existingItem.setTool(updatedItem.isTool());
+        existingItem.setPortionSize(updatedItem.getPortionSize());
+        existingItem.setPortionSize(updatedItem.getPortionSize());
         existingItem.setItemTemperature(updatedItem.getItemTemperature());
         existingItem.setTempTaken(updatedItem.isTempTaken());
         existingItem.setCheckMark(updatedItem.isCheckMark());
-        existingItem.setNotes(updatedItem.getNotes());
+        existingItem.setItemNotes(updatedItem.getItemNotes());
+        existingItem.setLineCheckNotes(updatedItem.getLineCheckNotes());
         existingItem.setItemActive(updatedItem.isItemActive());
 
         return itemRepository.save(existingItem);

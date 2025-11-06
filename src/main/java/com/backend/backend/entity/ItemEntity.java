@@ -26,16 +26,27 @@ public class ItemEntity {
 
     @Column(nullable = false)
     private String itemName;
+    private String shelfLife;
+    private String panSize;
+
+    private String toolName;
+    @JsonProperty("isTool")
+    private boolean isTool;
+
+    private String portionSize;
+    @JsonProperty("isPortionSize")
+    private boolean isPortioned;
 
     private double itemTemperature;
-
     @JsonProperty("isTempTaken")
     private boolean isTempTaken;
 
     @JsonProperty("isCheckMark")
     private boolean isCheckMark;
 
-    private String notes;
+    private String itemNotes;
+
+    private String lineCheckNotes;
 
     private boolean itemActive = true;
 
