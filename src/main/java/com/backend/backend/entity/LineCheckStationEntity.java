@@ -1,0 +1,37 @@
+package com.backend.backend.entity;
+
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import jakarta.persistence.*;
+import lombok.*;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
+@Entity
+@Table(name = "line_check_stations")
+public class LineCheckStationEntity {
+
+    @Id
+    @GeneratedValue(generator = "UUID")
+    private UUID id;
+
+    @ManyToOne
+    @JoinColumn(name = "line_check_id")
+    @JsonBackReference
+    private LineCheckEntity lineCheck;
+
+    @ManyToOne
+    @JoinColumn(name = "station_id")
+    private StationEntity station;
+
+    @OneToMany(mappedBy = "lineCheckStation", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
+    private List<LineCheckItemEntity> items = new ArrayList<>();
+}
+
