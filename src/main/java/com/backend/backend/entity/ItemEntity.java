@@ -1,5 +1,6 @@
 package com.backend.backend.entity;
 
+import com.backend.backend.config.ItemTempCategory;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
@@ -40,6 +41,12 @@ public class ItemEntity {
     private double itemTemperature;
     @JsonProperty("isTempTaken")
     private boolean isTempTaken;
+
+    @Enumerated(EnumType.STRING)
+    private ItemTempCategory tempCategory; // FROZEN, REFRIGERATED, ROOM_TEMP, HOT_HOLDING
+
+    private Double minTemp;
+    private Double maxTemp;
 
     @JsonProperty("isCheckMark")
     private boolean isCheckMark;

@@ -97,6 +97,9 @@ public class ItemServiceImpl implements ItemService {
         existingItem.setItemNotes(updatedItem.getItemNotes());
         existingItem.setLineCheckNotes(updatedItem.getLineCheckNotes());
         existingItem.setItemActive(updatedItem.isItemActive());
+        existingItem.setTempCategory(updatedItem.getTempCategory());
+        existingItem.setMinTemp(updatedItem.getMinTemp());
+        existingItem.setMaxTemp(updatedItem.getMaxTemp());
 
         return itemRepository.save(existingItem);
     }
