@@ -31,6 +31,8 @@ public interface UserService {
     void updateUser(UUID id, String newName, String newEmail);
     boolean isEmailDuplicate(String email, UUID excludeId);
     boolean isNameDuplicate(String name, UUID excludeId);
+    UserEntity createOrFindGoogleUser(String email, String name, String googleId, String picture);
     UserEntity createOrFindGoogleUser(UserEntity user);
+    String generateJwtForUser(UserEntity user);
 
 }

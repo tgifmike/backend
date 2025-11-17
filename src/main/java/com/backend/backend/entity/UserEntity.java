@@ -27,10 +27,15 @@ public class UserEntity {
     private UUID id;
 
     private String userName;
+    @Column(name="user_email", unique = true)
+
     private String userEmail;
     private String userImage;
     private boolean userActive = true;
     private boolean firstLogin = true;
+
+    @Column(unique = true)
+    private String googleId;
 
 //    @ManyToMany
 //    @JoinTable(

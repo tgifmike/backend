@@ -1,15 +1,18 @@
 package com.backend.backend.serviceImplementation;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.backend.backend.config.AccessRole;
 import com.backend.backend.config.AppRole;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.UserService;
+import com.google.api.client.util.Value;
 import jakarta.transaction.Transactional;
-import org.apache.catalina.User;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
+import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -17,7 +20,13 @@ import java.util.UUID;
 @Service
 public class UserServiceImpl implements UserService {
 
+    @Value("${NEXTAUTH_SECRET}")
+    String NEXTAUTH_SECRET;
+
+
     private final UserRepository userRepository;
+
+
 
     public UserServiceImpl(UserRepository userRepository) {
         this.userRepository = userRepository;
@@ -204,22 +213,71 @@ public class UserServiceImpl implements UserService {
         return userRepository.existsByUserNameAndIdNot(name, excludeId);
     }
 
+    // ADD THIS OVERLOADED VERSION HERE
     @Override
     public UserEntity createOrFindGoogleUser(UserEntity user) {
-        Optional<UserEntity> existingUser = userRepository.findByUserEmail(user.getUserEmail());
+        return createOrFindGoogleUser(
+                user.getUserEmail(),
+                user.getUserName(),
+                user.getGoogleId(),
+                user.getUserImage()
+        );
+    }
 
-        if (existingUser.isPresent()) {
-            // user already exists, just return
-            return existingUser.get();
+    @Override
+    public UserEntity createOrFindGoogleUser(String email, String name, String googleId, String picture) {
+
+        // 1️⃣ Try to find user by Google ID, if Google ID is provided
+        Optional<UserEntity> googleUser = (googleId != null)
+                ? userRepository.findByGoogleId(googleId)
+                : Optional.empty();
+
+        if (googleUser.isPresent()) {
+            // Found existing user by Google ID → return it
+            return googleUser.get();
         }
 
-        user.setUserActive(true);
-        user.setCreatedAt(LocalDateTime.now());
-        user.setUpdatedAt(LocalDateTime.now());
-        user.setAccessRole(AccessRole.USER);  // default
-        user.setAppRole(AppRole.MEMBER);     // default
+        // 2️⃣ Try to find existing user by email (case-insensitive)
+        Optional<UserEntity> emailUser = userRepository.findByUserEmailIgnoreCase(email);
+        if (emailUser.isPresent()) {
+            // Existing user found by email → link Google ID if available
+            UserEntity existing = emailUser.get();
+            if (googleId != null && (existing.getGoogleId() == null || !existing.getGoogleId().equals(googleId))) {
+                existing.setGoogleId(googleId);  // link Google ID
+                existing.setUpdatedAt(LocalDateTime.now());
+                return userRepository.save(existing);
+            }
+            return existing; // email user already exists and linked
+        }
 
-        return userRepository.save(user);
+        // 3️⃣ Otherwise → create new user
+        UserEntity newUser = new UserEntity();
+        newUser.setUserEmail(email.toLowerCase()); // normalize email
+        newUser.setUserName(name);
+        newUser.setUserImage(picture);
+        newUser.setGoogleId(googleId);
+        newUser.setUserActive(true);
+        newUser.setAccessRole(AccessRole.USER);
+        newUser.setAppRole(AppRole.MEMBER);
+        newUser.setFirstLogin(true);
+
+        return userRepository.save(newUser);
+    }
+
+
+
+
+    @Override
+    public String generateJwtForUser(UserEntity user) {
+        Algorithm algorithm = Algorithm.HMAC256(NEXTAUTH_SECRET);
+
+        return JWT.create()
+                .withSubject(user.getId().toString())
+                .withClaim("email", user.getUserEmail())
+                .withClaim("name", user.getUserName())
+                .withClaim("role", user.getAppRole().name())
+                .withExpiresAt(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24)) // 24 hours
+                .sign(algorithm);
     }
 
 
