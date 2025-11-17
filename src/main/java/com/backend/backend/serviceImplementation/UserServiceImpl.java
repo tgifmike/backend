@@ -20,8 +20,8 @@ import java.util.UUID;
 @Service
 public class UserServiceImpl implements UserService {
 
-    @Value("${NEXTAUTH_SECRET}")
-    String NEXTAUTH_SECRET;
+    @Value("${nextauth.secret}")
+    private String NEXTAUTH_SECRET;
 
 
     private final UserRepository userRepository;

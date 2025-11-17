@@ -12,13 +12,22 @@ import java.util.Collections;
 @Component
 public class GoogleTokenVerifier {
 
+    @Value("${google.web.client.id}")
+    private String googleClientId;
+
     private final GoogleIdTokenVerifier verifier;
 
-    public GoogleTokenVerifier(@Value("${GOOGLE_WEB_CLIENT_ID}") String webClientId) {
-        verifier = new GoogleIdTokenVerifier.Builder(new NetHttpTransport(), new JacksonFactory())
+    public GoogleTokenVerifier(
+            @Value("${google.web.client.id}") String webClientId
+    ) {
+        verifier = new GoogleIdTokenVerifier.Builder(
+                new NetHttpTransport(),
+                new JacksonFactory()
+        )
                 .setAudience(Collections.singletonList(webClientId))
                 .build();
     }
+
 
     public GoogleIdToken.Payload verify(String idTokenString) throws Exception {
         GoogleIdToken idToken = verifier.verify(idTokenString);
