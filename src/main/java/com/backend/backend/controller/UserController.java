@@ -1,19 +1,19 @@
 package com.backend.backend.controller;
 
+import com.backend.backend.config.GoogleTokenVerifier;
 import com.backend.backend.dto.UpdateUserDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.UserService;
-import lombok.Data;
-import lombok.Getter;
+import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
-import java.util.Locale;
+import java.util.Map;
 import java.util.UUID;
 
 @CrossOrigin(origins = {
@@ -25,13 +25,13 @@ import java.util.UUID;
 @RequestMapping("/users")
 public class UserController {
 
-    private final UserRepository userRepository;
+    //private final UserRepository userRepository;
     private final UserService userService;
+    private final GoogleTokenVerifier googleTokenVerifier;
 
-
-    public UserController(UserRepository userRepository, UserService userService){
-        this.userRepository = userRepository;
+    public UserController(UserService userService, GoogleTokenVerifier googleTokenVerifier) {
         this.userService = userService;
+        this.googleTokenVerifier = googleTokenVerifier;
     }
 
     //get all users
@@ -115,6 +115,37 @@ public class UserController {
         } catch (Exception ex) {
             ex.printStackTrace();
             return ResponseEntity.status(500).body("Failed to create Google user");
+        }
+    }
+
+    @PostMapping("/mobile")
+    public ResponseEntity<?> signInWithGoogle(@RequestBody Map<String, String> body) {
+        String idToken = body.get("idToken");
+
+        try {
+            // 1. Verify Google ID Token
+            GoogleIdToken.Payload payload = googleTokenVerifier.verify(idToken);
+
+            String email = payload.getEmail();
+            String name = (String) payload.get("name");
+            String picture = (String) payload.get("picture");
+            String googleId = payload.getSubject(); // Unique Google user ID
+
+            // 2. Create or fetch existing user
+            UserEntity user = userService.createOrFindGoogleUser(
+                    email, name, googleId, picture
+            );
+
+            // 3. Generate JWT for your Android app
+            String jwt = userService.generateJwtForUser(user);
+
+            return ResponseEntity.ok(Map.of(
+                    "token", jwt,
+                    "user", user
+            ));
+
+        } catch (Exception e) {
+            return ResponseEntity.status(401).body("Invalid Google token");
         }
     }
 }
