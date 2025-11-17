@@ -148,4 +148,13 @@ public class UserController {
             return ResponseEntity.status(401).body("Invalid Google token");
         }
     }
+    @GetMapping("/debug/client-id")
+    public ResponseEntity<String> debugClientId() {
+        String webClientId = System.getenv("GOOGLE_WEB_CLIENT_ID");
+        if (webClientId == null) {
+            return ResponseEntity.status(500).body("GOOGLE_WEB_CLIENT_ID is not set!");
+        }
+        return ResponseEntity.ok("GOOGLE_WEB_CLIENT_ID = " + webClientId);
+    }
+
 }
