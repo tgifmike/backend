@@ -26,7 +26,7 @@ import java.util.UUID;
 @RequestMapping("/users")
 public class UserController {
 
-    @Value("${google.web.client.id:NOT_SET}")
+    @Value("${google.web.client.id}")
     private String googleClientId;
 
     //private final UserRepository userRepository;
@@ -85,7 +85,7 @@ public class UserController {
         }
     }
 
-    //edit user name and email
+    //edit username and email
     @PutMapping("/update/{id}")
     public ResponseEntity<String> updateUser(
             @PathVariable UUID id,
@@ -123,42 +123,61 @@ public class UserController {
     }
 
     @PostMapping("/mobile")
-    public ResponseEntity<?> signInWithGoogle(@RequestBody Map<String, String> body) {
-        String idToken = body.get("idToken");
+    public ResponseEntity<?> loginWithGoogle(@RequestBody Map<String, Object> body) {
+
+        // Extract idToken safely
+        String idToken = (body.get("idToken") instanceof String)
+                ? (String) body.get("idToken")
+                : null;
+
+        if (idToken == null || idToken.isBlank()) {
+            return ResponseEntity.badRequest().body("Missing or invalid idToken");
+        }
 
         try {
-            // 1. Verify Google ID Token
-            GoogleIdToken.Payload payload = googleTokenVerifier.verify(idToken);
+            // Verify with Google
+            GoogleIdToken.Payload payload = GoogleTokenVerifier.verifyToken(idToken);
 
+            if (payload == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Google token");
+            }
+
+            String googleId = payload.getSubject();
             String email = payload.getEmail();
             String name = (String) payload.get("name");
             String picture = (String) payload.get("picture");
-            String googleId = payload.getSubject(); // Unique Google user ID
 
-            // 2. Create or fetch existing user
+            // Find or create user in DB
             UserEntity user = userService.createOrFindGoogleUser(
-                    email, name, googleId, picture
+                    googleId,
+                    email,
+                    name,
+                    picture
             );
 
-            // 3. Generate JWT for your Android app
+            // Generate JWT
             String jwt = userService.generateJwtForUser(user);
 
-            return ResponseEntity.ok(Map.of(
+            // Android-friendly JSON response
+            Map<String, Object> response = Map.of(
                     "token", jwt,
-                    "user", user
-            ));
+                    "user", Map.of(
+                            "id", user.getId(),
+                            "name", user.getUserName(),
+                            "email", user.getUserEmail(),
+                            "image", user.getUserImage(),
+                            "appRole", user.getAppRole().name(),
+                            "accessRole", user.getAccessRole().name()
+                    )
+            );
+
+            return ResponseEntity.ok(response);
 
         } catch (Exception e) {
-            return ResponseEntity.status(401).body("Invalid Google token");
+           // e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Google login failed: " + e.getMessage());
         }
-    }
-    @GetMapping("/debug/client-id")
-    public ResponseEntity<String> debugClientId() {
-        String webClientId = System.getenv("GOOGLE_WEB_CLIENT_ID");
-        if (webClientId == null) {
-            return ResponseEntity.status(500).body("GOOGLE_WEB_CLIENT_ID is not set!");
-        }
-        return ResponseEntity.ok("GOOGLE_WEB_CLIENT_ID = " + webClientId);
     }
 
 }

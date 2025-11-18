@@ -20,8 +20,10 @@ import java.util.UUID;
 @Service
 public class UserServiceImpl implements UserService {
 
-    @Value("${nextauth.secret}")
-    private String NEXTAUTH_SECRET;
+
+String secret = System.getenv("NEXTAUTH_SECRET");
+
+
 
 
     private final UserRepository userRepository;
@@ -269,7 +271,10 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public String generateJwtForUser(UserEntity user) {
-        Algorithm algorithm = Algorithm.HMAC256(NEXTAUTH_SECRET);
+        if (secret == null || secret.isEmpty()) {
+            throw new IllegalStateException("JWT secret is not set!");
+        }
+        Algorithm algorithm = Algorithm.HMAC256(secret);
 
         return JWT.create()
                 .withSubject(user.getId().toString())
