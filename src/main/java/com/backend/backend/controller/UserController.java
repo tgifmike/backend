@@ -149,9 +149,9 @@ public class UserController {
 
             // Find or create user in DB
             UserEntity user = userService.createOrFindGoogleUser(
-                    googleId,
                     email,
                     name,
+                    googleId,
                     picture
             );
 
