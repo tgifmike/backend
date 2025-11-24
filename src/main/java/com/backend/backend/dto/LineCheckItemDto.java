@@ -25,7 +25,7 @@ public class LineCheckItemDto {
     Double temperature;
     Double minTemp;
     Double maxTemp;// from LineCheckItemEntity
-    String notes;          // from LineCheckItemEntity
+    String observations;
     String itemNotes;
     Integer sortOrder;
     }
