@@ -70,7 +70,8 @@ public class LineCheckServiceImpl implements LineCheckService {
                 lci.setItem(item);
                 lci.setItemChecked(false);
                 lci.setChecked(false);
-                lci.setNotes("");
+                lci.setItemNotes("");
+                lci.setObservations("");
                 lci.setTemperature(null);
 
                 lcs.getLineCheckItems().add(lci);
@@ -176,7 +177,8 @@ public class LineCheckServiceImpl implements LineCheckService {
                 itemEntity.setItemChecked(itemDto.isItemChecked());
                 itemEntity.setChecked(itemDto.isItemChecked());
                 itemEntity.setTemperature(itemDto.getTemperature());
-                itemEntity.setNotes(itemDto.getNotes());
+                itemEntity.setItemNotes(itemDto.getItemNotes());
+                itemEntity.setObservations(itemDto.getObservations());
 
                 lineCheckItemRepository.save(itemEntity);
             }
@@ -282,7 +284,8 @@ public class LineCheckServiceImpl implements LineCheckService {
         // From LineCheckItemEntity
         dto.setItemChecked(e.isItemChecked());
         dto.setTemperature(e.getTemperature());
-        dto.setNotes(e.getNotes());
+        dto.setItemNotes(e.getItemNotes());
+        dto.setObservations(e.getObservations());
 
         return dto;
     }

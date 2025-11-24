@@ -41,7 +41,10 @@ public class LineCheckItemEntity {
     private boolean isChecked;
 
     @Column(name = "notes")
-    private String notes;
+    private String itemNotes;
+
+    @Column(name = "observations")
+    private String observations;
 
     @Column(name = "temperature")
     private Double temperature;

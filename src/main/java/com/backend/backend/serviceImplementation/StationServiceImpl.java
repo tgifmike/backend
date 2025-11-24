@@ -126,8 +126,8 @@ public class StationServiceImpl implements StationService {
                             lci.getTemperature(),
                             lci.getItem().getMinTemp(),
                             lci.getItem().getMaxTemp(),
-                            lci.getNotes(),
                             lci.getItem().getItemNotes(),
+                            lci.getObservations(),
                             lci.getItem().getSortOrder()
                     ))
                     .toList();
