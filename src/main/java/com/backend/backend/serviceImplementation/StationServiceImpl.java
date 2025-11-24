@@ -1,5 +1,7 @@
 package com.backend.backend.serviceImplementation;
 
+import com.backend.backend.dto.LineCheckItemDto;
+import com.backend.backend.dto.StationDto;
 import com.backend.backend.entity.LocationEntity;
 import com.backend.backend.entity.StationEntity;
 import com.backend.backend.repositories.LocationRepository;
@@ -27,6 +29,7 @@ public class StationServiceImpl implements StationService {
     }
 
     @Override
+    @Transactional
     public StationEntity createStation(UUID locationId, StationEntity station) {
         if (stationRepository.existsByStationNameAndLocation_Id(station.getStationName(), locationId)) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Station name already exists for this location");
@@ -36,6 +39,8 @@ public class StationServiceImpl implements StationService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found"));
 
         station.setLocation(location);
+        station.setCreatedAt(LocalDateTime.now());
+        station.setUpdatedAt(LocalDateTime.now());
         return stationRepository.save(station);
     }
 
@@ -77,8 +82,6 @@ public class StationServiceImpl implements StationService {
         stationRepository.delete(station);
     }
 
-
-
     @Override
     public StationEntity getStationById(UUID id) {
         return stationRepository.findById(id)
@@ -97,11 +100,48 @@ public class StationServiceImpl implements StationService {
     }
 
     @Override
-    public List<StationEntity> getStationsByLocation(UUID locationId) {
+    public List<StationDto> getStationsByLocation(UUID locationId) {
         List<StationEntity> stations = stationRepository.findByLocation_Id(locationId);
+
         if (stations.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No stations found for this location");
         }
-        return stations;
+
+        return stations.stream().map(station -> {
+            // Collect all LineCheckItemEntities for this station
+            List<LineCheckItemDto> itemDtos = station.getLineCheckStations().stream()
+                    .flatMap(lcs -> lcs.getLineCheckItems().stream())
+                    .map(lci -> new LineCheckItemDto(
+                            lci.getId(),
+                            lci.getItem().getItemName(),
+                            lci.getItem().getShelfLife(),
+                            lci.getItem().getPanSize(),
+                            lci.getItem().isTool(),
+                            lci.getItem().getToolName(),
+                            lci.getItem().isPortioned(),
+                            lci.getItem().getPortionSize(),
+                            lci.getItem().isTempTaken(),
+                            lci.getItem().isCheckMark(),
+                            lci.isItemChecked(),
+                            lci.getTemperature(),
+                            lci.getItem().getMinTemp(),
+                            lci.getItem().getMaxTemp(),
+                            lci.getNotes(),
+                            lci.getItem().getItemNotes(),
+                            lci.getItem().getSortOrder()
+                    ))
+                    .toList();
+
+
+
+            return new StationDto(
+                    station.getId(),
+                    station.getStationName(),
+                    station.isStationActive(),
+                    station.getSortOrder(),
+                    itemDtos
+            );
+        }).toList();
     }
+
 }
