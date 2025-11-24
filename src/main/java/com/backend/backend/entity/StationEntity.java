@@ -40,6 +40,11 @@ public class StationEntity {
         @JsonManagedReference
         private List<ItemEntity> items = new ArrayList<>();
 
+        @OneToMany(mappedBy = "station", fetch = FetchType.LAZY)
+        private List<LineCheckStationEntity> lineCheckStations = new ArrayList<>();
+
+
+
         @Column(name = "created_at", updatable = false)
         private LocalDateTime createdAt;
 

@@ -4,9 +4,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 @Setter
@@ -30,7 +28,9 @@ public class LineCheckEntity {
 
     @OneToMany(mappedBy = "lineCheck", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonManagedReference
-    private List<LineCheckStationEntity> stations = new ArrayList<>();
+    private Set<LineCheckStationEntity> stations = new HashSet<>();
+
+
 
     @Column(name = "created_at", updatable = false)
     private LocalDateTime createdAt;

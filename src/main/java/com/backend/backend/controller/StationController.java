@@ -1,5 +1,6 @@
 package com.backend.backend.controller;
 
+import com.backend.backend.dto.StationDto;
 import com.backend.backend.entity.StationEntity;
 import com.backend.backend.repositories.StationRepository;
 import com.backend.backend.service.StationService;
@@ -13,6 +14,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
 
 @RestController
 @RequestMapping("/stations")
@@ -31,9 +33,11 @@ public class StationController {
     }
 
     @GetMapping("/{locationId}/getStationByLocation")
-    public ResponseEntity<List<StationEntity>> getStationsByLocation(@PathVariable UUID locationId) {
-        return ResponseEntity.ok(stationService.getStationsByLocation(locationId));
+    public ResponseEntity<List<StationDto>> getStationsByLocation(@PathVariable UUID locationId) {
+        List<StationDto> stations = stationService.getStationsByLocation(locationId);
+        return ResponseEntity.ok(stations);
     }
+
 
 
     @GetMapping("/{stationName}")

@@ -1,6 +1,7 @@
 package com.backend.backend.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -27,8 +28,22 @@ public class LineCheckItemEntity {
     @JoinColumn(name = "item_id")
     private ItemEntity item;
 
-    private boolean isChecked; // e.g., checkmark status
-    private String notes; // any notes added during check
-    private Double temperature; // optional: record temp if relevant
-}
+    @ManyToOne
+    @JoinColumn(name = "station_id")
+    @JsonBackReference
+    private StationEntity station;
 
+
+    @Column(name = "is_item_checked")
+    private boolean isItemChecked;
+
+    @Column(name = "is_checked")
+    private boolean isChecked;
+
+    @Column(name = "notes")
+    private String notes;
+
+    @Column(name = "temperature")
+    private Double temperature;
+
+}
