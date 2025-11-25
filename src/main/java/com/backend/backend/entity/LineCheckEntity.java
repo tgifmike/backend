@@ -27,8 +27,9 @@ public class LineCheckEntity {
     private LocalDateTime checkTime;
 
     @OneToMany(mappedBy = "lineCheck", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonManagedReference("lineCheckE")
     private Set<LineCheckStationEntity> stations = new HashSet<>();
+
 
 
 
