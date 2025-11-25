@@ -26,7 +26,7 @@ public class LineCheckItemDto {
     Double minTemp;
     Double maxTemp;// from LineCheckItemEntity
     String observations;
-    String itemNotes;
+    String templateNotes;
     Integer sortOrder;
     }
 
