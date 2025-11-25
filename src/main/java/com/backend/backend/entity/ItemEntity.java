@@ -65,8 +65,10 @@ public class ItemEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "station_id", nullable = false)
-    @JsonBackReference
+    @JsonBackReference("station-items")
     private StationEntity station;
+
+
 
 
 

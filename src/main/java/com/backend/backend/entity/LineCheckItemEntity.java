@@ -21,16 +21,17 @@ public class LineCheckItemEntity {
 
     @ManyToOne
     @JoinColumn(name = "line_check_station_id")
-    @JsonBackReference
+    @JsonBackReference("LCSE")
     private LineCheckStationEntity lineCheckStation;
 
     @ManyToOne
     @JoinColumn(name = "item_id")
+    @JsonIgnore // optional
     private ItemEntity item;
 
     @ManyToOne
     @JoinColumn(name = "station_id")
-    @JsonBackReference
+    @JsonIgnore // optional, prevent cycles
     private StationEntity station;
 
 

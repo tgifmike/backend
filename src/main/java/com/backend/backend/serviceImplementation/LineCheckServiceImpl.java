@@ -261,34 +261,63 @@ public class LineCheckServiceImpl implements LineCheckService {
         return dto;
     }
 
-    private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
-        ItemEntity item = e.getItem();
+//    private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
+//        ItemEntity item = e.getItem();
+//
+//        LineCheckItemDto dto = new LineCheckItemDto();
+//        dto.setId(e.getId());
+//
+//        // --- Template fields from ItemEntity ---
+//        dto.setItemName(item.getItemName());
+//        dto.setShelfLife(item.getShelfLife());
+//        dto.setPanSize(item.getPanSize());
+//        dto.setTool(item.isTool());
+//        dto.setToolName(item.getToolName());
+//        dto.setPortioned(item.isPortioned());
+//        dto.setPortionSize(item.getPortionSize());
+//        dto.setTempTaken(item.isTempTaken());      // Template flag
+//        dto.setCheckMark(item.isCheckMark());      // Template flag
+//        dto.setMinTemp(item.getMinTemp());
+//        dto.setMaxTemp(item.getMaxTemp());
+//        dto.setTemplateNotes(item.getItemNotes());
+//        dto.setSortOrder(item.getSortOrder());
+//
+//        // --- User-entered fields from LineCheckItemEntity ---
+//        dto.setItemChecked(e.isItemChecked());     // Did user check it?
+//        dto.setTemperature(e.getTemperature());    // User-entered temp
+//        dto.setObservations(e.getObservations());  // User-entered notes
+//
+//        return dto;
+//    }
+private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
+    ItemEntity item = e.getItem();
 
-        LineCheckItemDto dto = new LineCheckItemDto();
-        dto.setId(e.getId());
+    LineCheckItemDto dto = new LineCheckItemDto();
+    dto.setId(e.getId());
 
-        // Template fields
-        dto.setItemName(item.getItemName());
-        dto.setShelfLife(item.getShelfLife());
-        dto.setPanSize(item.getPanSize());
-        dto.setTool(item.isTool());
-        dto.setToolName(item.getToolName());
-        dto.setPortioned(item.isPortioned());
-        dto.setPortionSize(item.getPortionSize());
-        dto.setTempTaken(item.isTempTaken());
-        dto.setCheckMark(item.isCheckMark());
-        dto.setMinTemp(item.getMinTemp());
-        dto.setMaxTemp(item.getMaxTemp());
-        dto.setTemplateNotes(item.getItemNotes());  // <--- FIXED here
-        dto.setSortOrder(item.getSortOrder());
+    // Template fields
+    dto.setItemName(item.getItemName());
+    dto.setShelfLife(item.getShelfLife());
+    dto.setPanSize(item.getPanSize());
+    dto.setTool(item.isTool());
+    dto.setToolName(item.getToolName());
+    dto.setPortioned(item.isPortioned());
+    dto.setPortionSize(item.getPortionSize());
+    dto.setCheckMark(item.isCheckMark());  // ✅ template flag
+    dto.setMinTemp(item.getMinTemp());
+    dto.setMaxTemp(item.getMaxTemp());
+    dto.setTemplateNotes(item.getItemNotes());
+    dto.setSortOrder(item.getSortOrder());
 
-        // LineCheckItem fields (user-entered)
-        dto.setItemChecked(e.isItemChecked());
-        dto.setTemperature(e.getTemperature());
-        dto.setObservations(e.getObservations());
+    // User-entered fields (important!)
+    dto.setItemChecked(e.isItemChecked());   // ✅ actual user check
+    dto.setTempTaken(item.isTempTaken());    // ✅ can stay from template
+    dto.setTemperature(e.getTemperature());  // ✅ user-entered
+    dto.setObservations(e.getObservations()); // ✅ user-entered
 
-        return dto;
-    }
+    return dto;
+}
+
 
     @Override
     @Transactional

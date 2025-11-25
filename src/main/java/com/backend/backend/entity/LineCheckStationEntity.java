@@ -21,19 +21,21 @@ public class LineCheckStationEntity {
 
     @ManyToOne
     @JoinColumn(name = "line_check_id")
-    @JsonBackReference
+    @JsonBackReference("lineCheckE") // match name from LineCheckEntity
     private LineCheckEntity lineCheck;
 
     @ManyToOne
     @JoinColumn(name = "station_id")
+    @JsonBackReference("station-linechecks")
     private StationEntity station;
+
 
 //    @OneToMany(mappedBy = "lineCheckStation", cascade = CascadeType.ALL, orphanRemoval = true)
 //    @JsonManagedReference
 //    private Set<LineCheckItemEntity> items = new HashSet<>();
 
     @OneToMany(mappedBy = "lineCheckStation", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
+    @JsonManagedReference("LCSE")
     private List<LineCheckItemEntity> lineCheckItems = new ArrayList<>();
 
 

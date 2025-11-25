@@ -31,8 +31,8 @@ public class AccountEntity {
     @Column(name = "image", columnDefinition = "TEXT")
     private String imageBase64;
 
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference
+    @OneToMany(mappedBy = "account")
+    @JsonManagedReference("acc")
     private List<LocationEntity> locations;
 
     @Column(name = "created_at", updatable = false)

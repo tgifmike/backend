@@ -32,9 +32,10 @@ public class LocationEntity {
     private Double locationLatitude;
     private Double locationLongitude;
 
+    // LocationEntity
     @ManyToOne
     @JoinColumn(name = "account_id")
-    @JsonBackReference
+    @JsonBackReference("acc")
     private AccountEntity account;
 
     private boolean locationActive = true;
