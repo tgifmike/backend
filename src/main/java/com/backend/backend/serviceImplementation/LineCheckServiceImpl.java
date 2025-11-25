@@ -74,6 +74,7 @@ public class LineCheckServiceImpl implements LineCheckService {
                 lci.setObservations("");
                 lci.setTemperature(null);
 
+
                 lcs.getLineCheckItems().add(lci);
             }
 
@@ -177,7 +178,7 @@ public class LineCheckServiceImpl implements LineCheckService {
                 itemEntity.setItemChecked(itemDto.isItemChecked());
                 itemEntity.setChecked(itemDto.isItemChecked());
                 itemEntity.setTemperature(itemDto.getTemperature());
-                itemEntity.setItemNotes(itemDto.getItemNotes());
+                //itemEntity.setItemNotes(itemDto.getItemNotes());
                 itemEntity.setObservations(itemDto.getObservations());
 
                 lineCheckItemRepository.save(itemEntity);
@@ -266,7 +267,7 @@ public class LineCheckServiceImpl implements LineCheckService {
         LineCheckItemDto dto = new LineCheckItemDto();
         dto.setId(e.getId());
 
-        // From ItemEntity
+        // Template fields
         dto.setItemName(item.getItemName());
         dto.setShelfLife(item.getShelfLife());
         dto.setPanSize(item.getPanSize());
@@ -278,13 +279,12 @@ public class LineCheckServiceImpl implements LineCheckService {
         dto.setCheckMark(item.isCheckMark());
         dto.setMinTemp(item.getMinTemp());
         dto.setMaxTemp(item.getMaxTemp());
-        dto.setItemNotes(item.getItemNotes());
+        dto.setTemplateNotes(item.getItemNotes());  // <--- FIXED here
         dto.setSortOrder(item.getSortOrder());
 
-        // From LineCheckItemEntity
+        // LineCheckItem fields (user-entered)
         dto.setItemChecked(e.isItemChecked());
         dto.setTemperature(e.getTemperature());
-        dto.setItemNotes(e.getItemNotes());
         dto.setObservations(e.getObservations());
 
         return dto;
