@@ -22,9 +22,10 @@ public interface LineCheckService {
    // LineCheckDto getLineCheckDtoById(UUID id);
     // LineCheckService.java
     LineCheckDto saveLineCheck(LineCheckDto dto);
-
+    List<LineCheckDto> getCompletedLineChecks();
     // Save/update line check (from mobile app)
     //void updateLineCheck(LineCheckSaveDto dto);
+    List<LineCheckDto> getCompletedLineChecksByLocation(UUID locationId);
 
 }
 

@@ -64,6 +64,13 @@ public class LineCheckController {
             return ResponseEntity.ok().build();
         }
 
+        //get linecheck complted and by locaion
+        @GetMapping("/completed/by-location/{locationId}")
+        public ResponseEntity<List<LineCheckDto>> getCompletedLineChecksByLocation(@PathVariable UUID locationId) {
+            List<LineCheckDto> lineChecks = lineCheckService.getCompletedLineChecksByLocation(locationId);
+            return ResponseEntity.ok(lineChecks);
+        }
+
 
 }
 

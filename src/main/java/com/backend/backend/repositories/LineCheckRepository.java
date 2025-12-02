@@ -23,5 +23,7 @@ public interface LineCheckRepository extends JpaRepository<LineCheckEntity, UUID
 
 
     List<LineCheckEntity> findAllByOrderByCheckTimeDesc();
+    List<LineCheckEntity> findAllByCompletedAtIsNotNullOrderByCheckTimeDesc();
+    List<LineCheckEntity> findDistinctByCompletedAtIsNotNullAndStations_Station_Location_IdOrderByCheckTimeDesc(UUID locationId);
 }
 
