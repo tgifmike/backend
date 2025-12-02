@@ -108,49 +108,6 @@ public class LineCheckServiceImpl implements LineCheckService {
     }
 
 
-    // ---------------------------------------------------------
-    // SAVE/UPDATE LINE CHECK (from mobile app)
-    // ---------------------------------------------------------
-//    @Override
-//    @Transactional
-//    public LineCheckEntity saveLineCheck(LineCheckDto dto) {
-//
-//        if (dto.getId() == null) {
-//            throw new IllegalArgumentException("LineCheck ID cannot be null when saving.");
-//        }
-//
-//        LineCheckEntity lineCheck = lineCheckRepository.findById(dto.getId())
-//                .orElseThrow(() -> new RuntimeException("LineCheck not found: " + dto.getId()));
-//
-//        // Record time completed
-//        lineCheck.setCheckTime(LocalDateTime.now());
-//
-//        System.out.println(">>> dto.getId(): " + dto.getId());
-//
-//        for (LineCheckStationDto stationDto : dto.getStations()) {
-//
-//            System.out.println(">>> stationDto.getId(): " + stationDto.getId());
-//
-//            LineCheckStationEntity stationEntity = lineCheckStationRepository.findById(stationDto.getId())
-//                    .orElseThrow(() -> new RuntimeException("LineCheckStation not found: " + stationDto.getId()));
-//
-//            for (LineCheckItemDto itemDto : stationDto.getItems()) {
-//                System.out.println(">>> itemDto.getId(): " + itemDto.getId());
-//                LineCheckItemEntity itemEntity = lineCheckItemRepository.findById(itemDto.getId())
-//                        .orElseThrow(() -> new RuntimeException("LineCheckItem not found: " + itemDto.getId()));
-//
-//                itemEntity.setItemChecked(itemDto.isItemChecked());
-//                itemEntity.setChecked(itemDto.isItemChecked());
-//                itemEntity.setTemperature(itemDto.getTemperature());
-//                itemEntity.setNotes(itemDto.getNotes());
-//
-//                lineCheckItemRepository.save(itemEntity);
-//            }
-//        }
-//
-//        return lineCheckRepository.save(lineCheck);
-//    }
-
     @Override
     @Transactional
     public LineCheckDto saveLineCheck(LineCheckDto dto) {
@@ -163,14 +120,14 @@ public class LineCheckServiceImpl implements LineCheckService {
 
         // Update each existing LineCheckStation
         for (LineCheckStationDto stationDto : dto.getStations()) {
-            if (stationDto.getId() == null) continue; // Skip any new stations (shouldn’t happen)
+            if (stationDto.getId() == null) continue;
 
             LineCheckStationEntity stationEntity = lineCheckStationRepository.findById(stationDto.getId())
                     .orElseThrow(() -> new RuntimeException("LineCheckStation not found: " + stationDto.getId()));
 
-            // Update only existing LineCheckItems
+            // Update existing LineCheckItems
             for (LineCheckItemDto itemDto : stationDto.getItems()) {
-                if (itemDto.getId() == null) continue; // Skip template items
+                if (itemDto.getId() == null) continue;
 
                 LineCheckItemEntity itemEntity = lineCheckItemRepository.findById(itemDto.getId())
                         .orElseThrow(() -> new RuntimeException("LineCheckItem not found: " + itemDto.getId()));
@@ -178,53 +135,41 @@ public class LineCheckServiceImpl implements LineCheckService {
                 itemEntity.setItemChecked(itemDto.isItemChecked());
                 itemEntity.setChecked(itemDto.isItemChecked());
                 itemEntity.setTemperature(itemDto.getTemperature());
-                //itemEntity.setItemNotes(itemDto.getItemNotes());
                 itemEntity.setObservations(itemDto.getObservations());
 
                 lineCheckItemRepository.save(itemEntity);
             }
         }
 
-        // Save the updated LineCheck
+        // Mark line check as completed with current time
+        if (lineCheck.getCompletedAt() == null) {
+            lineCheck.setCompletedAt(LocalDateTime.now());
+        }
+
         return convertToDto(lineCheckRepository.save(lineCheck));
     }
 
 
-    // ---------------------------------------------------------
-    // UPDATE LINE CHECK (from mobile app)
-    // ---------------------------------------------------------
+    @Transactional
+    public List<LineCheckDto> getCompletedLineChecks() {
+        return lineCheckRepository.findAllByCompletedAtIsNotNullOrderByCheckTimeDesc()
+                .stream()
+                .map(this::convertToDto)
+                .toList();
+    }
 
-//    @Override
-//    @Transactional
-//    public void updateLineCheck(LineCheckSaveDto dto) {
-//        LineCheckEntity lineCheck = lineCheckRepository.findById(dto.id())
-//                .orElseThrow(() -> new RuntimeException("LineCheck not found: " + dto.id()));
-//
-//        for (LineCheckStationUpdateDto stationDto : dto.stations()) {
-//            LineCheckStationEntity station = lineCheck.getStations()
-//                    .stream()
-//                    .filter(s -> s.getId().equals(stationDto.stationId()))
-//                    .findFirst()
-//                    .orElseThrow(() -> new RuntimeException("Station not found: " + stationDto.stationId()));
-//
-//            for (LineCheckItemUpdateDto itemDto : stationDto.items()) {
-//                LineCheckItemEntity item = station.getLineCheckItems()
-//                        .stream()
-//                        .filter(i -> i.getId().equals(itemDto.id()))
-//                        .findFirst()
-//                        .orElseThrow(() -> new RuntimeException("Item not found: " + itemDto.id()));
-//
-//                item.setChecked(itemDto.checked());
-//                item.setItemChecked(itemDto.checked());
-//                item.setTemperature(itemDto.temperature());
-//                item.setNotes(itemDto.notes());
-//
-//                lineCheckItemRepository.save(item);
-//            }
-//        }
-//
-//        lineCheckRepository.save(lineCheck);
-//    }
+    //get completed line checks by location
+    @Transactional
+    public List<LineCheckDto> getCompletedLineChecksByLocation(UUID locationId) {
+        return lineCheckRepository
+                .findDistinctByCompletedAtIsNotNullAndStations_Station_Location_IdOrderByCheckTimeDesc(locationId)
+                .stream()
+                .map(this::convertToDto)
+                .toList();
+    }
+
+
+
 
 
     // ============================================================
@@ -243,9 +188,11 @@ public class LineCheckServiceImpl implements LineCheckService {
         dto.setUsername(entity.getUser() != null ? entity.getUser().getUserName() : null);
         dto.setCheckTime(entity.getCheckTime());
         dto.setStations(stationDtos);
+        dto.setCompletedAt(entity.getCompletedAt()); // <-- new
 
         return dto;
     }
+
 
     private LineCheckStationDto convertStationToDto(LineCheckStationEntity s) {
         List<LineCheckItemDto> itemDtos = s.getLineCheckItems()
@@ -261,34 +208,6 @@ public class LineCheckServiceImpl implements LineCheckService {
         return dto;
     }
 
-//    private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
-//        ItemEntity item = e.getItem();
-//
-//        LineCheckItemDto dto = new LineCheckItemDto();
-//        dto.setId(e.getId());
-//
-//        // --- Template fields from ItemEntity ---
-//        dto.setItemName(item.getItemName());
-//        dto.setShelfLife(item.getShelfLife());
-//        dto.setPanSize(item.getPanSize());
-//        dto.setTool(item.isTool());
-//        dto.setToolName(item.getToolName());
-//        dto.setPortioned(item.isPortioned());
-//        dto.setPortionSize(item.getPortionSize());
-//        dto.setTempTaken(item.isTempTaken());      // Template flag
-//        dto.setCheckMark(item.isCheckMark());      // Template flag
-//        dto.setMinTemp(item.getMinTemp());
-//        dto.setMaxTemp(item.getMaxTemp());
-//        dto.setTemplateNotes(item.getItemNotes());
-//        dto.setSortOrder(item.getSortOrder());
-//
-//        // --- User-entered fields from LineCheckItemEntity ---
-//        dto.setItemChecked(e.isItemChecked());     // Did user check it?
-//        dto.setTemperature(e.getTemperature());    // User-entered temp
-//        dto.setObservations(e.getObservations());  // User-entered notes
-//
-//        return dto;
-//    }
 private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
     ItemEntity item = e.getItem();
 

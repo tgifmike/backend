@@ -30,7 +30,12 @@ public class LineCheckEntity {
     @JsonManagedReference("lineCheckE")
     private Set<LineCheckStationEntity> stations = new HashSet<>();
 
+    @Column(name = "completed_at")
+    private LocalDateTime completedAt;
 
+    public boolean isCompleted() {
+        return completedAt != null;
+    }
 
 
     @Column(name = "created_at", updatable = false)

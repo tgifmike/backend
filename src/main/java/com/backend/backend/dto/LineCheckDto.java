@@ -13,5 +13,7 @@ public class LineCheckDto {
     private UUID userId;
     private String username;
     private LocalDateTime checkTime;
+    private LocalDateTime completedAt;
+
     private List<LineCheckStationDto> stations;
 }
