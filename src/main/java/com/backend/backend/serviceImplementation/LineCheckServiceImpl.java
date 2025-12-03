@@ -111,37 +111,40 @@ public class LineCheckServiceImpl implements LineCheckService {
     @Override
     @Transactional
     public LineCheckDto saveLineCheck(LineCheckDto dto) {
-        if (dto.getId() == null) {
-            throw new IllegalArgumentException("LineCheck ID cannot be null");
-        }
+        if (dto.getId() == null) throw new IllegalArgumentException("LineCheck ID cannot be null");
 
         LineCheckEntity lineCheck = lineCheckRepository.findById(dto.getId())
                 .orElseThrow(() -> new RuntimeException("LineCheck not found: " + dto.getId()));
 
-        // Update each existing LineCheckStation
         for (LineCheckStationDto stationDto : dto.getStations()) {
             if (stationDto.getId() == null) continue;
 
             LineCheckStationEntity stationEntity = lineCheckStationRepository.findById(stationDto.getId())
                     .orElseThrow(() -> new RuntimeException("LineCheckStation not found: " + stationDto.getId()));
 
-            // Update existing LineCheckItems
+            if (stationDto.getItems() == null || stationDto.getItems().isEmpty()) continue;
+
             for (LineCheckItemDto itemDto : stationDto.getItems()) {
                 if (itemDto.getId() == null) continue;
 
                 LineCheckItemEntity itemEntity = lineCheckItemRepository.findById(itemDto.getId())
                         .orElseThrow(() -> new RuntimeException("LineCheckItem not found: " + itemDto.getId()));
 
+                // ✅ Update entity fields
                 itemEntity.setItemChecked(itemDto.isItemChecked());
                 itemEntity.setChecked(itemDto.isItemChecked());
-                itemEntity.setTemperature(itemDto.getTemperature());
-                itemEntity.setObservations(itemDto.getObservations());
+
+                if (itemDto.getTemperature() != null) {
+                    itemEntity.setTemperature(itemDto.getTemperature());
+                }
+                if (itemDto.getObservations() != null) {
+                    itemEntity.setObservations(itemDto.getObservations());
+                }
 
                 lineCheckItemRepository.save(itemEntity);
             }
         }
 
-        // Mark line check as completed with current time
         if (lineCheck.getCompletedAt() == null) {
             lineCheck.setCompletedAt(LocalDateTime.now());
         }
