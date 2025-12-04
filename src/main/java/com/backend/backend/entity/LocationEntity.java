@@ -1,5 +1,6 @@
 package com.backend.backend.entity;
 
+import com.backend.backend.config.StartOfWeek;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -31,6 +32,11 @@ public class LocationEntity {
     private String locationZipCode;
     private Double locationLatitude;
     private Double locationLongitude;
+    private Integer lineCheckDailyGoal = 1; // e.g., target number of line checks per week
+
+    @Enumerated(EnumType.STRING)
+    private StartOfWeek startOfWeek = StartOfWeek.MONDAY;
+
 
     // LocationEntity
     @ManyToOne
