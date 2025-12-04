@@ -1,5 +1,6 @@
 package com.backend.backend.controller;
 
+import com.backend.backend.dto.LineCheckSettingsDto;
 import com.backend.backend.dto.LocationDto;
 import com.backend.backend.entity.LocationEntity;
 import com.backend.backend.service.LocationService;
@@ -91,6 +92,23 @@ public class LocationController {
     public ResponseEntity<String> backfillGeocodes() {
         locationService.backfillLatLonForAllLocations();
         return ResponseEntity.ok("Geocoding backfill completed.");
+    }
+
+    // Get line check settings for a location
+    @GetMapping("/{locationId}/line-check-settings")
+    public ResponseEntity<LineCheckSettingsDto> getLineCheckSettings(@PathVariable UUID locationId) {
+        LineCheckSettingsDto settings = locationService.getLineCheckSettings(locationId);
+        return ResponseEntity.ok(settings);
+    }
+
+    // Update line check settings for a location
+    @PutMapping("/{locationId}/line-check-settings")
+    public ResponseEntity<LineCheckSettingsDto> updateLineCheckSettings(
+            @PathVariable UUID locationId,
+            @RequestBody LineCheckSettingsDto dto
+    ) {
+        LineCheckSettingsDto updated = locationService.updateLineCheckSettings(locationId, dto);
+        return ResponseEntity.ok(updated);
     }
 
 }
