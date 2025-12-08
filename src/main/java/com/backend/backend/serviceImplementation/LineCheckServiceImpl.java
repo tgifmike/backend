@@ -7,6 +7,7 @@ import com.backend.backend.service.LineCheckService;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -48,7 +49,7 @@ public class LineCheckServiceImpl implements LineCheckService {
 
         LineCheckEntity lineCheck = new LineCheckEntity();
         lineCheck.setUser(user);
-        lineCheck.setCheckTime(LocalDateTime.now());
+        lineCheck.setCheckTime(Instant.now());
         lineCheck.setStations(new HashSet<>());
 
         LineCheckEntity savedLineCheck = lineCheckRepository.save(lineCheck);
@@ -146,7 +147,7 @@ public class LineCheckServiceImpl implements LineCheckService {
         }
 
         if (lineCheck.getCompletedAt() == null) {
-            lineCheck.setCompletedAt(LocalDateTime.now());
+            lineCheck.setCompletedAt(Instant.now());
         }
 
         return convertToDto(lineCheckRepository.save(lineCheck));
