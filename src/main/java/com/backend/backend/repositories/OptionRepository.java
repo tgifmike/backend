@@ -8,25 +8,52 @@ import org.springframework.stereotype.Repository;
 import java.util.List;
 import java.util.UUID;
 
+//@Repository
+//public interface OptionRepository extends JpaRepository<OptionEntity, UUID> {
+//
+//    // All options for an account, sorted by sortOrder
+//    List<OptionEntity> findByAccountIdOrderBySortOrderAsc(UUID accountId);
+//
+//    // Active options only, sorted
+//    List<OptionEntity> findByAccountIdAndOptionActiveTrueOrderBySortOrderAsc(UUID accountId);
+//
+//    // Optional: find by option type, sorted
+//   // List<OptionEntity> findByAccountIdAndOptionTypeOrderBySortOrderAsc(UUID accountId, OptionType optionType);
+//
+////    List<OptionEntity> findByAccountIdAndOptionTypeOrderBySortOrder(
+////            UUID accountId,
+////            OptionType optionType
+////    );
+//
+//
+//    // Fetch all options for an account, ordered by sortOrder
+//    List<OptionEntity> findByAccountIdOrderBySortOrder(UUID accountId);
+//}
+
+//@Repository
+//public interface OptionRepository extends JpaRepository<OptionEntity, UUID> {
+//
+//    List<OptionEntity> findByAccountIdOrderBySortOrderAsc(UUID accountId);
+//
+//    List<OptionEntity> findByAccountIdAndOptionActiveTrueOrderBySortOrderAsc(UUID accountId);
+//
+//    // REQUIRED for optionType filters
+//    List<OptionEntity> findByAccountIdAndOptionTypeOrderBySortOrderAsc(
+//            UUID accountId,
+//            OptionType optionType
+//    );
+//}
 @Repository
 public interface OptionRepository extends JpaRepository<OptionEntity, UUID> {
 
-    // All options for an account, sorted by sortOrder
+    // All options for an account (non-deleted automatically via @Where)
     List<OptionEntity> findByAccountIdOrderBySortOrderAsc(UUID accountId);
 
-    // Active options only, sorted
-    List<OptionEntity> findByAccountIdAndOptionActiveTrueOrderBySortOrderAsc(UUID accountId);
-
-    // Optional: find by option type, sorted
+    // Options filtered by type
     List<OptionEntity> findByAccountIdAndOptionTypeOrderBySortOrderAsc(UUID accountId, OptionType optionType);
 
-    List<OptionEntity> findByAccountIdAndOptionTypeOrderBySortOrder(
-            UUID accountId,
-            OptionType optionType
-    );
-
-
-    // Fetch all options for an account, ordered by sortOrder
-    List<OptionEntity> findByAccountIdOrderBySortOrder(UUID accountId);
+    // Only active options
+    List<OptionEntity> findByAccountIdAndOptionActiveTrueOrderBySortOrderAsc(UUID accountId);
 }
+
 

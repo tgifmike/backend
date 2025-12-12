@@ -23,9 +23,9 @@ import java.util.UUID;
 @Entity
 @Table(name = "options")
 @EntityListeners(AuditingEntityListener.class)
-@SQLDelete(sql = "UPDATE options SET deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?")
+//@SQLDelete(sql = "UPDATE options SET deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?")
 @Where(clause = "deleted_at IS NULL")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})   // <–– ADD THIS
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class OptionEntity {
 
     @Id
@@ -48,7 +48,7 @@ public class OptionEntity {
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "account_id", nullable = false)
-    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})  // <–– ALSO ADD HERE
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private AccountEntity account;
 
     @CreatedDate
@@ -67,9 +67,12 @@ public class OptionEntity {
     @Column(name = "updated_by")
     private UUID updatedBy;
 
+    //@LastModifiedDate
     @Column(name = "deleted_at")
     private Instant deletedAt;
 
+    //@LastModifiedBy
     @Column(name = "deleted_by")
     private UUID deletedBy;
 }
+
