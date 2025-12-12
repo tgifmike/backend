@@ -17,7 +17,8 @@ public interface OptionService {
 
     OptionEntity updateOption(UUID optionId, OptionEntity option);
 
-    void deleteOption(UUID optionId);
+    //void deleteOption(UUID optionId);
+    void deleteOption(UUID optionId, UUID deletedByUser);
 
     void reorderOptions(UUID accountId, OptionType optionType, List<UUID> orderedIds);
 

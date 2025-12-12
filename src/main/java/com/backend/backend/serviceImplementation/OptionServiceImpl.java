@@ -7,15 +7,18 @@ import com.backend.backend.entity.OptionEntity;
 import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.repositories.OptionRepository;
 import com.backend.backend.service.OptionService;
+import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class OptionServiceImpl implements OptionService {
@@ -25,7 +28,6 @@ public class OptionServiceImpl implements OptionService {
 
     @Override
     public List<OptionEntity> getAllOptions(UUID accountId) {
-        // Fetch all active options sorted by sortOrder
         return optionRepository.findByAccountIdOrderBySortOrderAsc(accountId);
     }
 
@@ -48,13 +50,11 @@ public class OptionServiceImpl implements OptionService {
                 .createdBy(userId)
                 .build();
 
-        OptionEntity saved = optionRepository.save(option);
-        return saved; // will have ID, createdAt, etc.
+        return optionRepository.save(option);
     }
 
-
-
     @Override
+    @Transactional
     public OptionEntity updateOption(UUID optionId, OptionEntity option) {
         OptionEntity existing = optionRepository.findById(optionId)
                 .orElseThrow(() -> new NoSuchElementException("Option not found"));
@@ -62,28 +62,53 @@ public class OptionServiceImpl implements OptionService {
         existing.setOptionName(option.getOptionName());
         existing.setOptionActive(option.isOptionActive());
         existing.setOptionType(option.getOptionType());
-        // DO NOT update account here
-        // existing.setAccount(option.getAccount());
 
         return optionRepository.save(existing);
     }
 
+//    @Override
+//    @Transactional
+//    public void deleteOption(UUID optionId, UUID deletedByUser) {
+//        OptionEntity option = optionRepository.findById(optionId)
+//                .orElseThrow(() -> new NoSuchElementException("Option not found"));
+//
+//        // soft delete
+//        option.setDeletedAt(Instant.now());
+//        option.setDeletedBy(deletedByUser);
+//        optionRepository.save(option);
+//    }
+@Transactional
+@Override
+public void deleteOption(UUID optionId, UUID deletedByUser) {
+    log.warn("🔥 deleteOption CALLED for optionId={} by user={}", optionId, deletedByUser);
+
+    OptionEntity option = optionRepository.findById(optionId)
+            .orElseThrow(() -> new NoSuchElementException("Option not found"));
+
+    Instant now = Instant.now();
+    option.setDeletedAt(now);
+    option.setDeletedBy(deletedByUser);
+
+    // Force Hibernate to treat the entity as dirty
+    option.setUpdatedAt(now);
+
+    // log
+    log.info("Deleting option {}: deletedAt={}, deletedBy={}, updatedAt={}",
+            optionId, option.getDeletedAt(), option.getDeletedBy(), option.getUpdatedAt());
+
+    optionRepository.saveAndFlush(option);
+    log.info("Saved and flushed delete for option {}", optionId);
+}
+
+
+
 
     @Override
-    public void deleteOption(UUID optionId) {
-        OptionEntity existing = optionRepository.findById(optionId)
-                .orElseThrow(() -> new NoSuchElementException("Option not found"));
-        optionRepository.delete(existing); // soft delete due to @SQLDelete
-    }
-
-    @Override
+    @Transactional
     public void reorderOptions(UUID accountId, OptionType optionType, List<UUID> orderedIds) {
-        List<OptionEntity> options;
-        if (optionType != null) {
-            options = optionRepository.findByAccountIdAndOptionTypeOrderBySortOrder(accountId, optionType);
-        } else {
-            options = optionRepository.findByAccountIdOrderBySortOrder(accountId);
-        }
+        List<OptionEntity> options = (optionType != null)
+                ? optionRepository.findByAccountIdAndOptionTypeOrderBySortOrderAsc(accountId, optionType)
+                : optionRepository.findByAccountIdOrderBySortOrderAsc(accountId);
 
         Map<UUID, OptionEntity> optionMap = options.stream()
                 .collect(Collectors.toMap(OptionEntity::getId, o -> o));
@@ -91,9 +116,7 @@ public class OptionServiceImpl implements OptionService {
         for (int i = 0; i < orderedIds.size(); i++) {
             UUID id = orderedIds.get(i);
             OptionEntity opt = optionMap.get(id);
-            if (opt != null) {
-                opt.setSortOrder(i);
-            }
+            if (opt != null) opt.setSortOrder(i);
         }
 
         optionRepository.saveAll(options);
@@ -101,25 +124,20 @@ public class OptionServiceImpl implements OptionService {
 
     @Override
     public List<OptionEntity> getOptionsByAccount(UUID accountId) {
-        return optionRepository
-                .findByAccountIdOrderBySortOrderAsc(accountId);
+        return optionRepository.findByAccountIdOrderBySortOrderAsc(accountId);
     }
 
     @Override
     @Transactional
     public OptionEntity toggleActive(UUID id, boolean active, UUID userId) {
         OptionEntity option = optionRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Option not found"
-                ));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Option not found"));
 
         option.setOptionActive(active);
         option.setUpdatedBy(userId);
 
         return optionRepository.save(option);
     }
-
-
 }
+
 
