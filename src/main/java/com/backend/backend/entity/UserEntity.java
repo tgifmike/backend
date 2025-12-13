@@ -1,7 +1,7 @@
 package com.backend.backend.entity;
 
-import com.backend.backend.config.AccessRole;
-import com.backend.backend.config.AppRole;
+import com.backend.backend.enums.AccessRole;
+import com.backend.backend.enums.AppRole;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -9,7 +9,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalDateTime;
-import java.util.Set;
 import java.util.UUID;
 
 @Getter

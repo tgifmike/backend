@@ -1,6 +1,6 @@
 package com.backend.backend.entity;
 
-import com.backend.backend.config.ItemTempCategory;
+import com.backend.backend.enums.ItemTempCategory;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
