@@ -2,13 +2,12 @@ package com.backend.backend.serviceImplementation;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
-import com.backend.backend.config.AccessRole;
-import com.backend.backend.config.AppRole;
+import com.backend.backend.enums.AccessRole;
+import com.backend.backend.enums.AppRole;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.UserService;
-import com.google.api.client.util.Value;
 import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;

@@ -1,7 +1,5 @@
 package com.backend.backend.dto;
 
-import com.backend.backend.config.AccessRole;
-import com.backend.backend.config.AppRole;
 import lombok.*;
 
 import java.time.LocalDateTime;

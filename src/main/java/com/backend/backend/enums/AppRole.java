@@ -1,4 +1,4 @@
-package com.backend.backend.config;
+package com.backend.backend.enums;
 
 public enum AppRole {
     MEMBER,

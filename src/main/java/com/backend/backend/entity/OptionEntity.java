@@ -1,6 +1,6 @@
 package com.backend.backend.entity;
 
-import com.backend.backend.config.OptionType;
+import com.backend.backend.enums.OptionType;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
@@ -23,7 +23,7 @@ import java.util.UUID;
 @Entity
 @Table(name = "options")
 @EntityListeners(AuditingEntityListener.class)
-//@SQLDelete(sql = "UPDATE options SET deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?")
+@SQLDelete(sql = "UPDATE options SET deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?")
 @Where(clause = "deleted_at IS NULL")
 @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class OptionEntity {

@@ -1,6 +1,6 @@
 package com.backend.backend.dto;
 
-import com.backend.backend.config.OptionType;
+import com.backend.backend.enums.OptionType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;

@@ -1,9 +1,13 @@
 package com.backend.backend.controller;
 
-import com.backend.backend.config.OptionType;
+import com.backend.backend.entity.OptionHistoryEntity;
+import com.backend.backend.enums.OptionType;
 import com.backend.backend.config.UserContext;
+import com.backend.backend.dto.OptionAuditDto;
 import com.backend.backend.dto.OptionCreateDto;
 import com.backend.backend.entity.OptionEntity;
+import com.backend.backend.repositories.OptionHistoryRepository;
+import com.backend.backend.repositories.OptionRepository;
 import com.backend.backend.service.OptionService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +25,8 @@ import java.util.UUID;
 public class OptionController {
 
     private final OptionService optionService;
+    private final OptionRepository optionRepository;
+    private final OptionHistoryRepository optionHistoryRepository;
 
     @GetMapping
     public ResponseEntity<List<OptionEntity>> getOptions(
@@ -45,10 +51,12 @@ public class OptionController {
     @PutMapping("/{id}")
     public ResponseEntity<OptionEntity> updateOption(
             @PathVariable UUID id,
-            @RequestBody OptionEntity option
+            @RequestBody OptionEntity option,
+            @RequestHeader("X-User-Id") UUID userId
     ) {
-        return ResponseEntity.ok(optionService.updateOption(id, option));
+        return ResponseEntity.ok(optionService.updateOption(id, option, userId));
     }
+
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteOption(
@@ -68,11 +76,14 @@ public class OptionController {
     public ResponseEntity<Void> reorderOptions(
             @RequestParam UUID accountId,
             @RequestParam(required = false) OptionType optionType,
-            @RequestBody List<UUID> orderedOptionIds
+            @RequestBody List<UUID> orderedOptionIds,
+            @RequestHeader("X-User-Id") UUID userId
     ) {
-        optionService.reorderOptions(accountId, optionType, orderedOptionIds);
+        optionService.reorderOptions(accountId, optionType, orderedOptionIds, userId);
         return ResponseEntity.ok().build();
     }
+
+
 
     @PutMapping("/{id}/active")
     public ResponseEntity<OptionEntity> toggleActive(
@@ -82,5 +93,13 @@ public class OptionController {
     ) {
         return ResponseEntity.ok(optionService.toggleActive(id, active, userId));
     }
+
+
+    @GetMapping("/history")
+    public List<OptionHistoryEntity> getHistory(@RequestParam UUID accountId) {
+        return optionHistoryRepository
+                .findByAccountIdOrderByChangeAtDesc(accountId);
+    }
+
 }
 

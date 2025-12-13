@@ -1,8 +1,9 @@
 package com.backend.backend.repositories;
 
 import com.backend.backend.entity.OptionEntity;
-import com.backend.backend.config.OptionType;
+import com.backend.backend.enums.OptionType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -54,6 +55,18 @@ public interface OptionRepository extends JpaRepository<OptionEntity, UUID> {
 
     // Only active options
     List<OptionEntity> findByAccountIdAndOptionActiveTrueOrderBySortOrderAsc(UUID accountId);
+
+    //for logs
+//    @Query("SELECT o FROM OptionEntity o WHERE o.account.id = :accountId")
+//    List<OptionEntity> findAllByAccountIdIncludingDeleted(@Param("accountId") UUID accountId);
+
+
+    @Query(
+            value = "SELECT * FROM options WHERE account_id = :accountId ORDER BY created_at ASC",
+            nativeQuery = true
+    )
+    List<OptionEntity> findAllByAccountIdIncludingDeleted(UUID accountId);
+
 }
 
 
