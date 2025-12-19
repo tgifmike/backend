@@ -49,9 +49,9 @@ public class AccountEntity {
     @Column(updatable = false)
     private Instant createdAt;
   
-    @OneToMany(mappedBy = "account")
-    @JsonManagedReference("acc")
-    private List<LocationEntity> locations;
+//    @OneToMany(mappedBy = "account")
+//    @JsonManagedReference("acc")
+//    private List<LocationEntity> locations;
 
     @LastModifiedDate
     private Instant updatedAt;
