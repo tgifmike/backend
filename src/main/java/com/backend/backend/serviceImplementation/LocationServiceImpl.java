@@ -1,5 +1,7 @@
 package com.backend.backend.serviceImplementation;
 
+import com.backend.backend.config.StartOfWeek;
+import com.backend.backend.dto.LineCheckSettingsDto;
 import com.backend.backend.dto.LocationDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.LocationEntity;
@@ -13,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.DayOfWeek;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -239,4 +242,60 @@ public class LocationServiceImpl implements LocationService {
             }
         }
     }
+
+    @Override
+    public LineCheckSettingsDto getLineCheckSettings(UUID locationId) {
+        LocationEntity location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new RuntimeException("Location not found"));
+
+        LineCheckSettingsDto dto = new LineCheckSettingsDto();
+
+        // Default to MONDAY if null
+        StartOfWeek startOfWeek = location.getStartOfWeek() != null
+                ? location.getStartOfWeek()
+                : StartOfWeek.MONDAY;
+        dto.setDayOfWeek(startOfWeek.name());
+
+        // Default to 1 if null
+        int dailyGoal = location.getLineCheckDailyGoal() != null
+                ? location.getLineCheckDailyGoal()
+                : 1;
+        dto.setDailyGoal(dailyGoal);
+
+        return dto;
+    }
+
+
+    @Override
+    public LineCheckSettingsDto updateLineCheckSettings(UUID locationId, LineCheckSettingsDto dto) {
+        LocationEntity location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new RuntimeException("Location not found"));
+
+        // Update startOfWeek if provided, otherwise keep current or default to MONDAY
+        if (dto.getDayOfWeek() != null && !dto.getDayOfWeek().isBlank()) {
+            try {
+                location.setStartOfWeek(StartOfWeek.valueOf(dto.getDayOfWeek().toUpperCase()));
+            } catch (IllegalArgumentException e) {
+                throw new RuntimeException("Invalid dayOfWeek: " + dto.getDayOfWeek());
+            }
+        } else if (location.getStartOfWeek() == null) {
+            location.setStartOfWeek(StartOfWeek.MONDAY);
+        }
+
+        // Update dailyGoal if provided, otherwise keep current or default to 1
+        if (dto.getDailyGoal() > 0) {
+            location.setLineCheckDailyGoal(dto.getDailyGoal());
+        } else if (location.getLineCheckDailyGoal() == null) {
+            location.setLineCheckDailyGoal(1);
+        }
+
+        locationRepository.save(location);
+
+        // Return the DTO with the resolved values (so frontend sees defaults)
+        LineCheckSettingsDto resultDto = new LineCheckSettingsDto();
+        resultDto.setDayOfWeek(location.getStartOfWeek().name());
+        resultDto.setDailyGoal(location.getLineCheckDailyGoal());
+        return resultDto;
+    }
+
 }

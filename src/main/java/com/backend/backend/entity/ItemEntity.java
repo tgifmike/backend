@@ -2,6 +2,7 @@ package com.backend.backend.entity;
 
 import com.backend.backend.enums.ItemTempCategory;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -35,10 +36,10 @@ public class ItemEntity {
     private boolean isTool;
 
     private String portionSize;
-    @JsonProperty("isPortionSize")
+    @JsonProperty("isPortioned")
     private boolean isPortioned;
 
-    private double itemTemperature;
+    private Double itemTemperature;
     @JsonProperty("isTempTaken")
     private boolean isTempTaken;
 
@@ -51,6 +52,8 @@ public class ItemEntity {
     @JsonProperty("isCheckMark")
     private boolean isCheckMark;
 
+    private Boolean isItemChecked;
+
     private String itemNotes;
 
     private String lineCheckNotes;
@@ -62,8 +65,10 @@ public class ItemEntity {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "station_id", nullable = false)
-    @JsonBackReference
+    @JsonBackReference("station-items")
     private StationEntity station;
+
+
 
 
 

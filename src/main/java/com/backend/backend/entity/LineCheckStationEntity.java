@@ -5,9 +5,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 @Setter
@@ -23,15 +21,24 @@ public class LineCheckStationEntity {
 
     @ManyToOne
     @JoinColumn(name = "line_check_id")
-    @JsonBackReference
+    @JsonBackReference("lineCheckE") // match name from LineCheckEntity
     private LineCheckEntity lineCheck;
 
     @ManyToOne
     @JoinColumn(name = "station_id")
+    @JsonBackReference("station-linechecks")
     private StationEntity station;
 
+
+//    @OneToMany(mappedBy = "lineCheckStation", cascade = CascadeType.ALL, orphanRemoval = true)
+//    @JsonManagedReference
+//    private Set<LineCheckItemEntity> items = new HashSet<>();
+
     @OneToMany(mappedBy = "lineCheckStation", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
-    private List<LineCheckItemEntity> items = new ArrayList<>();
+    @JsonManagedReference("LCSE")
+    private List<LineCheckItemEntity> lineCheckItems = new ArrayList<>();
+
+
+
 }
 

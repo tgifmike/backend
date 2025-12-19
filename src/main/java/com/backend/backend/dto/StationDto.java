@@ -1,17 +1,21 @@
 package com.backend.backend.dto;
 
+
 import lombok.AllArgsConstructor;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.Getter;
+import lombok.Setter;
+
 import java.util.List;
 import java.util.UUID;
 
-@Data
+@Getter
+@Setter
 @AllArgsConstructor
-@NoArgsConstructor
-public class LineCheckStationDto {
+public class StationDto {
     private UUID id;
-    private UUID stationId;
     private String stationName;
+    private Boolean stationActive;
+    private Integer sortOrder;
     private List<LineCheckItemDto> items;
+
 }

@@ -1,27 +1,39 @@
 package com.backend.backend.dto;
 
 
-import lombok.Builder;
+import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
 import java.util.UUID;
 
-@Builder
-public record LineCheckItemDto(
-        UUID id,                 // LineCheckItemEntity ID
-        String itemName,         // from ItemEntity
-        String shelfLife,        // from ItemEntity
-        String panSize,          // from ItemEntity
-        boolean isTool,
-        String toolName,// from ItemEntity
-        boolean isPortioned,     // from ItemEntity
-        String portionSize,      // from ItemEntity
-        boolean isTempTaken,     // from ItemEntity
-        boolean isCheckMark,     // from ItemEntity
-        boolean checked,         // from LineCheckItemEntity
-        Double temperature,
-        Double minTemp,
-        Double maxTemp,// from LineCheckItemEntity
-        String notes,            // from LineCheckItemEntity
-        String itemNotes         // from ItemEntity
-) {}
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+public class LineCheckItemDto {
 
+    private UUID id;
 
+    // From ItemEntity
+    private String itemName;
+    private String shelfLife;
+    private String panSize;
+    private boolean tool;
+    private String toolName;
+    private boolean portioned;
+    private String portionSize;
+    private boolean tempTaken;
+    private boolean checkMark;
+
+    // From LineCheckItemEntity
+    @JsonProperty("itemChecked") // <-- force Jackson to map JSON "itemChecked"
+    private boolean itemChecked;
+
+    private Double temperature;
+    private Double minTemp;
+    private Double maxTemp;
+    private String observations;
+    private String templateNotes;
+    private Integer sortOrder;
+}

@@ -3,10 +3,10 @@ package com.backend.backend.entity;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
+
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 @Setter
@@ -26,28 +26,37 @@ public class LineCheckEntity {
     private UserEntity user;
 
     @Column(name = "check_time", nullable = false)
-    private LocalDateTime checkTime;
+    private Instant checkTime;
 
     @OneToMany(mappedBy = "lineCheck", cascade = CascadeType.ALL, orphanRemoval = true)
-    @JsonManagedReference
-    private List<LineCheckStationEntity> stations = new ArrayList<>();
+    @JsonManagedReference("lineCheckE")
+    private Set<LineCheckStationEntity> stations = new HashSet<>();
+
+    @Column(name = "completed_at")
+    private Instant completedAt;
+
+    public boolean isCompleted() {
+        return completedAt != null;
+    }
+
 
     @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    private Instant createdAt;
 
     @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    private Instant updatedAt;
 
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-        checkTime = LocalDateTime.now();
+        Instant now = Instant.now(); // always UTC
+        createdAt = now;
+        updatedAt = now;
+        checkTime = now;
     }
 
     @PreUpdate
     protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
+        updatedAt = Instant.now();
     }
 }
 

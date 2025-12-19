@@ -36,9 +36,17 @@ public class StationEntity {
         private LocationEntity location;
 
         //need to add when i add items
-        @OneToMany(mappedBy = "station", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
-        @JsonManagedReference
+        @OneToMany(mappedBy = "station", cascade = CascadeType.ALL, orphanRemoval = true)
+        @JsonManagedReference("station-items")
         private List<ItemEntity> items = new ArrayList<>();
+
+        @OneToMany(mappedBy = "station", fetch = FetchType.LAZY)
+        @JsonManagedReference("station-linechecks")
+        private List<LineCheckStationEntity> lineCheckStations = new ArrayList<>();
+
+
+
+
 
         @Column(name = "created_at", updatable = false)
         private LocalDateTime createdAt;

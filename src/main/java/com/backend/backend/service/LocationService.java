@@ -1,5 +1,6 @@
 package com.backend.backend.service;
 
+import com.backend.backend.dto.LineCheckSettingsDto;
 import com.backend.backend.dto.LocationDto;
 import com.backend.backend.entity.LocationEntity;
 import org.springframework.http.ResponseEntity;
@@ -20,4 +21,6 @@ public interface LocationService {
     LocationEntity partialUpdate(UUID id, Map<String, Object> updates);
     void updateGeocodeForLocation(UUID accountId, UUID locationId);
     void backfillLatLonForAllLocations();
+    LineCheckSettingsDto getLineCheckSettings(UUID locationId);
+    LineCheckSettingsDto updateLineCheckSettings(UUID locationId, LineCheckSettingsDto dto);
 }

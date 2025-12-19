@@ -1,5 +1,6 @@
 package com.backend.backend.service;
 
+import com.backend.backend.dto.StationDto;
 import com.backend.backend.entity.StationEntity;
 
 import java.util.List;
@@ -14,7 +15,7 @@ public interface StationService {
     List<StationEntity> getAllStations();
     StationEntity toggleActive(UUID locationId, UUID stationId, boolean active);
     //StationEntity updateStation(UUID id, StationEntity station);
-    List<StationEntity> getStationsByLocation(UUID locationId);
+    List<StationDto> getStationsByLocation(UUID locationId);
     StationEntity updateStation(UUID locationId, UUID stationId, Map<String, Object> updates);
 }
 
