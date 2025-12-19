@@ -9,7 +9,8 @@ import java.util.UUID;
 
 public interface UserAccountAccessService {
 
-    List<UserAccountAccessEntity> getAccountsForUser(UserEntity user);
+    //List<UserAccountAccessEntity> getAccountsForUser(UserEntity user);
+    List<AccountEntity> getAccountsForUser(UserEntity user);
     List<UserAccountAccessEntity> getUsersForAccount(AccountEntity account);
     UserAccountAccessEntity grantAccess(UserEntity user, AccountEntity account);
     void revokeAccess(UserEntity user, AccountEntity account);

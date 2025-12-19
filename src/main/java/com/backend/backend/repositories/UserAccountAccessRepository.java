@@ -16,7 +16,18 @@ public interface UserAccountAccessRepository extends JpaRepository<UserAccountAc
     boolean existsByUserAndAccount(UserEntity user, AccountEntity account);
     boolean existsByUserIdAndAccountId(UUID userId, UUID accountId);
 
-    @Query("SELECT ua.account.id FROM UserAccountAccessEntity ua WHERE ua.user.id = :userId")
+    @Query(
+            value = "SELECT a.* FROM accounts a " +
+                    "JOIN user_account_access uaa ON a.id = uaa.account_id " +
+                    "WHERE uaa.user_id = :userId " +
+                    "AND a.deleted_at IS NULL " +
+                    "ORDER BY a.created_at ASC",
+            nativeQuery = true
+    )
+    List<AccountEntity> findActiveAccountsByUserId(UUID userId);
+
+    @Query("SELECT u.account.id FROM UserAccountAccessEntity u WHERE u.user.id = :userId")
     List<UUID> findAccountIdsByUserId(@Param("userId") UUID userId);
+
 
 }

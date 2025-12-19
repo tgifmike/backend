@@ -1,14 +1,20 @@
 package com.backend.backend.entity;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.LocalDateTime;
-import java.util.List;
+import java.time.Instant;
 import java.util.UUID;
 
 @Getter
@@ -16,39 +22,44 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name= "accounts")
+@Table(name = "accounts")
+@EntityListeners(AuditingEntityListener.class)
+@SQLDelete(sql = "UPDATE accounts SET deleted_at = CURRENT_TIMESTAMP WHERE id = ?")
+@Where(clause = "deleted_at IS NULL")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class AccountEntity {
 
     @Id
-    @GeneratedValue(generator = "UUID")
-    @Column(name = "id", updatable = false, nullable = false)
+    @GeneratedValue
+    @Column(updatable = false, nullable = false)
     private UUID id;
 
+    @Column(nullable = false)
     private String accountName;
-    private boolean accountActive = true;
 
+    @Column(nullable = false)
+    private Boolean accountActive = true;
 
-    @Column(name = "image", columnDefinition = "TEXT")
+    @Column(columnDefinition = "TEXT")
     private String imageBase64;
 
-    @OneToMany(mappedBy = "account", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonManagedReference
-    private List<LocationEntity> locations;
+    @CreatedDate
+    @Column(updatable = false)
+    private Instant createdAt;
 
-    @Column(name = "created_at", updatable = false)
-    private LocalDateTime createdAt;
+    @LastModifiedDate
+    private Instant updatedAt;
 
-    @Column(name = "updated_at")
-    private LocalDateTime updatedAt;
+    @CreatedBy
+    @Column(updatable = false)
+    private UUID createdBy;
 
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
-    }
+    @LastModifiedBy
+    private UUID updatedBy;
 
-    @PreUpdate
-    protected void onUpdate() {
-        updatedAt = LocalDateTime.now();
-    }
+    @Column
+    private Instant deletedAt;
+
+    @Column
+    private UUID deletedBy;
 }

@@ -40,15 +40,16 @@ public class UserAccountAccessController {
         UserEntity user = userService.getUserById(userId);
         List<AccountDto> accounts = userAccountAccessService.getAccountsForUser(user)
                 .stream()
-                .map(access -> new AccountDto(
-                        access.getAccount().getId(),
-                        access.getAccount().getAccountName(),
-                        access.getAccount().getImageBase64(),
-                        access.getAccount().isAccountActive()
+                .map(account -> new AccountDto(
+                        account.getId(),
+                        account.getAccountName(),
+                        account.getImageBase64(),
+                        account.getAccountActive()
                 ))
                 .toList();
         return ResponseEntity.ok(accounts);
     }
+
 
     @GetMapping("/{accountId}/getUsersForAccount")
     public ResponseEntity<List<UserDto>> getUsersForAccount(@PathVariable UUID accountId){

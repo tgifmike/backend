@@ -2,60 +2,159 @@ package com.backend.backend.serviceImplementation;
 
 import com.backend.backend.dto.AccountDto;
 import com.backend.backend.entity.AccountEntity;
+import com.backend.backend.entity.AccountHistoryEntity;
+import com.backend.backend.entity.UserEntity;
+import com.backend.backend.repositories.AccountHistoryRepository;
 import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.service.AccountService;
 import jakarta.transaction.Transactional;
+import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class AccountServiceImpl implements AccountService {
 
     private final AccountRepository accountRepository;
+    private final AccountHistoryRepository accountHistoryRepository;
 
-    public AccountServiceImpl(AccountRepository accountRepository) {
+    public AccountServiceImpl(AccountRepository accountRepository, AccountHistoryRepository accountHistoryRepository) {
         this.accountRepository = accountRepository;
+        this.accountHistoryRepository = accountHistoryRepository;
     }
 
-    @Override
-    public AccountEntity createAccount(AccountEntity account) {
-        if (accountRepository.existsByAccountName(account.getAccountName())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account name already exists");
-        }
-        return accountRepository.save(account);
+//    @Override
+//    public AccountEntity createAccount(AccountEntity account) {
+//        if (accountRepository.existsByAccountName(account.getAccountName())) {
+//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account name already exists");
+//        }
+//        return accountRepository.save(account);
+//    }
+@Transactional
+@Override
+public AccountEntity createAccount(AccountEntity account, UserEntity user) {
+    AccountEntity saved = accountRepository.save(account);
+
+    accountHistoryRepository.save(
+            AccountHistoryEntity.builder()
+                    .accountId(saved.getId())
+                    .accountName(saved.getAccountName())
+                    .accountActive(saved.getAccountActive())
+                    .changeType(AccountHistoryEntity.ChangeType.CREATED)
+                    .changeAt(Instant.now())
+                    .changedBy(user.getId())
+                    .changedByName(user.getUserName())
+                    .build()
+    );
+
+    return saved;
+}
+
+
+
+//    @Override
+//    public AccountEntity updateAccount(UUID id, AccountEntity account) {
+//        AccountEntity existing = accountRepository.findById(id)
+//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+//
+//        if (!existing.getAccountName().equals(account.getAccountName())
+//                && accountRepository.existsByAccountName(account.getAccountName())) {
+//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account name already exists");
+//        }
+//
+//        existing.setAccountName(account.getAccountName());
+//        existing.setAccountActive(account.isAccountActive());
+//        existing.setImageBase64(account.getImageBase64());
+//
+//        return accountRepository.save(existing);
+//    }
+@Transactional
+@Override
+public AccountEntity updateAccount(UUID id, AccountEntity incoming, UserEntity user) {
+    AccountEntity existing = accountRepository.findById(id)
+            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+
+    Map<String, String> oldValues = new HashMap<>();
+
+    if (!Objects.equals(existing.getAccountName(), incoming.getAccountName())) {
+        oldValues.put("accountName", existing.getAccountName());
+        existing.setAccountName(incoming.getAccountName());
     }
 
+    if (existing.getAccountActive() != incoming.getAccountActive()) {
+        oldValues.put("accountActive", String.valueOf(existing.getAccountActive()));
+        existing.setAccountActive(incoming.getAccountActive());
+    }
+
+    AccountEntity saved = accountRepository.save(existing);
+
+    if (!oldValues.isEmpty()) {
+        accountHistoryRepository.save(
+                AccountHistoryEntity.builder()
+                        .accountId(saved.getId())
+                        .accountName(saved.getAccountName())
+                        .accountActive(saved.getAccountActive())
+                        .oldValues(oldValues)
+                        .changeType(AccountHistoryEntity.ChangeType.UPDATED)
+                        .changeAt(Instant.now())
+                        .changedBy(user.getId())
+                        .changedByName(user.getUserName())
+                        .build()
+        );
+    }
+
+    return saved;
+}
+
+
+    //    @Override
+//    public void deleteAccount(UUID id) {
+//        if (!accountRepository.existsById(id)) {
+//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
+//        }
+//        accountRepository.deleteById(id);
+//    }
+//@Transactional
+//@Override
+//public void deleteAccount(UUID id, UUID userId) {
+//    AccountEntity account = accountRepository.findById(id)
+//            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
+//
+//    account.setDeletedAt(Instant.now());
+//    account.setDeletedBy(userId);
+//
+//    accountRepository.save(account);
+//}
 
     @Override
-    public AccountEntity updateAccount(UUID id, AccountEntity account) {
-        AccountEntity existing = accountRepository.findById(id)
+    @Transactional
+    public void deleteAccount(UUID id, UserEntity user) {
+        AccountEntity account = accountRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
-        if (!existing.getAccountName().equals(account.getAccountName())
-                && accountRepository.existsByAccountName(account.getAccountName())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account name already exists");
-        }
+        account.setDeletedAt(Instant.now());
+        account.setDeletedBy(user.getId());
 
-        existing.setAccountName(account.getAccountName());
-        existing.setAccountActive(account.isAccountActive());
-        existing.setImageBase64(account.getImageBase64());
+        accountRepository.save(account);
 
-        return accountRepository.save(existing);
+        accountHistoryRepository.save(
+                AccountHistoryEntity.builder()
+                        .accountId(account.getId())
+                        .accountName(account.getAccountName())
+                        .accountActive(account.getAccountActive())
+                        .changeType(AccountHistoryEntity.ChangeType.DELETED)
+                        .changeAt(Instant.now())
+                        .changedBy(user.getId())
+                        .changedByName(user.getUserName())
+                        .build()
+        );
     }
 
-    @Override
-    public void deleteAccount(UUID id) {
-        if (!accountRepository.existsById(id)) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
-        }
-        accountRepository.deleteById(id);
-    }
 
     @Override
     public AccountEntity getAccountById(UUID id) {
@@ -77,23 +176,34 @@ public class AccountServiceImpl implements AccountService {
     //toggle active
     @Override
     @Transactional
-    public AccountDto toggleActive(UUID id, boolean active) {
-        AccountEntity user = accountRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Account not found: " + id));
+    public AccountDto toggleAccountActive(UUID accountId, boolean active, UUID userId, String userName) {
+        AccountEntity account = accountRepository.findById(accountId)
+                .orElseThrow(() -> new RuntimeException("Account not found"));
 
-        user.setAccountActive(active);
-        user.setUpdatedAt(LocalDateTime.now());
+        Map<String, String> oldValues = Map.of("accountActive", String.valueOf(account.getAccountActive()));
 
-        AccountEntity saved = accountRepository.save(user);
+        account.setAccountActive(active);
+        accountRepository.save(account);
 
-        // Manually map Entity → DTO
-        return new AccountDto(
-                saved.getId(),
-                saved.getAccountName(),
-                saved.getImageBase64(),
-                saved.isAccountActive()
-        );
+        AccountHistoryEntity history = AccountHistoryEntity.builder()
+                .accountId(account.getId())
+                .accountName(account.getAccountName())
+                .accountActive(account.getAccountActive())
+                .changedBy(userId)
+                .changedByName(userName)
+                .changeAt(Instant.now())
+                .changeType(AccountHistoryEntity.ChangeType.UPDATED)
+                .oldValues(oldValues)
+                .build();
+
+        accountHistoryRepository.save(history);
+
+        return new AccountDto(account); // or map fields manually
     }
+
+
+
+
 
     @Override
     @Transactional
@@ -102,7 +212,7 @@ public class AccountServiceImpl implements AccountService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
         account.setImageBase64(base64Image);
-        account.setUpdatedAt(LocalDateTime.now());
+        account.setUpdatedAt(Instant.now());
         accountRepository.save(account);
     }
 
