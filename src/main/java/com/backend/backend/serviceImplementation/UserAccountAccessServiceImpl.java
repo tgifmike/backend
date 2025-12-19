@@ -21,9 +21,11 @@ public class UserAccountAccessServiceImpl implements UserAccountAccessService {
     }
 
     @Override
-    public List<UserAccountAccessEntity> getAccountsForUser(UserEntity user) {
-        return userAccountAccessRepository.findByUser(user);
+    public List<AccountEntity> getAccountsForUser(UserEntity user) {
+        // Use a custom query in the repository to fetch only active accounts
+        return userAccountAccessRepository.findActiveAccountsByUserId(user.getId());
     }
+
 
     @Override
     public List<UserAccountAccessEntity> getUsersForAccount(AccountEntity account) {
