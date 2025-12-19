@@ -1,6 +1,7 @@
 package com.backend.backend.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -15,6 +16,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -47,9 +49,9 @@ public class AccountEntity {
     @Column(updatable = false)
     private Instant createdAt;
   
-    @OneToMany(mappedBy = "account")
-    @JsonManagedReference("acc")
-    private List<LocationEntity> locations;
+//    @OneToMany(mappedBy = "account")
+//    @JsonManagedReference("acc")
+//    private List<LocationEntity> locations;
 
     @LastModifiedDate
     private Instant updatedAt;
