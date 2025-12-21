@@ -5,273 +5,358 @@ import com.backend.backend.dto.LineCheckSettingsDto;
 import com.backend.backend.dto.LocationDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.LocationEntity;
+import com.backend.backend.entity.LocationHistoryEntity;
+import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.AccountRepository;
+import com.backend.backend.repositories.LocationHistoryRepository;
 import com.backend.backend.repositories.LocationRepository;
 import com.backend.backend.service.GeocodingService;
 import com.backend.backend.service.LocationService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.time.DayOfWeek;
-import java.time.LocalDateTime;
+import java.time.Instant;
 import java.util.*;
+import java.util.function.Consumer;
+import java.util.stream.Collectors;
 
 @Service
 public class LocationServiceImpl implements LocationService {
 
     private final LocationRepository locationRepository;
-    private final AccountRepository accountRepository;
     private final GeocodingService geocodingService;
+    private final AccountRepository accountRepository;
+    private final LocationHistoryRepository locationHistoryRepository;
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
-
-    public LocationServiceImpl(LocationRepository locationRepository, AccountRepository accountRepository, GeocodingService geocodingService){
+    public LocationServiceImpl(LocationRepository locationRepository,
+                               GeocodingService geocodingService,
+                               AccountRepository accountRepository,
+                               LocationHistoryRepository locationHistoryRepository) {
         this.locationRepository = locationRepository;
-        this.accountRepository = accountRepository;
         this.geocodingService = geocodingService;
-
+        this.accountRepository = accountRepository;
+        this.locationHistoryRepository = locationHistoryRepository;
     }
 
+    // ---------------- CREATE ----------------
     @Override
     @Transactional
-    public LocationEntity createLocation(UUID accountId, LocationDto locationDto) {
+    public LocationEntity createLocation(UUID accountId, LocationDto locationDto, UserEntity user) {
+        String normalizedName = locationDto.getLocationName().trim();
 
-        if (locationRepository.existsByLocationNameAndAccountId(locationDto.getLocationName(), accountId)) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists in this account");
+        // Log input
+        System.out.println("[CREATE LOCATION] accountId=" + accountId + ", name=" + normalizedName);
+
+        // Check for duplicates
+        boolean exists = locationRepository.existsActiveByLocationNameIgnoreCaseAndAccountId(normalizedName, accountId);
+        System.out.println("[CREATE LOCATION] Duplicate exists? " + exists);
+
+        if (exists) {
+            System.out.println("[CREATE LOCATION] Conflict! Location already exists");
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Location name already exists in this account");
         }
 
-        // fetch account
         AccountEntity account = accountRepository.findById(accountId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
 
-        // attach fields from DTO
         LocationEntity location = new LocationEntity();
         location.setAccount(account);
-        location.setLocationName(locationDto.getLocationName());
+        location.setLocationName(normalizedName);
         location.setLocationStreet(locationDto.getLocationStreet());
         location.setLocationTown(locationDto.getLocationTown());
         location.setLocationState(locationDto.getLocationState());
         location.setLocationZipCode(locationDto.getLocationZipCode());
         location.setLocationTimeZone(locationDto.getLocationTimeZone());
+        location.setCreatedBy(user != null ? user.getId() : null);
+        location.setUpdatedBy(user != null ? user.getId() : null);
 
-
-        // Save first (so we have an ID for geocoding updates)
         LocationEntity saved = locationRepository.saveAndFlush(location);
 
-        // Run geocoding
+        System.out.println("[CREATE LOCATION] Saved locationId=" + saved.getId());
+
+        saveLocationHistory(saved, null, extractLocationFields(saved), "CREATED", user);
         updateGeocodeForLocation(accountId, saved.getId());
 
-        return locationRepository.findById(saved.getId()).orElse(saved);
+        return saved;
     }
 
 
-    @Transactional
-    @Override
-    public LocationEntity updateLocation(UUID id, LocationEntity location) {
-        LocationEntity existing = locationRepository.findById(id)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found"));
 
-        if (!existing.getLocationName().equals(location.getLocationName())
-                && locationRepository.existsByLocationNameAndAccountId(location.getLocationName(), existing.getAccount().getId())) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, "Location name already exists in this account");
+
+    // ---------------- UPDATE ----------------
+    @Override
+    @Transactional
+    public LocationEntity updateLocation(UUID id, LocationEntity incoming, UserEntity user) {
+        LocationEntity existing = getLocationById(id);
+
+        String newName = incoming.getLocationName().trim();
+        if (!existing.getLocationName().equalsIgnoreCase(newName)
+                && locationRepository.existsByLocationNameIgnoreCaseAndAccount_Id(newName, existing.getAccount().getId())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Location name already exists in this account");
         }
 
-        existing.setLocationName(location.getLocationName());
-        existing.setLocationStreet(location.getLocationStreet());
-        existing.setLocationTown(location.getLocationTown());
-        existing.setLocationState(location.getLocationState());
-        existing.setLocationZipCode(location.getLocationZipCode());
-        existing.setLocationTimeZone(location.getLocationTimeZone());
-        existing.setLocationLongitude(location.getLocationLongitude());
-        existing.setLocationLatitude(location.getLocationLatitude());
-        existing.setGeocodedFromZipFallback(location.getGeocodedFromZipFallback());
+        Map<String, String> oldValues = extractLocationFields(existing);
 
-        // Save first
-        locationRepository.saveAndFlush(existing);
+        existing.setLocationName(newName);
+        existing.setLocationStreet(incoming.getLocationStreet());
+        existing.setLocationTown(incoming.getLocationTown());
+        existing.setLocationState(incoming.getLocationState());
+        existing.setLocationZipCode(incoming.getLocationZipCode());
+        existing.setLocationTimeZone(incoming.getLocationTimeZone());
+        existing.setLocationLatitude(incoming.getLocationLatitude());
+        existing.setLocationLongitude(incoming.getLocationLongitude());
+        existing.setGeocodedFromZipFallback(incoming.getGeocodedFromZipFallback());
+        existing.setUpdatedBy(user != null ? user.getId() : null);
+        existing.setUpdatedAt(Instant.now());
 
-        // ✅ Trigger geocoding after save
+        LocationEntity saved = locationRepository.saveAndFlush(existing);
+
+        saveLocationHistory(saved, oldValues, extractLocationFields(saved), "UPDATED", user);
+
         updateGeocodeForLocation(existing.getAccount().getId(), existing.getId());
 
-        return existing;
+        return saved;
     }
 
-
-
-
-
-
+    // ---------------- PARTIAL UPDATE ----------------
     @Override
-    public void deleteLocation(UUID id){
-        if(!locationRepository.existsById(id)){
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found");
+    @Transactional
+    public LocationEntity partialUpdate(UUID id, Map<String, Object> updates, UserEntity user) {
+        // Fetch existing location
+        LocationEntity existing = getLocationById(id);
+
+        // Track changes for history
+        Map<String, Object> oldVals = new HashMap<>();
+        Map<String, Object> newVals = new HashMap<>();
+
+        // Iterate through updates and apply changes safely
+        updates.forEach((key, value) -> {
+            switch (key) {
+                case "locationName" -> updateIfChanged(
+                        existing.getLocationName(),
+                        value != null ? value.toString().trim() : null,
+                        existing::setLocationName,
+                        key, oldVals, newVals
+                );
+                case "locationStreet" -> updateIfChanged(
+                        existing.getLocationStreet(),
+                        value != null ? value.toString() : null,
+                        existing::setLocationStreet,
+                        key, oldVals, newVals
+                );
+                case "locationTown" -> updateIfChanged(
+                        existing.getLocationTown(),
+                        value != null ? value.toString() : null,
+                        existing::setLocationTown,
+                        key, oldVals, newVals
+                );
+                case "locationState" -> updateIfChanged(
+                        existing.getLocationState(),
+                        value != null ? value.toString() : null,
+                        existing::setLocationState,
+                        key, oldVals, newVals
+                );
+                case "locationZipCode" -> updateIfChanged(
+                        existing.getLocationZipCode(),
+                        value != null ? value.toString() : null,
+                        existing::setLocationZipCode,
+                        key, oldVals, newVals
+                );
+                case "locationTimeZone" -> updateIfChanged(
+                        existing.getLocationTimeZone(),
+                        value != null ? value.toString() : null,
+                        existing::setLocationTimeZone,
+                        key, oldVals, newVals
+                );
+                case "locationActive" -> updateIfChanged(
+                        existing.getLocationActive(),
+                        value != null ? (Boolean) value : null,
+                        existing::setLocationActive,
+                        key, oldVals, newVals
+                );
+                case "lineCheckDailyGoal" -> updateIfChanged(
+                        existing.getLineCheckDailyGoal(),
+                        value != null ? ((Number) value).intValue() : null,
+                        existing::setLineCheckDailyGoal,
+                        key, oldVals, newVals
+                );
+                case "locationLatitude" -> updateIfChanged(
+                        existing.getLocationLatitude(),
+                        value != null ? ((Number) value).doubleValue() : null,
+                        existing::setLocationLatitude,
+                        key, oldVals, newVals
+                );
+                case "locationLongitude" -> updateIfChanged(
+                        existing.getLocationLongitude(),
+                        value != null ? ((Number) value).doubleValue() : null,
+                        existing::setLocationLongitude,
+                        key, oldVals, newVals
+                );
+                case "geocodedFromZipFallback" -> updateIfChanged(
+                        existing.getGeocodedFromZipFallback(),
+                        value != null ? (Boolean) value : null,
+                        existing::setGeocodedFromZipFallback,
+                        key, oldVals, newVals
+                );
+            }
+        });
+
+        // Update timestamps and user
+        existing.setUpdatedBy(user != null ? user.getId() : null);
+        existing.setUpdatedAt(Instant.now());
+
+        // Save changes
+        LocationEntity saved = locationRepository.save(existing);
+
+        // Save history only if there were actual changes
+        if (!oldVals.isEmpty()) {
+            saveLocationHistory(
+                    saved,
+                    convertMapToString(oldVals),
+                    convertMapToString(newVals),
+                    "UPDATED",
+                    user
+            );
         }
-        locationRepository.deleteById(id);
+
+        return saved;
     }
 
+    // Generic helper method for updating if changed
+    private <T> void updateIfChanged(T oldValue, T newValue, Consumer<T> setter,
+                                     String key, Map<String, Object> oldVals, Map<String, Object> newVals) {
+        if (!Objects.equals(oldValue, newValue)) {
+            oldVals.put(key, oldValue);
+            newVals.put(key, newValue);
+            setter.accept(newValue);
+        }
+    }
+
+    // Convert Map<String, Object> -> Map<String, String> safely
+    private Map<String, String> convertMapToString(Map<String, Object> map) {
+        if (map == null) return Map.of();
+        return map.entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        e -> e.getValue() != null ? e.getValue().toString() : null
+                ));
+    }
+
+
+    // ---------------- DELETE ----------------
     @Override
-    public LocationEntity getLocationById(UUID id){
+    @Transactional
+    public void deleteLocation(UUID id, UserEntity user) {
+        LocationEntity location = getLocationById(id);
+        Map<String, String> oldVals = extractLocationFields(location);
+
+        // Soft delete
+        location.setDeletedAt(Instant.now());
+        location.setDeletedBy(user.getId());
+        locationRepository.save(location);  // Persist changes
+
+        // Save history after marking deleted
+        saveLocationHistory(location, oldVals, null, "DELETED", user);
+    }
+
+
+    // ---------------- TOGGLE ACTIVE ----------------
+    @Override
+    @Transactional
+    public LocationDto toggleActive(UUID id, boolean active, UserEntity user) {
+        LocationEntity location = getLocationById(id);
+
+        Map<String, String> oldVals = Map.of("locationActive", String.valueOf(location.getLocationActive()));
+        location.setLocationActive(active);
+        location.setUpdatedBy(user != null ? user.getId() : null);
+        location.setUpdatedAt(Instant.now());
+
+        LocationEntity saved = locationRepository.save(location);
+        saveLocationHistory(saved, oldVals, Map.of("locationActive", String.valueOf(active)), "UPDATED", user);
+
+        return LocationDto.fromEntity(saved);
+    }
+
+    // ---------------- GETTERS ----------------
+    @Override
+    public LocationEntity getLocationById(UUID id) {
         return locationRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found"));
     }
 
     @Override
-    public LocationEntity getLocationByName(String locationName){
+    public LocationEntity getLocationByName(String locationName) {
         return locationRepository.findByLocationName(locationName)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Locaiton not found"));
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Location not found"));
     }
 
     @Override
     public List<LocationEntity> getLocationByAccount(UUID accountId) {
-        List<LocationEntity> locations = locationRepository.findByAccountId(accountId);
-        if (locations.isEmpty()) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No locations found for this account");
-        }
+        List<LocationEntity> locations = locationRepository.findByAccount_Id(accountId);
+        if (locations.isEmpty()) throw new ResponseStatusException(HttpStatus.NOT_FOUND, "No locations found");
         return locations;
     }
 
     @Override
     public List<LocationEntity> getAllLocations() {
-        return  locationRepository.findAll();
+        return locationRepository.findAll();
     }
 
-    @Override
-    @Transactional
-    public LocationDto toggleActive(UUID id, boolean active) {
-        LocationEntity location = locationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Location not found: " + id));
-
-        location.setLocationActive(active);
-        location.setUpdatedAt(LocalDateTime.now());
-
-        LocationEntity saved = locationRepository.save(location);
-
-        // Use the standardized converter
-        return LocationDto.fromEntity(saved);
-    }
-
-    @Override
-    public LocationEntity partialUpdate(UUID id, Map<String, Object> updates) {
-        LocationEntity existing = locationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Location not found"));
-
-        if (updates.containsKey("locationName") && updates.get("locationName") != null) existing.setLocationName((String) updates.get("locationName"));
-        if (updates.containsKey("locationStreet") && updates.get("locationStreet") != null) existing.setLocationStreet((String) updates.get("locationStreet"));
-        if (updates.containsKey("locationTown") && updates.get("locationTown") != null) existing.setLocationTown((String) updates.get("locationTown"));
-        if (updates.containsKey("locationState") && updates.get("locationState") != null) existing.setLocationState((String) updates.get("locationState"));
-        if (updates.containsKey("locationZipCode") && updates.get("locationZipCode") != null) existing.setLocationZipCode((String) updates.get("locationZipCode"));
-        if (updates.containsKey("locationTimeZone") && updates.get("locationTimeZone") != null) existing.setLocationTimeZone((String) updates.get("locationTimeZone"));
-        if (updates.containsKey("locationLatitude") && updates.get("locationLatitude") != null) existing.setLocationLatitude((double) updates.get("locationLatitude"));
-        if (updates.containsKey("locationLongitude") && updates.get("locationLongitude") != null) existing.setLocationLongitude((double) updates.get("locationLongitude"));
-        if (updates.containsKey("GeocodedFromZipFallback") && updates.get("GeocodedFromZipFallback") != null) existing.setGeocodedFromZipFallback((boolean) updates.get("GeocodedFromZipFallback"));
-
-
-        return locationRepository.save(existing);
-    }
-
+    // ---------------- GEOCODING ----------------
     @Override
     public void updateGeocodeForLocation(UUID accountId, UUID locationId) {
-        LocationEntity location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new EntityNotFoundException("Location not found with id: " + locationId));
-
+        LocationEntity location = getLocationById(locationId);
         if (!location.getAccount().getId().equals(accountId)) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Location does not belong to the given account");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Location does not belong to account");
         }
 
         String fullAddress = buildFullAddress(location);
-        System.out.println("➡️ Full address: " + fullAddress);
-        System.out.println("➡️ Geocoding query: " + fullAddress);
-
-        Optional<GeocodingService.GeocodeResult> geoResult =
-                geocodingService.getLatLongFromAddressWithFallback(fullAddress, location.getLocationZipCode());
-
-        if (geoResult.isPresent()) {
-            GeocodingService.GeocodeResult result = geoResult.get();
-            location.setLocationLatitude(result.latitude());
-            location.setLocationLongitude(result.longitude());
-            location.setGeocodedFromZipFallback(result.fromZipFallback());
-            locationRepository.save(location);
-            System.out.println("✅ Geocode: " + result.latitude() + ", " + result.longitude() + " (fallback=" + result.fromZipFallback() + ")");
-        } else {
-            System.out.println("⚠️ No geocode result for: " + fullAddress);
-        }
-    }
-    private String buildFullAddress(LocationEntity location) {
-        String street = Optional.ofNullable(location.getLocationStreet()).orElse("").trim();
-        String town = Optional.ofNullable(location.getLocationTown()).orElse("").trim();
-        String state = Optional.ofNullable(location.getLocationState()).orElse("").trim();
-        String zip = Optional.ofNullable(location.getLocationZipCode()).orElse("").trim();
-
-        // Prefer full street address if available
-        if (!street.isEmpty()) {
-            return String.join(", ", street, town, state, zip, "USA").replaceAll(", ,", ",").replaceAll(", $", "");
-        }
-
-        // Otherwise try town+state
-        if (!town.isEmpty() && !state.isEmpty()) {
-            return String.join(", ", town, state, "USA");
-        }
-
-        // Fallback to ZIP
-        if (!zip.isEmpty()) {
-            return zip + ", USA";
-        }
-
-        // As last resort, country only
-        return "USA";
-    }
-
-
-    @Override
-    public void backfillLatLonForAllLocations() {
-        List<LocationEntity> locations = locationRepository.findAll();
-
-        for (LocationEntity location : locations) {
-            if (location.getLocationLatitude() == null && location.getLocationZipCode() != null) {
-                String fullAddress = buildFullAddress(location);
-                Optional<GeocodingService.GeocodeResult> geoResult =
-                        geocodingService.getLatLongFromAddressWithFallback(fullAddress, location.getLocationZipCode());
-
-                geoResult.ifPresent(result -> {
+        geocodingService.getLatLongFromAddressWithFallback(fullAddress, location.getLocationZipCode())
+                .ifPresent(result -> {
                     location.setLocationLatitude(result.latitude());
                     location.setLocationLongitude(result.longitude());
                     location.setGeocodedFromZipFallback(result.fromZipFallback());
                     locationRepository.save(location);
                 });
+    }
+
+    @Override
+    public void backfillLatLonForAllLocations() {
+        for (LocationEntity location : locationRepository.findAll()) {
+            if (location.getLocationLatitude() == null && location.getLocationZipCode() != null) {
+                String fullAddress = buildFullAddress(location);
+                geocodingService.getLatLongFromAddressWithFallback(fullAddress, location.getLocationZipCode())
+                        .ifPresent(result -> {
+                            location.setLocationLatitude(result.latitude());
+                            location.setLocationLongitude(result.longitude());
+                            location.setGeocodedFromZipFallback(result.fromZipFallback());
+                            locationRepository.save(location);
+                        });
             }
         }
     }
 
+    // ---------------- LINE CHECK SETTINGS ----------------
     @Override
     public LineCheckSettingsDto getLineCheckSettings(UUID locationId) {
-        LocationEntity location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new RuntimeException("Location not found"));
-
+        LocationEntity location = getLocationById(locationId);
         LineCheckSettingsDto dto = new LineCheckSettingsDto();
-
-        // Default to MONDAY if null
-        StartOfWeek startOfWeek = location.getStartOfWeek() != null
-                ? location.getStartOfWeek()
-                : StartOfWeek.MONDAY;
-        dto.setDayOfWeek(startOfWeek.name());
-
-        // Default to 1 if null
-        int dailyGoal = location.getLineCheckDailyGoal() != null
-                ? location.getLineCheckDailyGoal()
-                : 1;
-        dto.setDailyGoal(dailyGoal);
-
+        dto.setDayOfWeek(location.getStartOfWeek() != null ? location.getStartOfWeek().name() : StartOfWeek.MONDAY.name());
+        dto.setDailyGoal(location.getLineCheckDailyGoal() != null ? location.getLineCheckDailyGoal() : 1);
         return dto;
     }
 
-
     @Override
-    public LineCheckSettingsDto updateLineCheckSettings(UUID locationId, LineCheckSettingsDto dto) {
-        LocationEntity location = locationRepository.findById(locationId)
-                .orElseThrow(() -> new RuntimeException("Location not found"));
+    public LineCheckSettingsDto updateLineCheckSettings(UUID locationId, LineCheckSettingsDto dto, UserEntity user) {
+        LocationEntity location = getLocationById(locationId);
 
-        // Update startOfWeek if provided, otherwise keep current or default to MONDAY
         if (dto.getDayOfWeek() != null && !dto.getDayOfWeek().isBlank()) {
             try {
                 location.setStartOfWeek(StartOfWeek.valueOf(dto.getDayOfWeek().toUpperCase()));
@@ -282,7 +367,6 @@ public class LocationServiceImpl implements LocationService {
             location.setStartOfWeek(StartOfWeek.MONDAY);
         }
 
-        // Update dailyGoal if provided, otherwise keep current or default to 1
         if (dto.getDailyGoal() > 0) {
             location.setLineCheckDailyGoal(dto.getDailyGoal());
         } else if (location.getLineCheckDailyGoal() == null) {
@@ -290,12 +374,58 @@ public class LocationServiceImpl implements LocationService {
         }
 
         locationRepository.save(location);
-
-        // Return the DTO with the resolved values (so frontend sees defaults)
-        LineCheckSettingsDto resultDto = new LineCheckSettingsDto();
-        resultDto.setDayOfWeek(location.getStartOfWeek().name());
-        resultDto.setDailyGoal(location.getLineCheckDailyGoal());
-        return resultDto;
+        return getLineCheckSettings(locationId);
     }
 
+    // ---------------- HELPER METHODS ----------------
+    private String buildFullAddress(LocationEntity location) {
+        String street = Optional.ofNullable(location.getLocationStreet()).orElse("").trim();
+        String town = Optional.ofNullable(location.getLocationTown()).orElse("").trim();
+        String state = Optional.ofNullable(location.getLocationState()).orElse("").trim();
+        String zip = Optional.ofNullable(location.getLocationZipCode()).orElse("").trim();
+
+        if (!street.isEmpty()) return String.join(", ", street, town, state, zip, "USA").replaceAll(", ,", ",").replaceAll(", $", "");
+        else if (!town.isEmpty() && !state.isEmpty()) return String.join(", ", town, state, "USA");
+        else if (!zip.isEmpty()) return zip + ", USA";
+        return "USA";
+    }
+
+    private void saveLocationHistory(LocationEntity location,
+                                     Map<String, String> oldValues,
+                                     Map<String, String> newValues,
+                                     String changeType,
+                                     UserEntity user) {
+        try {
+            LocationHistoryEntity history = LocationHistoryEntity.builder()
+                    .location(location)
+                    .locationName(location.getLocationName())
+                    .changeType(changeType)
+                    .changeAt(Instant.now())
+                    .changedBy(user != null ? user.getId() : null)
+                    .changedByName(user != null ? user.getUserName() : null)
+                    .oldValues(oldValues != null ? objectMapper.writeValueAsString(oldValues) : "{}")
+                    .newValues(newValues != null ? objectMapper.writeValueAsString(newValues) : "{}")
+                    .build();
+
+            locationHistoryRepository.save(history);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to save location history", e);
+        }
+    }
+
+    private Map<String, String> extractLocationFields(LocationEntity loc) {
+        return Map.of(
+                "locationName", loc.getLocationName(),
+                "locationStreet", Optional.ofNullable(loc.getLocationStreet()).orElse(""),
+                "locationTown", Optional.ofNullable(loc.getLocationTown()).orElse(""),
+                "locationState", Optional.ofNullable(loc.getLocationState()).orElse(""),
+                "locationZipCode", Optional.ofNullable(loc.getLocationZipCode()).orElse(""),
+                "locationTimeZone", Optional.ofNullable(loc.getLocationTimeZone()).orElse(""),
+                "locationLatitude", loc.getLocationLatitude() != null ? loc.getLocationLatitude().toString() : "",
+                "locationLongitude", loc.getLocationLongitude() != null ? loc.getLocationLongitude().toString() : "",
+                "locationActive", String.valueOf(loc.getLocationActive()),
+                "lineCheckDailyGoal", loc.getLineCheckDailyGoal() != null ? loc.getLineCheckDailyGoal().toString() : "1"
+        );
+    }
 }
+

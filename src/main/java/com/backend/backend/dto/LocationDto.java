@@ -48,7 +48,7 @@ public class LocationDto {
                         loc.getGeocodedFromZipFallback() != null ? loc.getGeocodedFromZipFallback() : false
                 )
 
-                .locationActive(loc.isLocationActive())
+                .locationActive(loc.getLocationActive())
                 .accountId(loc.getAccount() != null ? loc.getAccount().getId() : null)
                 .build();
     }
