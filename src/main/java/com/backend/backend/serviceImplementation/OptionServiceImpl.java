@@ -1,12 +1,13 @@
 package com.backend.backend.serviceImplementation;
 
+
+import com.backend.backend.enums.HistoryType;
 import com.backend.backend.service.OptionService;
 import com.backend.backend.enums.OptionType;
 import com.backend.backend.dto.OptionCreateDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.OptionEntity;
 import com.backend.backend.entity.OptionHistoryEntity;
-import com.backend.backend.entity.OptionHistoryEntity.ChangeType;
 import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.repositories.OptionRepository;
 import com.backend.backend.repositories.OptionHistoryRepository;
@@ -36,7 +37,7 @@ public class OptionServiceImpl implements OptionService {
     private void recordHistory(
             OptionEntity option,
             UUID changedBy,
-            ChangeType changeType,
+            HistoryType changeType,
             Map<String, Object> oldValues
     ) {
         String changedByName = getUserNameById(changedBy);
@@ -50,7 +51,7 @@ public class OptionServiceImpl implements OptionService {
                 .sortOrder(option.getSortOrder())
                 .changeType(changeType)
                 .changedBy(changedBy)
-                .changedByName(changedByName)  // ✅ actual name
+                .changedByName(changedByName)
                 .changeAt(Instant.now())
                 .oldValues(oldValues != null
                         ? oldValues.entrySet().stream()
@@ -102,7 +103,7 @@ public class OptionServiceImpl implements OptionService {
         OptionEntity saved = optionRepository.save(option);
 
         // Record history
-        recordHistory(saved, userId, ChangeType.CREATED, null);
+        recordHistory(saved, userId, HistoryType.CREATED, null);
 
         return saved;
     }
@@ -134,7 +135,7 @@ public class OptionServiceImpl implements OptionService {
         OptionEntity saved = optionRepository.save(existing);
 
         if (!oldValues.isEmpty()) {
-            recordHistory(saved, userId, ChangeType.UPDATED, oldValues);
+            recordHistory(saved, userId, HistoryType.UPDATED, oldValues);
         }
 
         return saved;
@@ -159,13 +160,14 @@ public class OptionServiceImpl implements OptionService {
 
         optionRepository.saveAndFlush(option);
 
-        recordHistory(option, deletedByUser, ChangeType.DELETED, oldValues);
+        recordHistory(option, deletedByUser, HistoryType.DELETED, oldValues);
     }
 
     // ------------------- REORDER -------------------
     @Override
     @Transactional
     public void reorderOptions(UUID accountId, OptionType optionType, List<UUID> orderedIds, UUID userId) {
+
         List<OptionEntity> options = optionType != null
                 ? optionRepository.findByAccountIdAndOptionTypeOrderBySortOrderAsc(accountId, optionType)
                 : optionRepository.findByAccountIdOrderBySortOrderAsc(accountId);
@@ -185,7 +187,7 @@ public class OptionServiceImpl implements OptionService {
                 opt.setUpdatedAt(Instant.now());
 
                 if (!oldValues.isEmpty()) {
-                    recordHistory(opt, userId, ChangeType.UPDATED, oldValues);
+                    recordHistory(opt, userId, HistoryType.UPDATED, oldValues);
                 }
             }
         }
@@ -211,7 +213,7 @@ public class OptionServiceImpl implements OptionService {
 
         OptionEntity saved = optionRepository.save(option);
 
-        recordHistory(saved, userId, ChangeType.UPDATED, oldValues);
+        recordHistory(saved, userId, HistoryType.UPDATED, oldValues);
 
         return saved;
     }

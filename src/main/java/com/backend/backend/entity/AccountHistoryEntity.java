@@ -1,5 +1,7 @@
 package com.backend.backend.entity;
 
+
+import com.backend.backend.enums.HistoryType;
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -37,7 +39,7 @@ public class AccountHistoryEntity {
     private String changedByName;
 
     @Enumerated(EnumType.STRING)
-    private ChangeType changeType;
+    private HistoryType changeType;
 
     @ElementCollection
     @CollectionTable(
@@ -48,10 +50,6 @@ public class AccountHistoryEntity {
     @Column(name = "old_value")
     private Map<String, String> oldValues = new HashMap<>();
 
-    public enum ChangeType {
-        CREATED,
-        UPDATED,
-        DELETED
-    }
+
 }
 

@@ -1,12 +1,18 @@
 package com.backend.backend.entity;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
+import org.hibernate.annotations.SQLDelete;
+import org.hibernate.annotations.Where;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -16,12 +22,17 @@ import java.util.UUID;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
+@Builder
 @Entity
 @Table(name= "stations")
+@EntityListeners(AuditingEntityListener.class)
+@SQLDelete(sql = "UPDATE stations SET deleted_at = CURRENT_TIMESTAMP, deleted_by = ? WHERE id = ?")
+@Where(clause = "deleted_at IS NULL")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class StationEntity {
 
         @Id
-        @GeneratedValue(generator = "UUID")
+        @GeneratedValue
         @Column(name = "id", updatable = false, nullable = false)
         private UUID id;
 
@@ -35,6 +46,8 @@ public class StationEntity {
         @JoinColumn(name = "location_id")
         private LocationEntity location;
 
+        // ---------- RELATIONSHIP ----------
+
         //need to add when i add items
         @OneToMany(mappedBy = "station", cascade = CascadeType.ALL, orphanRemoval = true)
         @JsonManagedReference("station-items")
@@ -46,23 +59,28 @@ public class StationEntity {
 
 
 
+// ---------- AUDITING ----------
 
+        @CreatedDate
+        @Column(updatable = false)
+        private Instant createdAt;
 
-        @Column(name = "created_at", updatable = false)
-        private LocalDateTime createdAt;
+        @LastModifiedDate
+        private Instant updatedAt;
 
-        @Column(name = "updated_at")
-        private LocalDateTime updatedAt;
+        @CreatedBy
+        @Column(updatable = false)
+        private UUID createdBy;
 
-        @PrePersist
-        protected void onCreate() {
-            createdAt = LocalDateTime.now();
-            updatedAt = LocalDateTime.now();
-        }
+        @LastModifiedBy
+        private UUID updatedBy;
 
-        @PreUpdate
-        protected void onUpdate() {
-            updatedAt = LocalDateTime.now();
-        }
+        // ---------- SOFT DELETE ----------
 
+        @Column
+        private Instant deletedAt;
+
+        @Column
+        private UUID deletedBy;
 }
+
