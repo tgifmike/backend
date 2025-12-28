@@ -1,6 +1,7 @@
 package com.backend.backend.entity;
 
 
+import com.backend.backend.enums.HistoryType;
 import com.backend.backend.enums.OptionType;
 import jakarta.persistence.*;
 import lombok.*;
@@ -43,10 +44,10 @@ public class OptionHistoryEntity {
     private UUID changedBy;
 
     @Column(nullable = false)
-    private String changedByName; // store the user name at the time of change
+    private String changedByName; // store the username at the time of change
 
     @Enumerated(EnumType.STRING)
-    private ChangeType changeType;
+    private HistoryType changeType;
 
 
     // 📝 Store old values
@@ -59,9 +60,4 @@ public class OptionHistoryEntity {
     @Column(name = "old_value")
     private Map<String, String> oldValues = new HashMap<>();
 
-    public enum ChangeType {
-        CREATED,
-        UPDATED,
-        DELETED
-    }
 }

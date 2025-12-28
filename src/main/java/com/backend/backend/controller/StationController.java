@@ -1,113 +1,131 @@
 package com.backend.backend.controller;
 
+import com.backend.backend.config.UserContext;
 import com.backend.backend.dto.StationDto;
 import com.backend.backend.entity.StationEntity;
-import com.backend.backend.repositories.StationRepository;
+import com.backend.backend.entity.StationHistoryEntity;
+import com.backend.backend.repositories.StationHistoryRepository;
 import com.backend.backend.service.StationService;
-import org.springframework.http.HttpStatus;
+import com.backend.backend.service.UserService;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
 
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
-import java.util.function.Function;
-import java.util.stream.Collectors;
-
 
 @RestController
 @RequestMapping("/stations")
+@RequiredArgsConstructor
 public class StationController {
+
     private final StationService stationService;
-    private final StationRepository stationRepository;
+    private final UserService userService;
+    private final StationHistoryRepository stationHistoryRepository;
 
-    public StationController(StationService stationService, StationRepository stationRepository) {
-        this.stationService = stationService;
-        this.stationRepository = stationRepository;
+
+
+    // ---------------- READ ----------------
+
+//    @GetMapping
+//    public ResponseEntity<List<StationEntity>> getAllStations() {
+//        return ResponseEntity.ok(stationService.getAllStations());
+//    }
+
+    @GetMapping("/by-location/{locationId}")
+    public ResponseEntity<List<StationDto>> getStationsByLocation(
+            @PathVariable UUID locationId
+    ) {
+        return ResponseEntity.ok(stationService.getStationsByLocation(locationId));
     }
 
-    @GetMapping("/getAll")
-    public ResponseEntity<List<StationEntity>> getAllStations(){
-        return ResponseEntity.ok(stationService.getAllStations());
-    }
-
-    @GetMapping("/{locationId}/getStationByLocation")
-    public ResponseEntity<List<StationDto>> getStationsByLocation(@PathVariable UUID locationId) {
-        List<StationDto> stations = stationService.getStationsByLocation(locationId);
-        return ResponseEntity.ok(stations);
-    }
-
-
-
-    @GetMapping("/{stationName}")
-        public ResponseEntity<StationEntity> getStationByName(@PathVariable String stationName){
+    @GetMapping("/by-name/{stationName}")
+    public ResponseEntity<StationEntity> getStationByName(
+            @PathVariable String stationName
+    ) {
         return ResponseEntity.ok(stationService.getStationByName(stationName));
-        }
+    }
 
-    @PostMapping("/{locationId}/createStation")
+    @GetMapping("/{id}")
+    public ResponseEntity<StationEntity> getStationById(
+            @PathVariable UUID id
+    ) {
+        return ResponseEntity.ok(stationService.getStationById(id));
+    }
+
+    // ---------------- CREATE ----------------
+
+    @PostMapping("/location/{locationId}")
     public ResponseEntity<StationEntity> createStation(
             @PathVariable UUID locationId,
-            @RequestBody StationEntity station
+            @RequestBody @Valid StationEntity station,
+            @RequestHeader("X-User-Id") UUID userId
     ) {
-        StationEntity created = stationService.createStation(locationId, station);
-        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+        return ResponseEntity.ok(
+                stationService.createStation(locationId, station, userId)
+        );
     }
 
 
-    @PatchMapping("/{locationId}/updateStation/{stationId}")
+    // ----------------  UPDATE ----------------
+
+    @PutMapping("/{stationId}")
     public ResponseEntity<StationEntity> updateStation(
-            @PathVariable UUID locationId,
             @PathVariable UUID stationId,
+            @RequestHeader("X-User-Id") UUID userId,
             @RequestBody Map<String, Object> updates
     ) {
-        StationEntity updated = stationService.updateStation(locationId, stationId, updates);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(stationService.updateStation(stationId, updates, userId));
     }
 
+    // ---------------- TOGGLE ACTIVE ----------------
 
-    @DeleteMapping("/{locationId}/deleteStation/{stationId}")
-    public ResponseEntity<Void> deleteStation(
-            @PathVariable UUID locationId,
-            @PathVariable UUID stationId
+    @PatchMapping("/{stationId}/active")
+    public ResponseEntity<StationEntity> toggleActive(
+            @PathVariable UUID stationId,
+            @RequestParam boolean active,
+            @RequestHeader("X-User-Id") UUID userId
     ) {
-        stationService.deleteStation(locationId, stationId);
+       return ResponseEntity.ok(stationService.toggleActive(stationId, active, userId));
+    }
+
+    // ---------------- DELETE (SOFT DELETE) ----------------
+
+    @DeleteMapping("/{stationId}")
+    public ResponseEntity<Void> deleteStation(
+
+            @PathVariable UUID stationId,
+            @RequestHeader("X-User-Id") UUID userId
+    ) {
+
+        UserContext.setCurrentUser(userId);
+
+        stationService.deleteStation(stationId, userId);
         return ResponseEntity.noContent().build();
     }
 
-    @PatchMapping("/{locationId}/stations/{stationId}/active")
-    public ResponseEntity<StationEntity> toggleStationActive(
-            @PathVariable UUID locationId,
-            @PathVariable UUID stationId,
-            @RequestParam boolean active
-    ) {
-        StationEntity updated = stationService.toggleActive(locationId, stationId, active);
-        return ResponseEntity.ok(updated);
-    }
 
-    //reodering
+    ///    reorder
     @PutMapping("/{locationId}/stations/reorder")
-    public ResponseEntity<Void> reorderItems(
+    public ResponseEntity<Void> reorderStations(
             @PathVariable UUID locationId,
-            @RequestBody List<UUID> stationIdsInOrder
+            @RequestBody List<UUID> stationIdsInOrder,
+            @RequestHeader("X-User-Id") UUID userId
     ) {
-        List<StationEntity> stations = stationRepository.findAllById(stationIdsInOrder);
 
-        // Create a lookup map for items by ID
-        Map<UUID, StationEntity> stationMap = stations.stream()
-                .collect(Collectors.toMap(StationEntity::getId, Function.identity()));
+        stationService.reorderStations(locationId, stationIdsInOrder, userId);
 
-        // Assign new order directly
-        for (int i = 0; i < stationIdsInOrder.size(); i++) {
-            UUID stationId = stationIdsInOrder.get(i);
-            StationEntity station = stationMap.get(stationId);
-            if (station != null) {
-                station.setSortOrder(i + 1);
-            }
-        }
-
-        stationRepository.saveAll(stations);
         return ResponseEntity.ok().build();
     }
 
+    @GetMapping("/history")
+    public List<StationHistoryEntity> getStationHistory(@RequestParam UUID locationId) {
+        return stationHistoryRepository.findAllByLocationId(locationId);
+    }
+
+
+
 }
+

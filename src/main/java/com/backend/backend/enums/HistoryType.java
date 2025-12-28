@@ -1,6 +1,6 @@
 package com.backend.backend.enums;
 
-public enum OptionHistoryAction {
+public enum HistoryType {
     CREATED,
     UPDATED,
     DELETED

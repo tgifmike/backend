@@ -4,17 +4,16 @@ import com.backend.backend.dto.AccountDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.AccountHistoryEntity;
 import com.backend.backend.entity.UserEntity;
+import com.backend.backend.enums.HistoryType;
 import com.backend.backend.repositories.AccountHistoryRepository;
 import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.service.AccountService;
 import jakarta.transaction.Transactional;
-import org.springframework.data.crossstore.ChangeSetPersister;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -28,13 +27,6 @@ public class AccountServiceImpl implements AccountService {
         this.accountHistoryRepository = accountHistoryRepository;
     }
 
-//    @Override
-//    public AccountEntity createAccount(AccountEntity account) {
-//        if (accountRepository.existsByAccountName(account.getAccountName())) {
-//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account name already exists");
-//        }
-//        return accountRepository.save(account);
-//    }
 @Transactional
 @Override
 public AccountEntity createAccount(AccountEntity account, UserEntity user) {
@@ -45,7 +37,7 @@ public AccountEntity createAccount(AccountEntity account, UserEntity user) {
                     .accountId(saved.getId())
                     .accountName(saved.getAccountName())
                     .accountActive(saved.getAccountActive())
-                    .changeType(AccountHistoryEntity.ChangeType.CREATED)
+                    .changeType(HistoryType.CREATED)
                     .changeAt(Instant.now())
                     .changedBy(user.getId())
                     .changedByName(user.getUserName())
@@ -55,24 +47,6 @@ public AccountEntity createAccount(AccountEntity account, UserEntity user) {
     return saved;
 }
 
-
-
-//    @Override
-//    public AccountEntity updateAccount(UUID id, AccountEntity account) {
-//        AccountEntity existing = accountRepository.findById(id)
-//                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
-//
-//        if (!existing.getAccountName().equals(account.getAccountName())
-//                && accountRepository.existsByAccountName(account.getAccountName())) {
-//            throw new ResponseStatusException(HttpStatus.CONFLICT, "Account name already exists");
-//        }
-//
-//        existing.setAccountName(account.getAccountName());
-//        existing.setAccountActive(account.isAccountActive());
-//        existing.setImageBase64(account.getImageBase64());
-//
-//        return accountRepository.save(existing);
-//    }
 @Transactional
 @Override
 public AccountEntity updateAccount(UUID id, AccountEntity incoming, UserEntity user) {
@@ -100,7 +74,7 @@ public AccountEntity updateAccount(UUID id, AccountEntity incoming, UserEntity u
                         .accountName(saved.getAccountName())
                         .accountActive(saved.getAccountActive())
                         .oldValues(oldValues)
-                        .changeType(AccountHistoryEntity.ChangeType.UPDATED)
+                        .changeType(HistoryType.UPDATED)
                         .changeAt(Instant.now())
                         .changedBy(user.getId())
                         .changedByName(user.getUserName())
@@ -110,26 +84,6 @@ public AccountEntity updateAccount(UUID id, AccountEntity incoming, UserEntity u
 
     return saved;
 }
-
-
-    //    @Override
-//    public void deleteAccount(UUID id) {
-//        if (!accountRepository.existsById(id)) {
-//            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found");
-//        }
-//        accountRepository.deleteById(id);
-//    }
-//@Transactional
-//@Override
-//public void deleteAccount(UUID id, UUID userId) {
-//    AccountEntity account = accountRepository.findById(id)
-//            .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Account not found"));
-//
-//    account.setDeletedAt(Instant.now());
-//    account.setDeletedBy(userId);
-//
-//    accountRepository.save(account);
-//}
 
     @Override
     @Transactional
@@ -147,7 +101,7 @@ public AccountEntity updateAccount(UUID id, AccountEntity incoming, UserEntity u
                         .accountId(account.getId())
                         .accountName(account.getAccountName())
                         .accountActive(account.getAccountActive())
-                        .changeType(AccountHistoryEntity.ChangeType.DELETED)
+                        .changeType(HistoryType.DELETED)
                         .changeAt(Instant.now())
                         .changedBy(user.getId())
                         .changedByName(user.getUserName())
@@ -192,7 +146,7 @@ public AccountEntity updateAccount(UUID id, AccountEntity incoming, UserEntity u
                 .changedBy(userId)
                 .changedByName(userName)
                 .changeAt(Instant.now())
-                .changeType(AccountHistoryEntity.ChangeType.UPDATED)
+                .changeType(HistoryType.UPDATED)
                 .oldValues(oldValues)
                 .build();
 
