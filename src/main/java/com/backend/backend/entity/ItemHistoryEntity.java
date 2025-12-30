@@ -1,35 +1,36 @@
 package com.backend.backend.entity;
 
+import com.backend.backend.enums.HistoryType;
 import com.backend.backend.enums.ItemTempCategory;
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
-import org.springframework.data.annotation.CreatedBy;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedBy;
-import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
 
+@Entity
+@Table(name = "item_history")
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Entity
-@Table(name= "items")
-public class ItemEntity {
-
+public class ItemHistoryEntity {
     @Id
-    @GeneratedValue(generator = "UUID")
-    @Column(name = "id", updatable = false, nullable = false)
+    @GeneratedValue
     private UUID id;
 
     @Column(nullable = false)
+    private UUID itemId;
+
+    @Column(name = "station_id", insertable = false, updatable = false)
+    private UUID stationId;
+
+
     private String itemName;
     private String shelfLife;
     private String panSize;
@@ -65,7 +66,7 @@ public class ItemEntity {
 
     private Boolean itemActive = true;
 
-    @Column(name = "sort_order", nullable = false)
+    @Column(name = "sort_order")
     private Integer sortOrder;
 
     @ManyToOne(fetch = FetchType.LAZY)
@@ -73,27 +74,26 @@ public class ItemEntity {
     @JsonBackReference("station-items")
     private StationEntity station;
 
-    @CreatedDate
-    @Column(name = "created_at", updatable = false)
-    private Instant createdAt;
+    private Instant changeAt;
 
-    @LastModifiedDate
-    @Column(name = "updated_at")
-    private Instant updatedAt;
+    @Column(nullable = false)
+    private UUID changedBy;
 
-    @CreatedBy
-    @Column(name = "created_by", updatable = false)
-    private UUID createdBy;
+    @Column(nullable = false)
+    private String changedByName; // store the username at the time of change
 
-    @LastModifiedBy
-    @Column(name = "updated_by")
-    private UUID updatedBy;
+    @Enumerated(EnumType.STRING)
+    private HistoryType changeType;
 
-    //@LastModifiedDate
-    @Column(name = "deleted_at")
-    private Instant deletedAt;
 
-    //@LastModifiedBy
-    @Column(name = "deleted_by")
-    private UUID deletedBy;
+    // 📝 Store old values
+    @ElementCollection
+    @CollectionTable(
+            name = "item_history_old_values",
+            joinColumns = @JoinColumn(name = "history_id")
+    )
+
+    @MapKeyColumn(name = "field_name")
+    @Column(name = "old_value")
+    private Map<String, String> oldValues = new HashMap<>();
 }

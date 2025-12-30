@@ -222,19 +222,19 @@ private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
     dto.setItemName(item.getItemName());
     dto.setShelfLife(item.getShelfLife());
     dto.setPanSize(item.getPanSize());
-    dto.setTool(item.isTool());
+    dto.setTool(item.getIsTool());
     dto.setToolName(item.getToolName());
-    dto.setPortioned(item.isPortioned());
+    dto.setPortioned(item.getIsPortioned());
     dto.setPortionSize(item.getPortionSize());
-    dto.setCheckMark(item.isCheckMark());  // ✅ template flag
+    dto.setCheckMark(item.getIsCheckMark());  // ✅ template flag
     dto.setMinTemp(item.getMinTemp());
     dto.setMaxTemp(item.getMaxTemp());
-    dto.setTemplateNotes(item.getItemNotes());
+    dto.setTemplateNotes(item.getTemplateNotes());
     dto.setSortOrder(item.getSortOrder());
 
     // User-entered fields (important!)
     dto.setItemChecked(e.isItemChecked());   // ✅ actual user check
-    dto.setTempTaken(item.isTempTaken());    // ✅ can stay from template
+    dto.setTempTaken(item.getIsTempTaken());    // ✅ can stay from template
     dto.setTemperature(e.getTemperature());  // ✅ user-entered
     dto.setObservations(e.getObservations()); // ✅ user-entered
 
