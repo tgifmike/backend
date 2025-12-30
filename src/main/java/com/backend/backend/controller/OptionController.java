@@ -64,7 +64,7 @@ public class OptionController {
             @RequestHeader("X-User-Id") UUID userId
     ) {
 
-        log.warn("🔥 CONTROLLER deleteOption HIT for id={} user={}", id, userId);
+        //log.warn("🔥 CONTROLLER deleteOption HIT for id={} user={}", id, userId);
 
         UserContext.setCurrentUser(userId);
 

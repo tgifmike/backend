@@ -1,8 +1,18 @@
 package com.backend.backend.controller;
 
+import com.backend.backend.config.UserContext;
+import com.backend.backend.dto.ItemCreateDto;
+import com.backend.backend.dto.ItemUpdateDto;
+import com.backend.backend.dto.OptionCreateDto;
 import com.backend.backend.entity.ItemEntity;
+import com.backend.backend.entity.ItemHistoryEntity;
+import com.backend.backend.entity.OptionEntity;
+import com.backend.backend.entity.OptionHistoryEntity;
+import com.backend.backend.enums.OptionType;
+import com.backend.backend.repositories.ItemHistoryRepository;
 import com.backend.backend.repositories.ItemRepository;
 import com.backend.backend.service.ItemService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,30 +26,25 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/items")
+@RequiredArgsConstructor
 public class ItemController {
 
     private final ItemService itemService;
     private final ItemRepository itemRepository;
+    private final ItemHistoryRepository itemHistoryRepository;
 
-    public ItemController (ItemService itemService, ItemRepository itemRepository){
-        this.itemService = itemService;
-        this.itemRepository = itemRepository;
-    }
 
     /**
      * Create a new item tied to a specific station.
      */
     @PostMapping("{stationId}/createItem")
-    public ResponseEntity<?> createItem(@PathVariable UUID stationId, @RequestBody ItemEntity itemRequest) {
-        try {
-            ItemEntity createdItem = itemService.createItem(stationId, itemRequest);
-            return ResponseEntity.status(HttpStatus.CREATED).body(createdItem);
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(e.getMessage());
-        }
+    public ResponseEntity<ItemEntity> createItem(
+            @RequestBody @Valid ItemCreateDto dto,
+            @RequestHeader("X-User-Id") UUID userId
+            ) {
+        return ResponseEntity.ok(itemService.createItem(dto, userId));
     }
+
 
     /**
      * Get all items for a given station.
@@ -62,60 +67,63 @@ public class ItemController {
     /**
      * Update an item.
      */
-    @PatchMapping("{stationId}/updateItem/{itemId}")
-    public ResponseEntity<?> updateItem(@PathVariable UUID itemId, @RequestBody ItemEntity updatedItem) {
-        try {
-            ItemEntity item = itemService.updateItem(itemId, updatedItem);
-            return ResponseEntity.ok(item);
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.CONFLICT).body(e.getMessage());
-        }
+    @PutMapping("{stationId}/updateItem/{itemId}")
+    public ResponseEntity<ItemEntity> updateItem(
+            @PathVariable UUID stationId,
+            @PathVariable("itemId") UUID itemId,
+            @RequestBody ItemUpdateDto dto,
+            @RequestHeader("X-User-Id") UUID userId
+    ) {
+        return ResponseEntity.ok(itemService.updateItem(stationId, itemId, dto, userId));
     }
+
 
     /**
      * Toggle active/inactive status (soft delete).
      */
     @PatchMapping("{stationId}/{itemId}/active")
     public ResponseEntity<ItemEntity> toggleItemActive(
+            @PathVariable UUID stationId,
             @PathVariable UUID itemId,
-            @RequestParam boolean active
+            @RequestParam boolean active,
+            @RequestHeader("X-User-Id") UUID userId
     ) {
-        ItemEntity updated = itemService.toggleActive(itemId, active);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(itemService.toggleActive(stationId, itemId, active, userId));
     }
 
     /**
-     * Permanently delete an item (optional).
+     * delete an item
      */
-    @DeleteMapping("/{stationId}/deleteItem/{itemId}")
-    public ResponseEntity<Void> deleteItem(@PathVariable UUID itemId) {
-        itemService.deleteItem(itemId);
+    @DeleteMapping("/{itemId}")
+    public ResponseEntity<Void> deleteItem(
+            @PathVariable("itemId") UUID itemId,
+            @RequestHeader("X-User-Id") UUID userId)
+    {
+        UserContext.setCurrentUser(userId);
+        itemService.deleteItem(itemId, userId);
         return ResponseEntity.noContent().build();
     }
 
-    @PutMapping("/{stationId}/items/reorder")
+
+    /**
+     * reorder an item
+     */
+    @PutMapping("/{stationId}/reorder")
     public ResponseEntity<Void> reorderItems(
             @PathVariable UUID stationId,
-            @RequestBody List<UUID> itemIdsInOrder
+            @RequestBody List<UUID> orderedOptionIds,
+            @RequestHeader("X-User-Id") UUID userId
     ) {
-        List<ItemEntity> items = itemRepository.findAllById(itemIdsInOrder);
-
-        // Create a lookup map for items by ID
-        Map<UUID, ItemEntity> itemMap = items.stream()
-                .collect(Collectors.toMap(ItemEntity::getId, Function.identity()));
-
-        // Assign new order directly
-        for (int i = 0; i < itemIdsInOrder.size(); i++) {
-            UUID itemId = itemIdsInOrder.get(i);
-            ItemEntity item = itemMap.get(itemId);
-            if (item != null) {
-                item.setSortOrder(i + 1);
-            }
-        }
-
-        itemRepository.saveAll(items);
+        itemService.reorderItems(stationId, orderedOptionIds, userId);
         return ResponseEntity.ok().build();
     }
+
+    @GetMapping("/history")
+    public List<ItemHistoryEntity> getHistory(@RequestParam UUID stationId) {
+        return itemHistoryRepository
+                .findByStationIdOrderByChangeAtDesc(stationId);
+    }
+
 
 }
 
