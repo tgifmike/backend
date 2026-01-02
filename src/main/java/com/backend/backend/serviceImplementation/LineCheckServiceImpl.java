@@ -19,21 +19,21 @@ public class LineCheckServiceImpl implements LineCheckService {
     private final LineCheckStationRepository lineCheckStationRepository;
     private final UserRepository userRepository;
     private final StationRepository stationRepository;
-    private final ItemRepository itemRepository;
+    //private final ItemRepository itemRepository;
     private final LineCheckItemRepository lineCheckItemRepository;
 
     public LineCheckServiceImpl(
             LineCheckRepository lineCheckRepository,
             UserRepository userRepository,
             StationRepository stationRepository,
-            ItemRepository itemRepository,
+          //  ItemRepository itemRepository,
             LineCheckStationRepository lineCheckStationRepository,
             LineCheckItemRepository lineCheckItemRepository
     ) {
         this.lineCheckRepository = lineCheckRepository;
         this.userRepository = userRepository;
         this.stationRepository = stationRepository;
-        this.itemRepository = itemRepository;
+       // this.itemRepository = itemRepository;
         this.lineCheckStationRepository = lineCheckStationRepository;
         this.lineCheckItemRepository = lineCheckItemRepository;
     }
