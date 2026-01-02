@@ -209,13 +209,18 @@ public class ItemServiceImpl implements ItemService {
 
         if (dto.getIsCheckMark() != null && !dto.getIsCheckMark().equals(existing.getIsCheckMark())) {
             oldValues.put("isCheckMark", existing.getIsCheckMark());
-            existing.setIsTempTaken(dto.getIsCheckMark());
+            existing.setIsCheckMark(dto.getIsCheckMark());
         }
 
-        if (dto.getTemplateNotes() != null && !dto.getTemplateNotes().equals(existing.getTemplateNotes())) {
+//        if (dto.getTemplateNotes() != null && !dto.getTemplateNotes().equals(existing.getTemplateNotes())) {
+//            oldValues.put("templateNotes", existing.getTemplateNotes());
+//            existing.setTemplateNotes(dto.getTemplateNotes());
+//        }
+        if (!Objects.equals(dto.getTemplateNotes(), existing.getTemplateNotes())) {
             oldValues.put("templateNotes", existing.getTemplateNotes());
             existing.setTemplateNotes(dto.getTemplateNotes());
         }
+
 
         // Audit info
         existing.setUpdatedBy(userId);

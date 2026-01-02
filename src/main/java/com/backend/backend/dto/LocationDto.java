@@ -1,5 +1,6 @@
 package com.backend.backend.dto;
 
+import com.backend.backend.config.StartOfWeek;
 import com.backend.backend.entity.LocationEntity;
 import lombok.*;
 
@@ -19,17 +20,17 @@ public class LocationDto {
     private String locationState;
     private String locationZipCode;
     private String locationTimeZone;
-    private boolean locationActive;
+
+    private Boolean locationActive;
+
     private Double locationLongitude;
     private Double locationLatitude;
-    private boolean geocodedFromZipFallback;
-    private UUID accountId;
+    private Boolean geocodedFromZipFallback;
 
-//    public LocationDto(UUID id, String locationName, boolean locationActive) {
-//        this.id = id;
-//        this.locationName = locationName;
-//        this.locationActive = locationActive;
-//    }
+    private StartOfWeek startOfWeek;
+    private Integer lineCheckDailyGoal;
+
+    private UUID accountId;
 
     public static LocationDto fromEntity(LocationEntity loc) {
         if (loc == null) return null;
@@ -44,11 +45,10 @@ public class LocationDto {
                 .locationTimeZone(loc.getLocationTimeZone())
                 .locationLatitude(loc.getLocationLatitude())
                 .locationLongitude(loc.getLocationLongitude())
-                .geocodedFromZipFallback(
-                        loc.getGeocodedFromZipFallback() != null ? loc.getGeocodedFromZipFallback() : false
-                )
-
+                .geocodedFromZipFallback(loc.getGeocodedFromZipFallback())
                 .locationActive(loc.getLocationActive())
+                .startOfWeek(loc.getStartOfWeek())
+                .lineCheckDailyGoal(loc.getLineCheckDailyGoal())
                 .accountId(loc.getAccount() != null ? loc.getAccount().getId() : null)
                 .build();
     }

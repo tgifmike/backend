@@ -187,6 +187,12 @@ public class LocationServiceImpl implements LocationService {
                         existing::setLineCheckDailyGoal,
                         key, oldVals, newVals
                 );
+                case "startOfWeek" -> updateIfChanged(
+                        existing.getStartOfWeek(),
+                        value != null ? StartOfWeek.valueOf(value.toString()) : null,
+                        existing::setStartOfWeek,
+                        key, oldVals, newVals
+                );
                 case "locationLatitude" -> updateIfChanged(
                         existing.getLocationLatitude(),
                         value != null ? ((Number) value).doubleValue() : null,
@@ -354,28 +360,73 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public LineCheckSettingsDto updateLineCheckSettings(UUID locationId, LineCheckSettingsDto dto, UserEntity user) {
+    @Transactional
+    public LineCheckSettingsDto updateLineCheckSettings(
+            UUID locationId,
+            LineCheckSettingsDto dto,
+            UserEntity user
+    ) {
         LocationEntity location = getLocationById(locationId);
 
+        Map<String, String> oldValues = new HashMap<>();
+        Map<String, String> newValues = new HashMap<>();
+
+        boolean changed = false;
+
+        // ---- Start of Week ----
         if (dto.getDayOfWeek() != null && !dto.getDayOfWeek().isBlank()) {
-            try {
-                location.setStartOfWeek(StartOfWeek.valueOf(dto.getDayOfWeek().toUpperCase()));
-            } catch (IllegalArgumentException e) {
-                throw new RuntimeException("Invalid dayOfWeek: " + dto.getDayOfWeek());
+            StartOfWeek newStart = StartOfWeek.valueOf(dto.getDayOfWeek().toUpperCase());
+
+            if (!Objects.equals(location.getStartOfWeek(), newStart)) {
+                oldValues.put(
+                        "startOfWeek",
+                        location.getStartOfWeek() != null
+                                ? location.getStartOfWeek().name()
+                                : null
+                );
+                newValues.put("startOfWeek", newStart.name());
+
+                location.setStartOfWeek(newStart);
+                changed = true;
             }
-        } else if (location.getStartOfWeek() == null) {
-            location.setStartOfWeek(StartOfWeek.MONDAY);
         }
 
-        if (dto.getDailyGoal() > 0) {
+        // ---- Daily Line Check Goal ----
+        if (dto.getDailyGoal() != null
+                && dto.getDailyGoal() > 0
+                && !Objects.equals(location.getLineCheckDailyGoal(), dto.getDailyGoal())) {
+
+            oldValues.put(
+                    "lineCheckDailyGoal",
+                    location.getLineCheckDailyGoal() != null
+                            ? location.getLineCheckDailyGoal().toString()
+                            : null
+            );
+            newValues.put("lineCheckDailyGoal", dto.getDailyGoal().toString());
+
             location.setLineCheckDailyGoal(dto.getDailyGoal());
-        } else if (location.getLineCheckDailyGoal() == null) {
-            location.setLineCheckDailyGoal(1);
+            changed = true;
         }
 
-        locationRepository.save(location);
+        // ---- Persist + History ----
+        if (changed) {
+            location.setUpdatedBy(user != null ? user.getId() : null);
+            location.setUpdatedAt(Instant.now());
+
+            LocationEntity saved = locationRepository.save(location);
+
+            saveLocationHistory(
+                    saved,
+                    oldValues,
+                    newValues,
+                    "UPDATED",
+                    user
+            );
+        }
+
         return getLineCheckSettings(locationId);
     }
+
 
     // ---------------- HELPER METHODS ----------------
     private String buildFullAddress(LocationEntity location) {
@@ -414,17 +465,35 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private Map<String, String> extractLocationFields(LocationEntity loc) {
-        return Map.of(
-                "locationName", loc.getLocationName(),
-                "locationStreet", Optional.ofNullable(loc.getLocationStreet()).orElse(""),
-                "locationTown", Optional.ofNullable(loc.getLocationTown()).orElse(""),
-                "locationState", Optional.ofNullable(loc.getLocationState()).orElse(""),
-                "locationZipCode", Optional.ofNullable(loc.getLocationZipCode()).orElse(""),
-                "locationTimeZone", Optional.ofNullable(loc.getLocationTimeZone()).orElse(""),
-                "locationLatitude", loc.getLocationLatitude() != null ? loc.getLocationLatitude().toString() : "",
-                "locationLongitude", loc.getLocationLongitude() != null ? loc.getLocationLongitude().toString() : "",
-                "locationActive", String.valueOf(loc.getLocationActive()),
-                "lineCheckDailyGoal", loc.getLineCheckDailyGoal() != null ? loc.getLineCheckDailyGoal().toString() : "1"
-        );
+        Map<String, String> values = new LinkedHashMap<>();
+
+        values.put("locationName", loc.getLocationName());
+        values.put("locationStreet", loc.getLocationStreet());
+        values.put("locationTown", loc.getLocationTown());
+        values.put("locationState", loc.getLocationState());
+        values.put("locationZipCode", loc.getLocationZipCode());
+        values.put("locationTimeZone", loc.getLocationTimeZone());
+
+        values.put("locationLatitude",
+                loc.getLocationLatitude() != null ? loc.getLocationLatitude().toString() : null);
+        values.put("locationLongitude",
+                loc.getLocationLongitude() != null ? loc.getLocationLongitude().toString() : null);
+
+        values.put("locationActive",
+                loc.getLocationActive() != null ? loc.getLocationActive().toString() : null);
+
+        values.put("startOfWeek",
+                loc.getStartOfWeek() != null ? loc.getStartOfWeek().name() : null);
+
+        values.put("lineCheckDailyGoal",
+                loc.getLineCheckDailyGoal() != null ? loc.getLineCheckDailyGoal().toString() : null);
+
+        values.put("geocodedFromZipFallback",
+                loc.getGeocodedFromZipFallback() != null
+                        ? loc.getGeocodedFromZipFallback().toString()
+                        : null);
+
+        return values;
     }
+
 }

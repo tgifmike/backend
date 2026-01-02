@@ -11,6 +11,6 @@ import lombok.Setter;
 @NoArgsConstructor
 public class LineCheckSettingsDto {
     private String dayOfWeek;
-    private int dailyGoal;
+    private Integer dailyGoal;
 }
 
