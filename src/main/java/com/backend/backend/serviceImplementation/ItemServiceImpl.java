@@ -4,6 +4,7 @@ import com.backend.backend.dto.ItemCreateDto;
 import com.backend.backend.dto.ItemUpdateDto;
 import com.backend.backend.entity.*;
 import com.backend.backend.enums.HistoryType;
+import com.backend.backend.enums.ItemTempCategory;
 import com.backend.backend.enums.OptionType;
 import com.backend.backend.repositories.*;
 import com.backend.backend.service.ItemService;
@@ -84,6 +85,37 @@ public class ItemServiceImpl implements ItemService {
                 .orElse("Unknown User");
     }
 
+    private void applyTemperatureRules(ItemEntity item, ItemTempCategory category, Boolean isTempTaken) {
+
+        if (!Boolean.TRUE.equals(isTempTaken) || category == null) {
+            item.setTempCategory(null);
+            item.setMinTemp(null);
+            item.setMaxTemp(null);
+            return;
+        }
+
+        item.setTempCategory(category);
+
+        switch (category) {
+            case HOT_HOLDING -> {
+                item.setMinTemp(140.0);
+                item.setMaxTemp(200.0);
+            }
+            case REFRIGERATED -> {
+                item.setMinTemp(33.0);
+                item.setMaxTemp(41.0);
+            }
+            case FROZEN -> {
+                item.setMinTemp(-20.0);
+                item.setMaxTemp(31.0);
+            }
+            case ROOM_TEMP -> {
+                item.setMinTemp(50.0);
+                item.setMaxTemp(75.0);
+            }
+        }
+    }
+
     // ------------------- GETTERS -------------------
 
     // get all items for station
@@ -105,12 +137,13 @@ public class ItemServiceImpl implements ItemService {
     // ------------------- CREATE -------------------
     @Override
     public ItemEntity createItem(ItemCreateDto dto, UUID userId) {
-        // fetch station
+
         StationEntity station = stationRepository.findById(dto.getStationId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Station not found"));
 
-        // Determine sortOrder
-        int sortOrder = dto.getSortOrder() != null ? dto.getSortOrder() : getNextSortOrder(station.getId());
+        int sortOrder = dto.getSortOrder() != null
+                ? dto.getSortOrder()
+                : getNextSortOrder(station.getId());
 
         ItemEntity item = ItemEntity.builder()
                 .itemName(dto.getItemName())
@@ -122,17 +155,22 @@ public class ItemServiceImpl implements ItemService {
                 .isPortioned(dto.getIsPortioned())
                 .portionSize(dto.getPortionSize())
                 .isTempTaken(dto.getIsTempTaken())
-                .tempCategory(dto.getTemperatureCategory())
                 .isCheckMark(dto.getIsCheckMark())
                 .templateNotes(dto.getTemplateNotes())
                 .station(station)
-                .sortOrder(sortOrder) // <- set here
+                .sortOrder(sortOrder)
                 .createdBy(userId)
                 .build();
 
+        // 🔥 APPLY TEMP RULES HERE
+        applyTemperatureRules(
+                item,
+                dto.getTemperatureCategory(),
+                dto.getIsTempTaken()
+        );
+
         ItemEntity saved = itemRepository.save(item);
 
-        // Record history
         recordHistory(saved, userId, HistoryType.CREATED, null);
 
         return saved;
@@ -202,9 +240,37 @@ public class ItemServiceImpl implements ItemService {
             existing.setIsTempTaken(dto.getIsTempTaken());
         }
 
-        if (dto.getTempCategory() != null && !dto.getTempCategory().equals(existing.getTempCategory())) {
+//        if (dto.getTempCategory() != null && !dto.getTempCategory().equals(existing.getTempCategory())) {
+//            oldValues.put("tempCategory", existing.getTempCategory());
+//            existing.setTempCategory(dto.getTempCategory());
+//        }
+
+        boolean tempChanged = false;
+
+        if (dto.getIsTempTaken() != null &&
+                !Objects.equals(dto.getIsTempTaken(), existing.getIsTempTaken())) {
+
+            oldValues.put("isTempTaken", existing.getIsTempTaken());
+            tempChanged = true;
+        }
+
+        if (dto.getTempCategory() != null &&
+                !Objects.equals(dto.getTempCategory(), existing.getTempCategory())) {
+
             oldValues.put("tempCategory", existing.getTempCategory());
-            existing.setTempCategory(dto.getTempCategory());
+            tempChanged = true;
+        }
+
+        if (tempChanged) {
+            applyTemperatureRules(
+                    existing,
+                    dto.getTempCategory() != null
+                            ? dto.getTempCategory()
+                            : existing.getTempCategory(),
+                    dto.getIsTempTaken() != null
+                            ? dto.getIsTempTaken()
+                            : existing.getIsTempTaken()
+            );
         }
 
         if (dto.getIsCheckMark() != null && !dto.getIsCheckMark().equals(existing.getIsCheckMark())) {
