@@ -30,6 +30,8 @@ public class LineCheckItemDto {
     @JsonProperty("itemChecked") // <-- force Jackson to map JSON "itemChecked"
     private boolean itemChecked;
 
+    private Boolean missing;
+
     private Double temperature;
     private Double minTemp;
     private Double maxTemp;
