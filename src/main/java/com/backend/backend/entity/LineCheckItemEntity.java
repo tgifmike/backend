@@ -41,6 +41,9 @@ public class LineCheckItemEntity {
     @Column(name = "is_checked")
     private boolean isChecked;
 
+    @Column(name = "is_missing", nullable = false)
+    private boolean isMissing = false;
+
     @Column(name = "notes")
     private String itemNotes;
 

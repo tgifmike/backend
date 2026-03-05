@@ -134,6 +134,13 @@ public class LineCheckServiceImpl implements LineCheckService {
                 // ✅ Update entity fields
                 itemEntity.setItemChecked(itemDto.isItemChecked());
                 itemEntity.setChecked(itemDto.isItemChecked());
+                itemEntity.setMissing(itemDto.getMissing());
+
+                if (itemDto.getMissing()) {
+                    itemEntity.setTemperature(null);
+                } else {
+                    itemEntity.setTemperature(itemDto.getTemperature());
+                }
 
                 if (itemDto.getTemperature() != null) {
                     itemEntity.setTemperature(itemDto.getTemperature());
@@ -237,6 +244,7 @@ private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
     dto.setTempTaken(item.getIsTempTaken());    // ✅ can stay from template
     dto.setTemperature(e.getTemperature());  // ✅ user-entered
     dto.setObservations(e.getObservations()); // ✅ user-entered
+    dto.setMissing(e.isMissing());
 
     return dto;
 }
