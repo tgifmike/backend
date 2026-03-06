@@ -58,11 +58,11 @@ public class LineCheckController {
     // ---------------------------------------------------------
         // SAVE COMPLETED LINE CHECK (mobile app submit)
         // ---------------------------------------------------------
-        @PostMapping("/save")
-        public ResponseEntity<Void> saveLineCheck(@RequestBody LineCheckDto dto) {
-            lineCheckService.saveLineCheck(dto);
-            return ResponseEntity.ok().build();
-        }
+    @PostMapping("/save")
+    public ResponseEntity<LineCheckDto> saveLineCheck(@RequestBody LineCheckDto dto) {
+        LineCheckDto saved = lineCheckService.saveLineCheck(dto);
+        return ResponseEntity.ok(saved);
+    }
 
         //get linecheck complted and by locaion
         @GetMapping("/completed/by-location/{locationId}")
