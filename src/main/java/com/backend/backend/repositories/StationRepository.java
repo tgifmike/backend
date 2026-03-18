@@ -1,9 +1,11 @@
 package com.backend.backend.repositories;
 
+import com.backend.backend.entity.LocationEntity;
 import com.backend.backend.entity.OptionEntity;
 import com.backend.backend.entity.StationEntity;
 import com.backend.backend.entity.StationHistoryEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
 
 import java.util.List;
 import java.util.Optional;
@@ -36,5 +38,21 @@ public interface StationRepository extends JpaRepository<StationEntity, UUID> {
     List<StationEntity> findByLocation_IdOrderBySortOrderAsc(UUID locationId);
 
     List<StationEntity> findByIdOrderBySortOrderAsc(UUID locationId);
+
+    // clone stations
+    //List<StationEntity> findByLocation_Id(UUID locationId);
+
+    void deleteByLocation_Id(UUID locationId);
+
+    boolean existsByStationNameAndLocation(
+            String stationName,
+            LocationEntity location
+    );
+
+    @Query("SELECT s FROM StationEntity s LEFT JOIN FETCH s.items WHERE s.location.id = :locationId")
+    List<StationEntity> findByLocationIdWithItems(UUID locationId);
+
+    @Query("SELECT s FROM StationEntity s LEFT JOIN FETCH s.items WHERE s.id = :id")
+    Optional<StationEntity> findByIdWithItems(UUID id);
 }
 

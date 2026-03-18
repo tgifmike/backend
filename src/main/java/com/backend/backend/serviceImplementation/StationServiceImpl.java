@@ -1,15 +1,9 @@
 package com.backend.backend.serviceImplementation;
 
 import com.backend.backend.dto.StationDto;
-import com.backend.backend.entity.LocationEntity;
-import com.backend.backend.entity.StationEntity;
-import com.backend.backend.entity.StationHistoryEntity;
-import com.backend.backend.entity.UserEntity;
+import com.backend.backend.entity.*;
 import com.backend.backend.enums.HistoryType;
-import com.backend.backend.repositories.LocationRepository;
-import com.backend.backend.repositories.StationHistoryRepository;
-import com.backend.backend.repositories.StationRepository;
-import com.backend.backend.repositories.UserRepository;
+import com.backend.backend.repositories.*;
 import com.backend.backend.service.StationService;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -33,6 +27,7 @@ public class StationServiceImpl implements StationService {
     private final UserRepository userRepository;
     private final StationHistoryRepository stationHistoryRepository;
     private final LocationRepository locationRepository;
+    private final ItemRepository itemRepository;
 
     private void recordHistory(
             StationEntity station,
@@ -246,6 +241,92 @@ public class StationServiceImpl implements StationService {
 
         return saved;
 
+    }
+
+    //----------------clone station with items -----------------
+    @Transactional
+    public void cloneStationWithItems(
+            String stationId,
+            String targetLocationId,
+            String userId
+    ) {
+        UUID stationUuid = UUID.fromString(stationId);
+        UUID locationUuid = UUID.fromString(targetLocationId);
+        UUID userUuid = UUID.fromString(userId);
+
+        StationEntity sourceStation = stationRepository.findByIdWithItems(stationUuid)
+                .orElseThrow(() -> new RuntimeException("Station not found"));
+
+        LocationEntity targetLocation = locationRepository.findById(locationUuid)
+                .orElseThrow(() -> new RuntimeException("Target location not found"));
+
+        // ❗ prevent cloning into same location (optional)
+        if (sourceStation.getLocation().getId().equals(locationUuid)) {
+            throw new RuntimeException("Cannot clone into same location");
+        }
+
+        // ❗ prevent duplicate name (optional but recommended)
+        boolean exists = stationRepository.existsByStationNameAndLocation(
+                sourceStation.getStationName(),
+                targetLocation
+        );
+
+        if (exists) {
+            throw new RuntimeException("Station with same name already exists in target location");
+        }
+
+        // ✅ CREATE NEW STATION
+        StationEntity newStation = new StationEntity();
+        newStation.setStationName(sourceStation.getStationName());
+        newStation.setStationActive(sourceStation.isStationActive());
+        newStation.setSortOrder(getNextSortOrder(targetLocation)); // helper method
+        newStation.setLocation(targetLocation);
+        newStation.setCreatedBy(userUuid);
+
+        stationRepository.save(newStation);
+
+        // ✅ CLONE ITEMS
+        List<ItemEntity> sortedItems = sourceStation.getItems().stream()
+                .sorted(Comparator.comparing(i -> i.getSortOrder() == null ? 0 : i.getSortOrder()))
+                .toList();
+
+        int index = 0;
+
+        for (ItemEntity sourceItem : sortedItems) {
+            ItemEntity newItem = new ItemEntity();
+
+            newItem.setItemName(sourceItem.getItemName());
+            newItem.setShelfLife(sourceItem.getShelfLife());
+            newItem.setPanSize(sourceItem.getPanSize());
+            newItem.setToolName(sourceItem.getToolName());
+            newItem.setIsTool(sourceItem.getIsTool());
+            newItem.setPortionSize(sourceItem.getPortionSize());
+            newItem.setIsPortioned(sourceItem.getIsPortioned());
+            newItem.setItemTemperature(sourceItem.getItemTemperature());
+            newItem.setIsTempTaken(sourceItem.getIsTempTaken());
+            newItem.setTempCategory(sourceItem.getTempCategory());
+            newItem.setMinTemp(sourceItem.getMinTemp());
+            newItem.setMaxTemp(sourceItem.getMaxTemp());
+            newItem.setIsCheckMark(sourceItem.getIsCheckMark());
+            newItem.setIsItemChecked(sourceItem.getIsItemChecked());
+            newItem.setTemplateNotes(sourceItem.getTemplateNotes());
+            newItem.setLineCheckNotes(sourceItem.getLineCheckNotes());
+            newItem.setItemActive(sourceItem.getItemActive());
+            newItem.setSortOrder(index++);
+            newItem.setStation(newStation);
+            newItem.setCreatedBy(userUuid);
+
+            itemRepository.save(newItem);
+        }
+    }
+
+    //helper for clone
+    private Integer getNextSortOrder(LocationEntity location) {
+        return stationRepository.findByLocation_Id(location.getId())
+                .stream()
+                .map(s -> s.getSortOrder() == null ? 0 : s.getSortOrder())
+                .max(Integer::compareTo)
+                .orElse(0) + 1;
     }
 
 }
