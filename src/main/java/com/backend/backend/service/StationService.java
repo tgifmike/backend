@@ -49,6 +49,12 @@ public interface StationService {
     List<StationEntity> getAllStations();
 
     List<StationDto> getStationsByLocation(UUID locationId);
+
+    void cloneStationWithItems(
+            String stationId,
+            String targetLocationId,
+            String userId
+    );
 }
 
 

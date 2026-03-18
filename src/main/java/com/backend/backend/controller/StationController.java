@@ -125,6 +125,16 @@ public class StationController {
         return stationHistoryRepository.findAllByLocationId(locationId);
     }
 
+    @PostMapping("/{stationId}/clone")
+    public ResponseEntity<?> cloneStation(
+            @PathVariable String stationId,
+            @RequestParam String targetLocationId,
+            @RequestParam String userId
+    ) {
+        stationService.cloneStationWithItems(stationId, targetLocationId, userId);
+        return ResponseEntity.ok().build();
+    }
+
 
 
 }
