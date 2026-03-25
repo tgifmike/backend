@@ -230,8 +230,12 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
 
-        if (incomingUser.getUserEmail() == null) {
-            throw new IllegalArgumentException("Email is required");
+        if (
+                incomingUser.getUserEmail() == null &&
+                        incomingUser.getGoogleId() == null &&
+                        incomingUser.getAppleId() == null
+        ) {
+            throw new IllegalArgumentException("OAuth identity missing");
         }
 
 // Normalize email (prevents duplicates like User@Email.com vs user@email.com)
