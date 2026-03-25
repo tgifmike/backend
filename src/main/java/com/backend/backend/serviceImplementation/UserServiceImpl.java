@@ -230,6 +230,11 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
 
+        System.out.println("Incoming OAuth user:");
+        System.out.println("email: " + incomingUser.getUserEmail());
+        System.out.println("googleId: " + incomingUser.getGoogleId());
+        System.out.println("appleId: " + incomingUser.getAppleId());
+
         if (
                 incomingUser.getUserEmail() == null &&
                         incomingUser.getGoogleId() == null &&
