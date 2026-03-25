@@ -239,10 +239,12 @@ public class UserServiceImpl implements UserService {
         }
 
 // Normalize email (prevents duplicates like User@Email.com vs user@email.com)
-        String normalizedEmail =
-                incomingUser.getUserEmail().toLowerCase().trim();
+        if (incomingUser.getUserEmail() != null) {
+            String normalizedEmail =
+                    incomingUser.getUserEmail().toLowerCase().trim();
 
-        incomingUser.setUserEmail(normalizedEmail);
+            incomingUser.setUserEmail(normalizedEmail);
+        }
 
         Optional<UserEntity> existingUser = Optional.empty();
 
@@ -257,9 +259,12 @@ public class UserServiceImpl implements UserService {
 
         // 2️⃣ fallback to email match
         if (existingUser.isEmpty()) {
-            existingUser = userRepository.findByUserEmailIgnoreCase(
-                    incomingUser.getUserEmail()
-            );
+            if (incomingUser.getUserEmail() != null) {
+                existingUser =
+                        userRepository.findByUserEmailIgnoreCase(
+                                incomingUser.getUserEmail()
+                        );
+            }
         }
 
         // 3️⃣ update provider IDs if user already exists
