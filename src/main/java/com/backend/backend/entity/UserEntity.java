@@ -33,8 +33,17 @@ public class UserEntity {
     private boolean userActive = true;
     private boolean firstLogin = true;
 
+    @Column()
+    private String provider;
+
+    @Column(unique = true)
+    private String providerAccountId;
+
     @Column(unique = true)
     private String googleId;
+
+    @Column(unique = true)
+    private String appleId;
 
 //    @ManyToMany
 //    @JoinTable(
