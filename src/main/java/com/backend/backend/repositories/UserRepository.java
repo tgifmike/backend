@@ -9,9 +9,9 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<UserEntity, UUID> {
-    Optional<UserEntity> findByUserEmail(String email);
+   // Optional<UserEntity> findByUserEmail(String email);
     Optional<UserEntity> findByUserEmailIgnoreCase(String email);
-    Optional<UserEntity> findByGoogleId(String googleId);
+  //  Optional<UserEntity> findByGoogleId(String googleId);
 
 
     //checking for duplicates when updating
@@ -22,8 +22,12 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
     boolean existsByUserEmail(String userEmail);
     boolean existsByUserName(String name);
 
-    List<UserEntity> findAllByUserEmail(String email);
-    List<UserEntity> findAllByGoogleId(String googleId);
+//    List<UserEntity> findAllByUserEmail(String email);
+//    List<UserEntity> findAllByGoogleId(String googleId);
 
+    //adding appleid and changeding signin agnotstic
+    Optional<UserEntity> findByGoogleId(String googleId);
+    Optional<UserEntity> findByAppleId(String appleId);
+   // Optional<UserEntity> findByUserEmail(String email);
 
 }

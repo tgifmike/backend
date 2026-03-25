@@ -9,6 +9,7 @@ import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.UserService;
 import jakarta.transaction.Transactional;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import java.time.LocalDateTime;
 import java.util.Date;
@@ -20,9 +21,10 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService {
 
 
-String secret = System.getenv("NEXTAUTH_SECRET");
 
 
+    @Value("${jwt.secret}")
+    private String secret;
 
 
     private final UserRepository userRepository;
@@ -88,7 +90,7 @@ String secret = System.getenv("NEXTAUTH_SECRET");
     //find by email
     @Override
     public UserEntity findByEmail(String email){
-        return userRepository.findByUserEmail(email)
+        return userRepository.findByUserEmailIgnoreCase(email)
                 .orElseThrow(()-> new RuntimeException("User not found with email " + email));
     }
 
@@ -215,54 +217,68 @@ String secret = System.getenv("NEXTAUTH_SECRET");
     }
 
     // ADD THIS OVERLOADED VERSION HERE
-    @Override
-    public UserEntity createOrFindGoogleUser(UserEntity user) {
-        return createOrFindGoogleUser(
-                user.getUserEmail(),
-                user.getUserName(),
-                user.getGoogleId(),
-                user.getUserImage()
-        );
-    }
+//    @Override
+//    public UserEntity createOrFindGoogleUser(UserEntity user) {
+//        return createOrFindGoogleUser(
+//                user.getUserEmail(),
+//                user.getUserName(),
+//                user.getGoogleId(),
+//                user.getUserImage()
+//        );
+//    }
 
     @Override
-    public UserEntity createOrFindGoogleUser(String email, String name, String googleId, String picture) {
+    public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
 
-        // 1️⃣ Try to find user by Google ID, if Google ID is provided
-        Optional<UserEntity> googleUser = (googleId != null)
-                ? userRepository.findByGoogleId(googleId)
-                : Optional.empty();
-
-        if (googleUser.isPresent()) {
-            // Found existing user by Google ID → return it
-            return googleUser.get();
+        if (incomingUser.getUserEmail() == null) {
+            throw new IllegalArgumentException("Email is required");
         }
 
-        // 2️⃣ Try to find existing user by email (case-insensitive)
-        Optional<UserEntity> emailUser = userRepository.findByUserEmailIgnoreCase(email);
-        if (emailUser.isPresent()) {
-            // Existing user found by email → link Google ID if available
-            UserEntity existing = emailUser.get();
-            if (googleId != null && (existing.getGoogleId() == null || !existing.getGoogleId().equals(googleId))) {
-                existing.setGoogleId(googleId);  // link Google ID
-                existing.setUpdatedAt(LocalDateTime.now());
-                return userRepository.save(existing);
+// Normalize email (prevents duplicates like User@Email.com vs user@email.com)
+        String normalizedEmail =
+                incomingUser.getUserEmail().toLowerCase().trim();
+
+        incomingUser.setUserEmail(normalizedEmail);
+
+        Optional<UserEntity> existingUser = Optional.empty();
+
+        // 1️⃣ provider-based lookup first (strongest identity match)
+        if (incomingUser.getGoogleId() != null) {
+            existingUser = userRepository.findByGoogleId(incomingUser.getGoogleId());
+        }
+
+        if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
+            existingUser = userRepository.findByAppleId(incomingUser.getAppleId());
+        }
+
+        // 2️⃣ fallback to email match
+        if (existingUser.isEmpty()) {
+            existingUser = userRepository.findByUserEmailIgnoreCase(
+                    incomingUser.getUserEmail()
+            );
+        }
+
+        // 3️⃣ update provider IDs if user already exists
+        if (existingUser.isPresent()) {
+
+            UserEntity user = existingUser.get();
+
+            if (incomingUser.getGoogleId() != null && user.getGoogleId() == null) {
+                user.setGoogleId(incomingUser.getGoogleId());
             }
-            return existing; // email user already exists and linked
+
+            if (incomingUser.getAppleId() != null && user.getAppleId() == null) {
+                user.setAppleId(incomingUser.getAppleId());
+            }
+
+            return userRepository.save(user);
         }
 
-        // 3️⃣ Otherwise → create new user
-        UserEntity newUser = new UserEntity();
-        newUser.setUserEmail(email.toLowerCase()); // normalize email
-        newUser.setUserName(name);
-        newUser.setUserImage(picture);
-        newUser.setGoogleId(googleId);
-        newUser.setUserActive(true);
-        newUser.setAccessRole(AccessRole.USER);
-        newUser.setAppRole(AppRole.MEMBER);
-        newUser.setFirstLogin(true);
+        // 4️⃣ create new OAuth user
+        incomingUser.setUserActive(true);
+        incomingUser.setFirstLogin(true);
 
-        return userRepository.save(newUser);
+        return userRepository.save(incomingUser);
     }
 
 

@@ -109,16 +109,21 @@ public class UserController {
         }
     }
 
-    @PostMapping("/create/google")
-    public ResponseEntity<?> createGoogleUser(@RequestBody UserEntity user) {
+    @PostMapping("/create/oauth")
+    public ResponseEntity<?> createOAuthUser(@RequestBody UserEntity user) {
         try {
-            UserEntity savedUser = userService.createOrFindGoogleUser(user);
+            UserEntity savedUser = userService.createOrFindOAuthUser(user);
             return ResponseEntity.ok(savedUser);
+
         } catch (IllegalArgumentException ex) {
+
             return ResponseEntity.badRequest().body(ex.getMessage());
+
         } catch (Exception ex) {
+
             ex.printStackTrace();
-            return ResponseEntity.status(500).body("Failed to create Google user");
+            return ResponseEntity.status(500).body("Failed to create OAuth user");
+
         }
     }
 
@@ -148,12 +153,13 @@ public class UserController {
             String picture = (String) payload.get("picture");
 
             // Find or create user in DB
-            UserEntity user = userService.createOrFindGoogleUser(
-                    email,
-                    name,
-                    googleId,
-                    picture
-            );
+            UserEntity oauthUser = new UserEntity();
+            oauthUser.setUserEmail(email);
+            oauthUser.setUserName(name);
+            oauthUser.setGoogleId(googleId);
+            oauthUser.setUserImage(picture);
+
+            UserEntity user = userService.createOrFindOAuthUser(oauthUser);
 
             // Generate JWT
             String jwt = userService.generateJwtForUser(user);
