@@ -1,5 +1,7 @@
 package com.backend.backend.controller;
 
+import com.auth0.jwt.JWT;
+import com.auth0.jwt.algorithms.Algorithm;
 import com.backend.backend.config.GoogleTokenVerifier;
 import com.backend.backend.dto.UpdateUserDto;
 import com.backend.backend.dto.UserDto;
@@ -8,11 +10,13 @@ import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.UserService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.google.api.client.util.Value;
+import com.nimbusds.jwt.SignedJWT;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -28,6 +32,9 @@ public class UserController {
 
     @Value("${google.web.client.id}")
     private String googleClientId;
+
+    @org.springframework.beans.factory.annotation.Value("${jwt.secret}")
+    private String secret;
 
     //private final UserRepository userRepository;
     private final UserService userService;
@@ -184,6 +191,75 @@ public class UserController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body("Google login failed: " + e.getMessage());
         }
+    }
+
+    @PostMapping("/mobile/apple")
+    @CrossOrigin(origins = "*")
+    public ResponseEntity<?> loginWithApple(
+            @RequestBody Map<String, Object> body
+    ) {
+
+        String idToken = (body.get("idToken") instanceof String)
+                ? (String) body.get("idToken")
+                : null;
+
+        if (idToken == null || idToken.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body("Missing Apple idToken");
+        }
+
+        try {
+
+            SignedJWT signedJWT = SignedJWT.parse(idToken);
+
+            String appleId =
+                    signedJWT.getJWTClaimsSet().getSubject();
+
+            String email =
+                    (String) signedJWT.getJWTClaimsSet()
+                            .getClaim("email");
+
+            UserEntity oauthUser = new UserEntity();
+
+            oauthUser.setAppleId(appleId);
+            oauthUser.setUserEmail(email);
+
+            UserEntity user =
+                    userService.createOrFindOAuthUser(oauthUser);
+
+            String jwt =
+                    userService.generateJwtForUser(user);
+
+            Map<String, Object> response = Map.of(
+                    "token", jwt,
+                    "user", Map.of(
+                            "id", user.getId(),
+                            "name", user.getUserName(),
+                            "email", user.getUserEmail(),
+                            "image", user.getUserImage(),
+                            "appRole", user.getAppRole().name(),
+                            "accessRole", user.getAccessRole().name()
+                    )
+            );
+
+            return ResponseEntity.ok(response);
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body("Apple login failed: " + e.getMessage());
+        }
+    }
+
+    @GetMapping("/mobile/apple")
+    public ResponseEntity<?> testAppleGet() {
+
+        System.out.println("APPLE GET HIT");
+
+        return ResponseEntity.ok("GET works");
     }
 
 }
