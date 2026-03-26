@@ -194,7 +194,6 @@ public class UserController {
     }
 
     @PostMapping("/mobile/apple")
-    @CrossOrigin(origins = "*")
     public ResponseEntity<?> loginWithApple(
             @RequestBody Map<String, Object> body
     ) {
