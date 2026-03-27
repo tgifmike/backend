@@ -247,19 +247,23 @@ public class UserServiceImpl implements UserService {
         if (incomingUser.getGoogleId() != null) {
             existingUser =
                     userRepository.findByGoogleId(incomingUser.getGoogleId());
+            System.out.println("Lookup by GoogleId: " + existingUser.isPresent());
         }
 
         if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
             existingUser =
                     userRepository.findByAppleId(incomingUser.getAppleId());
+            System.out.println("Lookup by AppleId: " + existingUser.isPresent());
         }
 
         // 2️⃣ fallback email lookup
         if (existingUser.isEmpty() && incomingUser.getUserEmail() != null) {
             existingUser =
                     userRepository.findByUserEmailIgnoreCase(
-                            incomingUser.getUserEmail()
+                            incomingUser.getUserEmail().trim()
                     );
+
+            System.out.println("Lookup by Email: " + existingUser.isPresent());
         }
 
         // 3️⃣ user exists → validate invite + update provider IDs
@@ -267,15 +271,16 @@ public class UserServiceImpl implements UserService {
 
             UserEntity user = existingUser.get();
 
+            // do not validate here — handled later
             // 🚫 block if user disabled
-            if (!user.isUserActive()) {
-                throw new RuntimeException("User account is inactive");
-            }
+//            if (!user.isUserActive()) {
+//                throw new RuntimeException("InactiveUser");
+//            }
 
             // optional (recommended if you add invited column)
-            if (!user.isInvited()) {
-                throw new RuntimeException("User not invited");
-            }
+//            if (!user.isInvited()) {
+//                throw new RuntimeException("AccessDenied");
+//            }
 
             // attach provider IDs if first OAuth login
             if (incomingUser.getGoogleId() != null &&
@@ -299,6 +304,61 @@ public class UserServiceImpl implements UserService {
         );
     }
 
+    /**
+     * Universal OAuth login method.
+     * Handles Google, Apple, or email-based login.
+     * Returns a signed JWT if the user exists and is active.
+     */
+    @Override
+    public String handleOAuthLogin(UserEntity incomingUser) {
+        if ((incomingUser.getUserEmail() == null || incomingUser.getUserEmail().isBlank())
+                && incomingUser.getGoogleId() == null
+                && incomingUser.getAppleId() == null) {
+            throw new IllegalArgumentException("OAuth identity missing");
+        }
+
+        // Normalize email
+        if (incomingUser.getUserEmail() != null) {
+            incomingUser.setUserEmail(incomingUser.getUserEmail().toLowerCase().trim());
+        }
+
+        Optional<UserEntity> existingUser = Optional.empty();
+
+        // 1️⃣ Lookup by provider ID first
+        if (incomingUser.getGoogleId() != null) {
+            existingUser = userRepository.findByGoogleId(incomingUser.getGoogleId());
+        }
+        if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
+            existingUser = userRepository.findByAppleId(incomingUser.getAppleId());
+        }
+
+        // 2️⃣ Fallback to email lookup
+        if (existingUser.isEmpty() && incomingUser.getUserEmail() != null) {
+            existingUser = userRepository.findByUserEmailIgnoreCase(incomingUser.getUserEmail());
+        }
+
+        if (existingUser.isEmpty()) {
+            throw new RuntimeException("User not invited. Please contact your administrator.");
+        }
+
+        UserEntity user = existingUser.get();
+
+        // ✅ Validate active and invited
+        validateUserAccess(user);
+
+        // Attach provider IDs if first OAuth login
+        if (incomingUser.getGoogleId() != null && user.getGoogleId() == null) {
+            user.setGoogleId(incomingUser.getGoogleId());
+        }
+        if (incomingUser.getAppleId() != null && user.getAppleId() == null) {
+            user.setAppleId(incomingUser.getAppleId());
+        }
+
+        userRepository.save(user);
+
+        // Return JWT
+        return generateJwtForUser(user);
+    }
 
 
 

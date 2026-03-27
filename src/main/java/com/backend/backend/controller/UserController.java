@@ -143,6 +143,23 @@ public class UserController {
         }
     }
 
+/////////////////////////////////////////////////////////////
+// weblogi in
+    //////////////////////////////////////////////////////////////
+
+//    @PostMapping("/oauth-login")
+//    public ResponseEntity<?> loginWithOAuth(@RequestBody Map<String, Object> body) {
+//        String provider = (String) body.get("provider");
+//        if ("google".equalsIgnoreCase(provider)) {
+//            return loginWithGoogle(body);
+//        } else if ("apple".equalsIgnoreCase(provider)) {
+//            return loginWithApple(body);
+//        } else {
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+//                    .body("Unsupported provider");
+//        }
+//    }
+
 //////////////////////////////////////////////////////////////
 // MOBILE GOOGLE LOGIN
     //////////////////////////////////////////////////////////////
@@ -216,6 +233,57 @@ public class UserController {
         } catch (Exception e) {
 
             return unauthorized("Apple login failed");
+        }
+    }
+
+    //////////////////////////////////////////////////////////////
+// UNIVERSAL OAUTH LOGIN ENDPOINT
+    ////////////////////////////////////////////////////////////
+
+    @PostMapping("/oauth-login")
+    public ResponseEntity<?> loginWithOAuth(@RequestBody Map<String, Object> body) {
+        try {
+            String provider = ((String) body.get("provider")).toLowerCase();
+            String idToken = extractIdToken(body);
+
+            UserEntity oauthUser = new UserEntity();
+
+            switch (provider) {
+                case "google" -> {
+                    var payload = GoogleTokenVerifier.verifyToken(idToken);
+                    if (payload == null) return unauthorized("Invalid Google token");
+
+                    oauthUser.setGoogleId(payload.getSubject());
+                    oauthUser.setUserEmail(payload.getEmail());
+                    oauthUser.setUserName((String) payload.get("name"));
+                    oauthUser.setUserImage((String) payload.get("picture"));
+                }
+                case "apple" -> {
+                    var jwt = SignedJWT.parse(idToken);
+                    oauthUser.setAppleId(jwt.getJWTClaimsSet().getSubject());
+                    oauthUser.setUserEmail((String) jwt.getJWTClaimsSet().getClaim("email"));
+                }
+                default -> {
+                    return ResponseEntity
+                            .status(HttpStatus.BAD_REQUEST)
+                            .body("Unsupported provider");
+                }
+            }
+
+            // Delegate everything to service
+            String jwt = userService.handleOAuthLogin(oauthUser);
+
+            UserEntity user = userService.findByEmail(oauthUser.getUserEmail());
+
+            return ResponseEntity.ok(buildMobileResponse(user, jwt));
+
+        } catch (RuntimeException ex) {
+            String msg = ex.getMessage();
+            if ("AccessDenied".equals(msg)) return forbidden("User not invited yet");
+            if ("InactiveUser".equals(msg)) return forbidden("User account inactive");
+            return unauthorized("Login failed");
+        } catch (Exception ex) {
+            return unauthorized("Login failed: " + ex.getMessage());
         }
     }
 

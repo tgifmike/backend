@@ -2,8 +2,11 @@ package com.backend.backend.service;
 
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.RequestBody;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface UserService {
@@ -35,5 +38,5 @@ public interface UserService {
     UserEntity createOrFindOAuthUser(UserEntity incomingUser);
     String generateJwtForUser(UserEntity user);
     void validateUserAccess(UserEntity user);
-
+    String handleOAuthLogin(UserEntity incomingUser);
 }
