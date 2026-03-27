@@ -45,13 +45,7 @@ public class UserEntity {
     @Column(unique = true)
     private String appleId;
 
-//    @ManyToMany
-//    @JoinTable(
-//            name = "user_account_access",
-//            joinColumns = @JoinColumn(name = "user_id"),
-//            inverseJoinColumns = @JoinColumn(name = "account_id")
-//    )
-//    private Set<AccountEntity> accessibleAccounts;
+    boolean invited;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "access_role")

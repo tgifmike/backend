@@ -34,5 +34,6 @@ public interface UserService {
 //    UserEntity createOrFindGoogleUser(String email, String name, String googleId, String picture);
     UserEntity createOrFindOAuthUser(UserEntity incomingUser);
     String generateJwtForUser(UserEntity user);
+    void validateUserAccess(UserEntity user);
 
 }

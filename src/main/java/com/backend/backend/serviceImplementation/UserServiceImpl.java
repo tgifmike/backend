@@ -216,16 +216,6 @@ public class UserServiceImpl implements UserService {
         return userRepository.existsByUserNameAndIdNot(name, excludeId);
     }
 
-    // ADD THIS OVERLOADED VERSION HERE
-//    @Override
-//    public UserEntity createOrFindGoogleUser(UserEntity user) {
-//        return createOrFindGoogleUser(
-//                user.getUserEmail(),
-//                user.getUserName(),
-//                user.getGoogleId(),
-//                user.getUserImage()
-//        );
-//    }
 
     @Override
     public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
@@ -243,7 +233,7 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("OAuth identity missing");
         }
 
-// Normalize email (prevents duplicates like User@Email.com vs user@email.com)
+        // Normalize email
         if (incomingUser.getUserEmail() != null) {
             String normalizedEmail =
                     incomingUser.getUserEmail().toLowerCase().trim();
@@ -253,46 +243,60 @@ public class UserServiceImpl implements UserService {
 
         Optional<UserEntity> existingUser = Optional.empty();
 
-        // 1️⃣ provider-based lookup first (strongest identity match)
+        // 1️⃣ provider-based lookup first
         if (incomingUser.getGoogleId() != null) {
-            existingUser = userRepository.findByGoogleId(incomingUser.getGoogleId());
+            existingUser =
+                    userRepository.findByGoogleId(incomingUser.getGoogleId());
         }
 
         if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
-            existingUser = userRepository.findByAppleId(incomingUser.getAppleId());
+            existingUser =
+                    userRepository.findByAppleId(incomingUser.getAppleId());
         }
 
-        // 2️⃣ fallback to email match
-        if (existingUser.isEmpty()) {
-            if (incomingUser.getUserEmail() != null) {
-                existingUser =
-                        userRepository.findByUserEmailIgnoreCase(
-                                incomingUser.getUserEmail()
-                        );
-            }
+        // 2️⃣ fallback email lookup
+        if (existingUser.isEmpty() && incomingUser.getUserEmail() != null) {
+            existingUser =
+                    userRepository.findByUserEmailIgnoreCase(
+                            incomingUser.getUserEmail()
+                    );
         }
 
-        // 3️⃣ update provider IDs if user already exists
+        // 3️⃣ user exists → validate invite + update provider IDs
         if (existingUser.isPresent()) {
 
             UserEntity user = existingUser.get();
 
-            if (incomingUser.getGoogleId() != null && user.getGoogleId() == null) {
+            // 🚫 block if user disabled
+            if (!user.isUserActive()) {
+                throw new RuntimeException("User account is inactive");
+            }
+
+            // optional (recommended if you add invited column)
+            if (!user.isInvited()) {
+                throw new RuntimeException("User not invited");
+            }
+
+            // attach provider IDs if first OAuth login
+            if (incomingUser.getGoogleId() != null &&
+                    user.getGoogleId() == null) {
+
                 user.setGoogleId(incomingUser.getGoogleId());
             }
 
-            if (incomingUser.getAppleId() != null && user.getAppleId() == null) {
+            if (incomingUser.getAppleId() != null &&
+                    user.getAppleId() == null) {
+
                 user.setAppleId(incomingUser.getAppleId());
             }
 
             return userRepository.save(user);
         }
 
-        // 4️⃣ create new OAuth user
-        incomingUser.setUserActive(true);
-        incomingUser.setFirstLogin(true);
-
-        return userRepository.save(incomingUser);
+        // 4️⃣ unknown user → reject login (invite-only enforcement)
+        throw new RuntimeException(
+                "User not invited. Please contact your administrator."
+        );
     }
 
 
@@ -315,5 +319,16 @@ public class UserServiceImpl implements UserService {
     }
 
 
+    @Override
+    public void validateUserAccess(UserEntity user) {
+
+        if (!user.isInvited()) {
+            throw new RuntimeException("AccessDenied");
+        }
+
+        if (!user.isUserActive()) {
+            throw new RuntimeException("InactiveUser");
+        }
+    }
 
 }

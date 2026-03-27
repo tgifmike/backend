@@ -1,157 +1,167 @@
 package com.backend.backend.controller;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
 import com.backend.backend.config.GoogleTokenVerifier;
 import com.backend.backend.dto.UpdateUserDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
-import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.UserService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
-import com.google.api.client.util.Value;
 import com.nimbusds.jwt.SignedJWT;
+
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @CrossOrigin(origins = {
         "http://localhost:3000",
         "https://www.themanagerlife.com"
 })
-
 @RestController
 @RequestMapping("/users")
 public class UserController {
 
-    @Value("${google.web.client.id}")
-    private String googleClientId;
-
-    @org.springframework.beans.factory.annotation.Value("${jwt.secret}")
-    private String secret;
-
-    //private final UserRepository userRepository;
     private final UserService userService;
     private final GoogleTokenVerifier googleTokenVerifier;
 
-    public UserController(UserService userService, GoogleTokenVerifier googleTokenVerifier) {
+    public UserController(
+            UserService userService,
+            GoogleTokenVerifier googleTokenVerifier
+    ) {
         this.userService = userService;
         this.googleTokenVerifier = googleTokenVerifier;
     }
 
-    //get all users
-    @GetMapping("/all")
-    public List<UserEntity> getAllUsers() {return userService.getAllUsers();}
 
-    //update user status
+//////////////////////////////////////////////////////////////
+// ADMIN USER MANAGEMENT ENDPOINTS
+    //////////////////////////////////////////////////////////////
+
+    @GetMapping("/all")
+    public List<UserEntity> getAllUsers() {
+        return userService.getAllUsers();
+    }
+
     @PatchMapping("/{id}/active")
     public ResponseEntity<UserDto> toggleActive(
             @PathVariable UUID id,
             @RequestParam boolean active
     ) {
-        UserDto updated = userService.toggleActive(id, active);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(
+                userService.toggleActive(id, active)
+        );
     }
 
-    //update user access role
     @PatchMapping("/{id}/accessRole")
     public ResponseEntity<UserDto> updateAccessRole(
             @PathVariable UUID id,
             @RequestParam String role
     ) {
-        UserDto updated = userService.updateAccessRole(id, role);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(
+                userService.updateAccessRole(id, role)
+        );
     }
 
-    //update user app access
     @PatchMapping("/{id}/appRole")
     public ResponseEntity<UserDto> updateAppRole(
             @PathVariable UUID id,
             @RequestParam String role
     ) {
-        UserDto updated = userService.updateAppRole(id, role);
-        return ResponseEntity.ok(updated);
+        return ResponseEntity.ok(
+                userService.updateAppRole(id, role)
+        );
     }
 
-    //delete user
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
+    public ResponseEntity<Void> deleteUser(
+            @PathVariable UUID id
+    ) {
+
         try {
+
             userService.deleteUser(id);
-            return ResponseEntity.noContent().build(); // 204 No Content
+
+            return ResponseEntity.noContent().build();
+
         } catch (EmptyResultDataAccessException e) {
-            return ResponseEntity.notFound().build(); // 404 if user not found
+
+            return ResponseEntity.notFound().build();
+
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build(); // 500 on other errors
+
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .build();
         }
     }
 
-    //edit username and email
     @PutMapping("/update/{id}")
     public ResponseEntity<String> updateUser(
             @PathVariable UUID id,
             @RequestBody UpdateUserDto request
     ) {
-        userService.updateUser(id, request.getName(), request.getEmail());
-        return ResponseEntity.ok("User updated successfully");
+
+        userService.updateUser(
+                id,
+                request.getName(),
+                request.getEmail()
+        );
+
+        return ResponseEntity.ok(
+                "User updated successfully"
+        );
     }
 
-    //create user
+//////////////////////////////////////////////////////////////
+// MANUAL USER CREATION
+    //////////////////////////////////////////////////////////////
+
     @PostMapping("/create")
-    public ResponseEntity<?> createUser(@RequestBody UserEntity user) {
-        try {
-            UserEntity savedUser = userService.createUser(user);
-            return ResponseEntity.ok(savedUser);
-        } catch (IllegalArgumentException ex) {
-            return ResponseEntity.badRequest().body(ex.getMessage());
-        } catch (Exception ex) {
-            ex.printStackTrace();
-            return ResponseEntity.status(500).body("Failed to create user");
-        }
-    }
+    public ResponseEntity<?> createUser(
+            @RequestBody UserEntity user
+    ) {
 
-    @PostMapping("/create/oauth")
-    public ResponseEntity<?> createOAuthUser(@RequestBody UserEntity user) {
         try {
-            UserEntity savedUser = userService.createOrFindOAuthUser(user);
-            return ResponseEntity.ok(savedUser);
+
+            return ResponseEntity.ok(
+                    userService.createUser(user)
+            );
 
         } catch (IllegalArgumentException ex) {
 
-            return ResponseEntity.badRequest().body(ex.getMessage());
+            return ResponseEntity
+                    .badRequest()
+                    .body(ex.getMessage());
 
         } catch (Exception ex) {
 
-            ex.printStackTrace();
-            return ResponseEntity.status(500).body("Failed to create OAuth user");
-
+            return ResponseEntity
+                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body("Failed to create user");
         }
     }
+
+//////////////////////////////////////////////////////////////
+// MOBILE GOOGLE LOGIN
+    //////////////////////////////////////////////////////////////
 
     @PostMapping("/mobile")
-    public ResponseEntity<?> loginWithGoogle(@RequestBody Map<String, Object> body) {
-
-        // Extract idToken safely
-        String idToken = (body.get("idToken") instanceof String)
-                ? (String) body.get("idToken")
-                : null;
-
-        if (idToken == null || idToken.isBlank()) {
-            return ResponseEntity.badRequest().body("Missing or invalid idToken");
-        }
+    public ResponseEntity<?> loginWithGoogle(
+            @RequestBody Map<String, Object> body
+    ) {
 
         try {
-            // Verify with Google
-            GoogleIdToken.Payload payload = GoogleTokenVerifier.verifyToken(idToken);
+
+            String idToken = extractIdToken(body);
+
+            GoogleIdToken.Payload payload =
+                    GoogleTokenVerifier.verifyToken(idToken);
 
             if (payload == null) {
-                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Invalid Google token");
+
+                return unauthorized("Invalid Google token");
             }
 
             String googleId = payload.getSubject();
@@ -159,63 +169,41 @@ public class UserController {
             String name = (String) payload.get("name");
             String picture = (String) payload.get("picture");
 
-            // Find or create user in DB
             UserEntity oauthUser = new UserEntity();
+
+            oauthUser.setGoogleId(googleId);
             oauthUser.setUserEmail(email);
             oauthUser.setUserName(name);
-            oauthUser.setGoogleId(googleId);
             oauthUser.setUserImage(picture);
 
-            UserEntity user = userService.createOrFindOAuthUser(oauthUser);
-
-            // Generate JWT
-            String jwt = userService.generateJwtForUser(user);
-
-            // Android-friendly JSON response
-            Map<String, Object> response = Map.of(
-                    "token", jwt,
-                    "user", Map.of(
-                            "id", user.getId(),
-                            "name", user.getUserName(),
-                            "email", user.getUserEmail(),
-                            "image", user.getUserImage(),
-                            "appRole", user.getAppRole().name(),
-                            "accessRole", user.getAccessRole().name()
-                    )
-            );
-
-            return ResponseEntity.ok(response);
+            return handleOAuthLogin(oauthUser);
 
         } catch (Exception e) {
-           // e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body("Google login failed: " + e.getMessage());
+
+            return unauthorized("Google login failed");
         }
     }
+
+//////////////////////////////////////////////////////////////
+// MOBILE APPLE LOGIN
+    //////////////////////////////////////////////////////////////
 
     @PostMapping("/mobile/apple")
     public ResponseEntity<?> loginWithApple(
             @RequestBody Map<String, Object> body
     ) {
 
-        String idToken = (body.get("idToken") instanceof String)
-                ? (String) body.get("idToken")
-                : null;
-
-        if (idToken == null || idToken.isBlank()) {
-            return ResponseEntity.badRequest()
-                    .body("Missing Apple idToken");
-        }
-
         try {
 
-            SignedJWT signedJWT = SignedJWT.parse(idToken);
+            String idToken = extractIdToken(body);
+
+            SignedJWT jwt = SignedJWT.parse(idToken);
 
             String appleId =
-                    signedJWT.getJWTClaimsSet().getSubject();
+                    jwt.getJWTClaimsSet().getSubject();
 
             String email =
-                    (String) signedJWT.getJWTClaimsSet()
+                    (String) jwt.getJWTClaimsSet()
                             .getClaim("email");
 
             UserEntity oauthUser = new UserEntity();
@@ -223,42 +211,128 @@ public class UserController {
             oauthUser.setAppleId(appleId);
             oauthUser.setUserEmail(email);
 
+            return handleOAuthLogin(oauthUser);
+
+        } catch (Exception e) {
+
+            return unauthorized("Apple login failed");
+        }
+    }
+
+//////////////////////////////////////////////////////////////
+// SHARED OAUTH LOGIN PIPELINE
+    //////////////////////////////////////////////////////////////
+
+
+
+    private ResponseEntity<?> handleOAuthLogin(
+            UserEntity oauthUser
+    ) {
+
+        try {
+
             UserEntity user =
-                    userService.createOrFindOAuthUser(oauthUser);
+                    userService.createOrFindOAuthUser(
+                            oauthUser
+                    );
+
+            // 🔒 ACCESS CONTROL CHECK
+            userService.validateUserAccess(user);
 
             String jwt =
                     userService.generateJwtForUser(user);
 
-            Map<String, Object> response = Map.of(
-                    "token", jwt,
-                    "user", Map.of(
-                            "id", user.getId(),
-                            "name", user.getUserName(),
-                            "email", user.getUserEmail(),
-                            "image", user.getUserImage(),
-                            "appRole", user.getAppRole().name(),
-                            "accessRole", user.getAccessRole().name()
-                    )
+            return ResponseEntity.ok(
+                    buildMobileResponse(user, jwt)
             );
 
-            return ResponseEntity.ok(response);
+        } catch (RuntimeException ex) {
 
-        } catch (Exception e) {
+            if ("AccessDenied".equals(
+                    ex.getMessage()
+            )) {
 
-            e.printStackTrace();
+                return forbidden(
+                        "User not invited yet"
+                );
+            }
 
+            if ("InactiveUser".equals(
+                    ex.getMessage()
+            )) {
 
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body("Apple login failed: " + e.getMessage());
+                return forbidden(
+                        "User account inactive"
+                );
+            }
+
+            return unauthorized("Login failed");
         }
     }
 
-    @GetMapping("/mobile/apple")
-    public ResponseEntity<?> testAppleGet() {
+//////////////////////////////////////////////////////////////
+// RESPONSE BUILDERS
+    //////////////////////////////////////////////////////////////
 
-        System.out.println("APPLE GET HIT");
+    private Map<String, Object> buildMobileResponse(
+            UserEntity user,
+            String jwt
+    ) {
 
-        return ResponseEntity.ok("GET works");
+        return Map.of(
+
+                "token", jwt,
+
+                "user", Map.of(
+                        "id", user.getId(),
+                        "name", user.getUserName(),
+                        "email", user.getUserEmail(),
+                        "image", user.getUserImage(),
+                        "appRole",
+                        user.getAppRole().name(),
+                        "accessRole",
+                        user.getAccessRole().name()
+                )
+        );
     }
 
+//////////////////////////////////////////////////////////////
+// HELPERS
+    //////////////////////////////////////////////////////////////
+
+    private String extractIdToken(
+            Map<String, Object> body
+    ) {
+
+        Object token = body.get("idToken");
+
+        if (!(token instanceof String)
+                || ((String) token).isBlank()) {
+
+            throw new RuntimeException(
+                    "Missing idToken"
+            );
+        }
+
+        return (String) token;
+    }
+
+    private ResponseEntity<?> unauthorized(
+            String message
+    ) {
+
+        return ResponseEntity
+                .status(HttpStatus.UNAUTHORIZED)
+                .body(message);
+    }
+
+    private ResponseEntity<?> forbidden(
+            String message
+    ) {
+
+        return ResponseEntity
+                .status(HttpStatus.FORBIDDEN)
+                .body(message);
+    }
 }
+
