@@ -210,6 +210,8 @@ public class UserController {
             @RequestBody Map<String, Object> body
     ) {
 
+
+
         try {
 
             String idToken = extractIdToken(body);
@@ -242,9 +244,13 @@ public class UserController {
 
     @PostMapping("/oauth-login")
     public ResponseEntity<?> loginWithOAuth(@RequestBody Map<String, Object> body) {
+        System.out.println("OAUTH LOGIN HIT");
         try {
             String provider = ((String) body.get("provider")).toLowerCase();
             String idToken = extractIdToken(body);
+
+            System.out.println("PROVIDER: " + provider);
+
 
             UserEntity oauthUser = new UserEntity();
 
@@ -271,9 +277,20 @@ public class UserController {
             }
 
             // Delegate everything to service
-            String jwt = userService.handleOAuthLogin(oauthUser);
+//            String jwt = userService.handleOAuthLogin(oauthUser);
+//
+//            UserEntity user = userService.findByEmail(oauthUser.getUserEmail());
 
-            UserEntity user = userService.findByEmail(oauthUser.getUserEmail());
+
+            UserEntity user =
+                    userService.createOrFindOAuthUser(oauthUser);
+
+            userService.validateUserAccess(user);
+
+            String jwt =
+                    userService.generateJwtForUser(user);
+
+            System.out.println("Found user in DB: " + user.getUserEmail() + ", provider=" + user.getProvider() + ", invited=" + user.isInvited() + ", active=" + user.isUserActive());
 
             return ResponseEntity.ok(buildMobileResponse(user, jwt));
 
@@ -283,6 +300,7 @@ public class UserController {
             if ("InactiveUser".equals(msg)) return forbidden("User account inactive");
             return unauthorized("Login failed");
         } catch (Exception ex) {
+            System.out.println("LOGIN FAILURE REASON: " + ex.getMessage());
             return unauthorized("Login failed: " + ex.getMessage());
         }
     }
@@ -296,6 +314,8 @@ public class UserController {
     private ResponseEntity<?> handleOAuthLogin(
             UserEntity oauthUser
     ) {
+
+        System.out.println("EMAIL FROM WEB LOGIN: " + oauthUser.getUserEmail());
 
         try {
 

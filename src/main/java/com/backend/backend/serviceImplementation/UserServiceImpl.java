@@ -283,16 +283,13 @@ public class UserServiceImpl implements UserService {
 //            }
 
             // attach provider IDs if first OAuth login
-            if (incomingUser.getGoogleId() != null &&
-                    user.getGoogleId() == null) {
-
+            if (incomingUser.getGoogleId() != null) {
                 user.setGoogleId(incomingUser.getGoogleId());
+                user.setProvider("google"); // ← ensure provider is saved
             }
-
-            if (incomingUser.getAppleId() != null &&
-                    user.getAppleId() == null) {
-
+            if (incomingUser.getAppleId() != null) {
                 user.setAppleId(incomingUser.getAppleId());
+                user.setProvider("apple"); // ← ensure provider is saved
             }
 
             return userRepository.save(user);
