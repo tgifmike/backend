@@ -2,16 +2,22 @@ package com.backend.backend.serviceImplementation;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.backend.backend.entity.AccountEntity;
+import com.backend.backend.entity.UserAccountAccessEntity;
 import com.backend.backend.enums.AccessRole;
 import com.backend.backend.enums.AppRole;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
+import com.backend.backend.repositories.AccountRepository;
+import com.backend.backend.repositories.UserAccountAccessRepository;
 import com.backend.backend.repositories.UserRepository;
+import com.backend.backend.service.EmailService;
 import com.backend.backend.service.UserService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
-import java.time.LocalDateTime;
+
+import java.time.Instant;
 import java.util.Date;
 import java.util.List;
 import java.util.Optional;
@@ -27,12 +33,18 @@ public class UserServiceImpl implements UserService {
     private String secret;
 
 
+
     private final UserRepository userRepository;
+    private final EmailService emailService;
+    private final AccountRepository accountRepository;
+    private final UserAccountAccessRepository userAccountAccessRepository;
 
 
-
-    public UserServiceImpl(UserRepository userRepository) {
+    public UserServiceImpl(UserRepository userRepository, EmailService emailService, AccountRepository accountRepository, UserAccountAccessRepository userAccountAccessRepository) {
         this.userRepository = userRepository;
+        this.emailService = emailService;
+        this.accountRepository = accountRepository;
+        this.userAccountAccessRepository = userAccountAccessRepository;
     }
 
     //create user from button
@@ -108,7 +120,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new RuntimeException("User not found: " + id));
 
         user.setUserActive(active);
-        user.setUpdatedAt(LocalDateTime.now());
+        user.setUpdatedAt(Instant.now());
 
         UserEntity saved = userRepository.save(user);
 
@@ -217,89 +229,170 @@ public class UserServiceImpl implements UserService {
     }
 
 
-    @Override
-    public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
-
-        System.out.println("Incoming OAuth user:");
-        System.out.println("email: " + incomingUser.getUserEmail());
-        System.out.println("googleId: " + incomingUser.getGoogleId());
-        System.out.println("appleId: " + incomingUser.getAppleId());
-
-        if (
-                incomingUser.getUserEmail() == null &&
-                        incomingUser.getGoogleId() == null &&
-                        incomingUser.getAppleId() == null
-        ) {
-            throw new IllegalArgumentException("OAuth identity missing");
-        }
-
-        // Normalize email
-        if (incomingUser.getUserEmail() != null) {
-            String normalizedEmail =
-                    incomingUser.getUserEmail().toLowerCase().trim();
-
-            incomingUser.setUserEmail(normalizedEmail);
-        }
-
-        Optional<UserEntity> existingUser = Optional.empty();
-
-        // 1️⃣ provider-based lookup first
-        if (incomingUser.getGoogleId() != null) {
-            existingUser =
-                    userRepository.findByGoogleId(incomingUser.getGoogleId());
-            System.out.println("Lookup by GoogleId: " + existingUser.isPresent());
-        }
-
-        if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
-            existingUser =
-                    userRepository.findByAppleId(incomingUser.getAppleId());
-            System.out.println("Lookup by AppleId: " + existingUser.isPresent());
-        }
-
-        // 2️⃣ fallback email lookup
-        if (existingUser.isEmpty() && incomingUser.getUserEmail() != null) {
-            existingUser =
-                    userRepository.findByUserEmailIgnoreCase(
-                            incomingUser.getUserEmail().trim()
-                    );
-
-            System.out.println("Lookup by Email: " + existingUser.isPresent());
-        }
-
-        // 3️⃣ user exists → validate invite + update provider IDs
-        if (existingUser.isPresent()) {
-
-            UserEntity user = existingUser.get();
-
-            // do not validate here — handled later
-            // 🚫 block if user disabled
-//            if (!user.isUserActive()) {
-//                throw new RuntimeException("InactiveUser");
+//    @Override
+//    public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
+//
+//        System.out.println("Incoming OAuth user:");
+//        System.out.println("email: " + incomingUser.getUserEmail());
+//        System.out.println("googleId: " + incomingUser.getGoogleId());
+//        System.out.println("appleId: " + incomingUser.getAppleId());
+//
+//        if (
+//                incomingUser.getUserEmail() == null &&
+//                        incomingUser.getGoogleId() == null &&
+//                        incomingUser.getAppleId() == null
+//        ) {
+//            throw new IllegalArgumentException("OAuth identity missing");
+//        }
+//
+//        // Normalize email
+//        if (incomingUser.getUserEmail() != null) {
+//            String normalizedEmail =
+//                    incomingUser.getUserEmail().toLowerCase().trim();
+//
+//            incomingUser.setUserEmail(normalizedEmail);
+//        }
+//
+//        Optional<UserEntity> existingUser = Optional.empty();
+//
+//        // 1️⃣ provider-based lookup first
+//        if (incomingUser.getGoogleId() != null) {
+//            existingUser =
+//                    userRepository.findByGoogleId(incomingUser.getGoogleId());
+//            System.out.println("Lookup by GoogleId: " + existingUser.isPresent());
+//        }
+//
+//        if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
+//            existingUser =
+//                    userRepository.findByAppleId(incomingUser.getAppleId());
+//            System.out.println("Lookup by AppleId: " + existingUser.isPresent());
+//        }
+//
+//        // 2️⃣ fallback email lookup
+//        if (existingUser.isEmpty() && incomingUser.getUserEmail() != null) {
+//            existingUser =
+//                    userRepository.findByUserEmailIgnoreCase(
+//                            incomingUser.getUserEmail().trim()
+//                    );
+//
+//            System.out.println("Lookup by Email: " + existingUser.isPresent());
+//        }
+//
+//        // 3️⃣ user exists → validate invite + update provider IDs
+//        if (existingUser.isPresent()) {
+//
+//            UserEntity user = existingUser.get();
+//
+//            // do not validate here — handled later
+//            // 🚫 block if user disabled
+////            if (!user.isUserActive()) {
+////                throw new RuntimeException("InactiveUser");
+////            }
+//
+//            // optional (recommended if you add invited column)
+////            if (!user.isInvited()) {
+////                throw new RuntimeException("AccessDenied");
+////            }
+//
+//            // attach provider IDs if first OAuth login
+//            if (incomingUser.getGoogleId() != null) {
+//                user.setGoogleId(incomingUser.getGoogleId());
+//                user.setProvider("google"); // ← ensure provider is saved
 //            }
-
-            // optional (recommended if you add invited column)
-//            if (!user.isInvited()) {
-//                throw new RuntimeException("AccessDenied");
+//            if (incomingUser.getAppleId() != null) {
+//                user.setAppleId(incomingUser.getAppleId());
+//                user.setProvider("apple"); // ← ensure provider is saved
 //            }
+//
+//            return userRepository.save(user);
+//        }
+//
+//        // 4️⃣ unknown user → reject login (invite-only enforcement)
+//        throw new RuntimeException(
+//                "User not invited. Please contact your administrator."
+//        );
+//    }
+@Override
+public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
+    System.out.println("Incoming OAuth user:");
+    System.out.println("email: " + incomingUser.getUserEmail());
+    System.out.println("googleId: " + incomingUser.getGoogleId());
+    System.out.println("appleId: " + incomingUser.getAppleId());
 
-            // attach provider IDs if first OAuth login
-            if (incomingUser.getGoogleId() != null) {
-                user.setGoogleId(incomingUser.getGoogleId());
-                user.setProvider("google"); // ← ensure provider is saved
-            }
-            if (incomingUser.getAppleId() != null) {
-                user.setAppleId(incomingUser.getAppleId());
-                user.setProvider("apple"); // ← ensure provider is saved
-            }
-
-            return userRepository.save(user);
-        }
-
-        // 4️⃣ unknown user → reject login (invite-only enforcement)
-        throw new RuntimeException(
-                "User not invited. Please contact your administrator."
-        );
+    // 1️⃣ Basic validation: require at least email or OAuth ID
+    if (incomingUser.getUserEmail() == null &&
+            incomingUser.getGoogleId() == null &&
+            incomingUser.getAppleId() == null) {
+        throw new IllegalArgumentException("OAuth identity missing");
     }
+
+    // 2️⃣ Normalize email
+    if (incomingUser.getUserEmail() != null) {
+        incomingUser.setUserEmail(incomingUser.getUserEmail().toLowerCase().trim());
+    }
+
+    Optional<UserEntity> existingUser = Optional.empty();
+
+    // 3️⃣ Primary lookup by email
+    if (incomingUser.getUserEmail() != null) {
+        existingUser = userRepository.findByUserEmailIgnoreCase(incomingUser.getUserEmail());
+        System.out.println("Lookup by Email: " + existingUser.isPresent());
+    }
+
+    // 4️⃣ Secondary lookup by provider ID if email not found
+    if (existingUser.isEmpty() && incomingUser.getGoogleId() != null) {
+        existingUser = userRepository.findByGoogleId(incomingUser.getGoogleId());
+        System.out.println("Lookup by GoogleId: " + existingUser.isPresent());
+    }
+    if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
+        existingUser = userRepository.findByAppleId(incomingUser.getAppleId());
+        System.out.println("Lookup by AppleId: " + existingUser.isPresent());
+    }
+
+    // 5️⃣ User exists → update provider info and return
+    if (existingUser.isPresent()) {
+        UserEntity user = existingUser.get();
+
+        // Ensure the user is invited and active
+        if (!user.isInvited()) {
+            throw new RuntimeException("AccessDenied: User not invited");
+        }
+        if (!user.isUserActive()) {
+            throw new RuntimeException("InactiveUser: User is disabled");
+        }
+
+        boolean updated = false;
+
+        // Update provider IDs if missing
+        if (incomingUser.getGoogleId() != null && user.getGoogleId() == null) {
+            user.setGoogleId(incomingUser.getGoogleId());
+            user.setProvider("google");
+            updated = true;
+        }
+        if (incomingUser.getAppleId() != null && user.getAppleId() == null) {
+            user.setAppleId(incomingUser.getAppleId());
+            user.setProvider("apple");
+            updated = true;
+        }
+
+        // Update optional fields
+        user.setUserName(
+                incomingUser.getUserName() != null ? incomingUser.getUserName() : user.getUserName()
+        );
+        user.setUserImage(
+                incomingUser.getUserImage() != null ? incomingUser.getUserImage() : user.getUserImage()
+        );
+
+        if (updated) {
+            user.setUpdatedAt(Instant.now());
+        }
+
+        return userRepository.save(user);
+    }
+
+    // 6️⃣ Unknown user → invite-only restriction
+    throw new RuntimeException("User not invited. Please contact your administrator.");
+}
 
     /**
      * Universal OAuth login method.
@@ -338,7 +431,9 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("User not invited. Please contact your administrator.");
         }
 
+        // 3️⃣ We finally have the UserEntity
         UserEntity user = existingUser.get();
+        boolean updated = false; // now declared
 
         // ✅ Validate active and invited
         validateUserAccess(user);
@@ -346,9 +441,27 @@ public class UserServiceImpl implements UserService {
         // Attach provider IDs if first OAuth login
         if (incomingUser.getGoogleId() != null && user.getGoogleId() == null) {
             user.setGoogleId(incomingUser.getGoogleId());
+            user.setProvider("google");
+            updated = true;
         }
         if (incomingUser.getAppleId() != null && user.getAppleId() == null) {
             user.setAppleId(incomingUser.getAppleId());
+            user.setProvider("apple");
+            updated = true;
+        }
+
+        // Optional: update name/image if missing
+        if (incomingUser.getUserName() != null && !incomingUser.getUserName().isBlank()) {
+            user.setUserName(incomingUser.getUserName());
+            updated = true;
+        }
+        if (incomingUser.getUserImage() != null && !incomingUser.getUserImage().isBlank()) {
+            user.setUserImage(incomingUser.getUserImage());
+            updated = true;
+        }
+
+        if (updated) {
+            user.setUpdatedAt(Instant.now());
         }
 
         userRepository.save(user);
@@ -378,14 +491,91 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public void validateUserAccess(UserEntity user) {
+        if (!user.isInvited()) throw new RuntimeException("AccessDenied");
+        if (!user.isUserActive()) throw new RuntimeException("InactiveUser");
 
-        if (!user.isInvited()) {
-            throw new RuntimeException("AccessDenied");
-        }
+        List<AccountEntity> accounts = accountRepository.findAccountsForUser(user.getId());
+        System.out.println("User " + user.getUserEmail() + " has accounts: " + accounts.size());
 
-        if (!user.isUserActive()) {
-            throw new RuntimeException("InactiveUser");
+        if (accounts.isEmpty()) {
+            throw new RuntimeException("NoAccountsAssigned"); // or handle differently
         }
     }
 
+    //----------------Manager sends email to user to get invited to website/app
+
+    @Override
+    public UserEntity inviteUser(
+            String email,
+            String appRole,
+            String accessRole,
+            String accountId
+    ) {
+
+        if (email == null || email.isBlank()) {
+            throw new RuntimeException("Email required");
+        }
+
+        String normalizedEmail = email.toLowerCase().trim();
+
+        UserEntity user = userRepository
+                .findByUserEmailIgnoreCase(normalizedEmail)
+                .orElseGet(() -> {
+                    UserEntity newUser = new UserEntity();
+                    newUser.setUserEmail(normalizedEmail);
+                    return newUser;
+                });
+
+        user.setInvited(true);
+        user.setUserActive(true);
+        user.setAccessRole(AccessRole.valueOf(accessRole));
+        user.setAppRole(AppRole.valueOf(appRole));
+
+        userRepository.save(user);
+
+        // ⚡ Link user to account
+        if (accountId != null && !accountId.isBlank()) {
+            UUID accountUuid = UUID.fromString(accountId);
+            AccountEntity account = accountRepository.findById(accountUuid)
+                    .orElseThrow(() -> new RuntimeException("Account not found"));
+
+            UserAccountAccessEntity access = new UserAccountAccessEntity();
+            access.setUser(user);
+            access.setAccount(account);
+
+            userAccountAccessRepository.save(access);
+        }
+
+        sendInviteEmail(normalizedEmail);
+
+        return user;
+    }
+
+    private void sendInviteEmail(String email) {
+
+        String loginUrl =
+                "https://www.themanagerlife.com/login?email=" + email;
+
+        String subject =
+                "You're invited to The Manager Life";
+
+        String message =
+                """
+                You've been invited to The Manager Life.
+                
+                Sign in using Google or Apple with this email:
+                
+                %s
+                
+                Login here:
+                %s
+                """.formatted(email, loginUrl);
+
+        emailService.sendEmail(
+                email,
+                subject,
+                message
+        );
+
+    }
 }

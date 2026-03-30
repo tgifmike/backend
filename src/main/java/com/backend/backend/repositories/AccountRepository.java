@@ -3,6 +3,7 @@ package com.backend.backend.repositories;
 import com.backend.backend.entity.AccountEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -44,4 +45,12 @@ public interface AccountRepository extends JpaRepository<AccountEntity, UUID> {
     List<AccountEntity> findActiveAccountsByUserId(UUID userId);
 
 
+    @Query("""
+           SELECT a 
+           FROM AccountEntity a 
+           JOIN UserAccountAccessEntity uaa ON a.id = uaa.account.id
+           WHERE uaa.user.id = :userId AND a.deletedAt IS NULL
+           ORDER BY a.createdAt ASC
+           """)
+    List<AccountEntity> findAccountsForUser(@Param("userId") UUID userId);
 }
