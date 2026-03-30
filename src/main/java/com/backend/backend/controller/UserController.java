@@ -1,6 +1,7 @@
 package com.backend.backend.controller;
 
 import com.backend.backend.config.GoogleTokenVerifier;
+import com.backend.backend.dto.InviteUserDto;
 import com.backend.backend.dto.UpdateUserDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
@@ -311,50 +312,100 @@ public class UserController {
 
 
 
-    private ResponseEntity<?> handleOAuthLogin(
-            UserEntity oauthUser
-    ) {
+//    private ResponseEntity<?> handleOAuthLogin(
+//            UserEntity oauthUser
+//    ) {
+//
+//        System.out.println("EMAIL FROM WEB LOGIN: " + oauthUser.getUserEmail());
+//
+//        try {
+//
+//            UserEntity user =
+//                    userService.createOrFindOAuthUser(
+//                            oauthUser
+//                    );
+//
+//            // 🔒 ACCESS CONTROL CHECK
+//            userService.validateUserAccess(user);
+//
+//            String jwt =
+//                    userService.generateJwtForUser(user);
+//
+//            return ResponseEntity.ok(
+//                    buildMobileResponse(user, jwt)
+//            );
+//
+//        } catch (RuntimeException ex) {
+//
+//            if ("AccessDenied".equals(
+//                    ex.getMessage()
+//            )) {
+//
+//                return forbidden(
+//                        "User not invited yet"
+//                );
+//            }
+//
+//            if ("InactiveUser".equals(
+//                    ex.getMessage()
+//            )) {
+//
+//                return forbidden(
+//                        "User account inactive"
+//                );
+//            }
+//
+//            return unauthorized("Login failed");
+//        }
+//    }
+
+
+    private ResponseEntity<?> handleOAuthLogin(UserEntity oauthUser) {
 
         System.out.println("EMAIL FROM WEB LOGIN: " + oauthUser.getUserEmail());
 
         try {
+            // 1️⃣ Find or create user
+            UserEntity user = userService.createOrFindOAuthUser(oauthUser);
 
-            UserEntity user =
-                    userService.createOrFindOAuthUser(
-                            oauthUser
-                    );
-
-            // 🔒 ACCESS CONTROL CHECK
+            // 2️⃣ Validate access
             userService.validateUserAccess(user);
 
-            String jwt =
-                    userService.generateJwtForUser(user);
+            // 3️⃣ Generate JWT
+            String jwt = userService.generateJwtForUser(user);
 
-            return ResponseEntity.ok(
-                    buildMobileResponse(user, jwt)
-            );
+            // 4️⃣ Build response
+            Map<String, Object> response = new HashMap<>();
+            response.put("user", Map.of(
+                    "id", user.getId(),
+                    "email", user.getUserEmail(),
+                    "googleId", user.getGoogleId(),
+                    "appleId", user.getAppleId(),
+                    "accessRole", user.getAccessRole(),
+                    "appRole", user.getAppRole(),
+                    "invited", user.isInvited(),
+                    "userActive", user.isUserActive()
+            ));
+            response.put("token", jwt);
+
+            return ResponseEntity.ok(response);
 
         } catch (RuntimeException ex) {
+            System.out.println("OAuth login error: " + ex.getMessage());
 
-            if ("AccessDenied".equals(
-                    ex.getMessage()
-            )) {
-
-                return forbidden(
-                        "User not invited yet"
-                );
+            if ("AccessDenied".equals(ex.getMessage())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "User not invited yet"));
             }
 
-            if ("InactiveUser".equals(
-                    ex.getMessage()
-            )) {
-
-                return forbidden(
-                        "User account inactive"
-                );
+            if ("InactiveUser".equals(ex.getMessage())) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                        .body(Map.of("error", "User account inactive"));
             }
 
-            return unauthorized("Login failed");
+            // Return 401 with JSON
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "Login failed"));
         }
     }
 
@@ -421,6 +472,43 @@ public class UserController {
         return ResponseEntity
                 .status(HttpStatus.FORBIDDEN)
                 .body(message);
+    }
+
+    //////////////////////////////////////////////////////////////
+// MANUAL USER CREATION
+    //////////////////////////////////////////////////////////////
+
+    @PostMapping("/invite")
+    public ResponseEntity<?> inviteUser(
+            @RequestBody InviteUserDto request
+    ) {
+
+        try {
+
+            UserEntity user =
+                    userService.inviteUser(
+                            request.getEmail(),
+                            request.getAppRole(),
+                            request.getAccessRole(),
+                            request.getAccountId()
+                    );
+
+            return ResponseEntity.ok(
+                    Map.of(
+                            "message", "Invitation sent",
+                            "user", user
+                    )
+            );
+
+        }
+
+        catch (RuntimeException ex) {
+
+            return ResponseEntity
+                    .badRequest()
+                    .body(ex.getMessage());
+
+        }
     }
 }
 

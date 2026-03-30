@@ -39,4 +39,10 @@ public interface UserService {
     String generateJwtForUser(UserEntity user);
     void validateUserAccess(UserEntity user);
     String handleOAuthLogin(UserEntity incomingUser);
+    UserEntity inviteUser(
+            String email,
+            String appRole,
+            String accessRole,
+            String accountId
+    );
 }
