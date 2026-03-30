@@ -5,6 +5,7 @@ import com.backend.backend.dto.InviteUserDto;
 import com.backend.backend.dto.UpdateUserDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
+import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.UserService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.nimbusds.jwt.SignedJWT;
@@ -25,13 +26,16 @@ import java.util.*;
 public class UserController {
 
     private final UserService userService;
+    private final UserRepository userRepository;
     private final GoogleTokenVerifier googleTokenVerifier;
 
     public UserController(
             UserService userService,
+            UserRepository userRepository,
             GoogleTokenVerifier googleTokenVerifier
     ) {
         this.userService = userService;
+        this.userRepository = userRepository;
         this.googleTokenVerifier = googleTokenVerifier;
     }
 
@@ -211,8 +215,6 @@ public class UserController {
             @RequestBody Map<String, Object> body
     ) {
 
-
-
         try {
 
             String idToken = extractIdToken(body);
@@ -229,7 +231,11 @@ public class UserController {
             UserEntity oauthUser = new UserEntity();
 
             oauthUser.setAppleId(appleId);
-            oauthUser.setUserEmail(email);
+
+            // Apple sometimes only returns email on first login
+            if (email != null) {
+                oauthUser.setUserEmail(email);
+            }
 
             return handleOAuthLogin(oauthUser);
 
@@ -238,7 +244,6 @@ public class UserController {
             return unauthorized("Apple login failed");
         }
     }
-
     //////////////////////////////////////////////////////////////
 // UNIVERSAL OAUTH LOGIN ENDPOINT
     ////////////////////////////////////////////////////////////
