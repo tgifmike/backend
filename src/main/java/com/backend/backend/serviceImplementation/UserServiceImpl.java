@@ -32,12 +32,12 @@ public class UserServiceImpl implements UserService {
     @Value("${jwt.secret}")
     private String secret;
 
-
-
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final AccountRepository accountRepository;
     private final UserAccountAccessRepository userAccountAccessRepository;
+
+    private static final String APPLE_REVIEW_EMAIL = "testingtml4@gmail.com";
 
 
     public UserServiceImpl(UserRepository userRepository, EmailService emailService, AccountRepository accountRepository, UserAccountAccessRepository userAccountAccessRepository) {
@@ -401,72 +401,128 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
      */
     @Override
     public String handleOAuthLogin(UserEntity incomingUser) {
+
         if ((incomingUser.getUserEmail() == null || incomingUser.getUserEmail().isBlank())
                 && incomingUser.getGoogleId() == null
                 && incomingUser.getAppleId() == null) {
+
             throw new IllegalArgumentException("OAuth identity missing");
         }
 
         // Normalize email
         if (incomingUser.getUserEmail() != null) {
-            incomingUser.setUserEmail(incomingUser.getUserEmail().toLowerCase().trim());
+            incomingUser.setUserEmail(
+                    incomingUser.getUserEmail().toLowerCase().trim()
+            );
         }
 
         Optional<UserEntity> existingUser = Optional.empty();
 
-        // 1️⃣ Lookup by provider ID first
+        // Lookup by provider first
         if (incomingUser.getGoogleId() != null) {
-            existingUser = userRepository.findByGoogleId(incomingUser.getGoogleId());
-        }
-        if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
-            existingUser = userRepository.findByAppleId(incomingUser.getAppleId());
+            existingUser = userRepository.findByGoogleId(
+                    incomingUser.getGoogleId()
+            );
         }
 
-        // 2️⃣ Fallback to email lookup
-        if (existingUser.isEmpty() && incomingUser.getUserEmail() != null) {
-            existingUser = userRepository.findByUserEmailIgnoreCase(incomingUser.getUserEmail());
+        if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
+            existingUser = userRepository.findByAppleId(
+                    incomingUser.getAppleId()
+            );
         }
+
+        // fallback email lookup
+        if (existingUser.isEmpty()
+                && incomingUser.getUserEmail() != null) {
+
+            existingUser =
+                    userRepository.findByUserEmailIgnoreCase(
+                            incomingUser.getUserEmail()
+                    );
+        }
+
+    /*
+     ----------------------------------------
+     APPLE REVIEW BYPASS STARTS HERE
+     ----------------------------------------
+     */
+
+        boolean isAppleReviewer =
+                incomingUser.getUserEmail() != null &&
+                        incomingUser.getUserEmail()
+                                .equalsIgnoreCase(APPLE_REVIEW_EMAIL);
 
         if (existingUser.isEmpty()) {
-            throw new RuntimeException("User not invited. Please contact your administrator.");
+
+            if (isAppleReviewer) {
+
+                UserEntity reviewer =
+                        userRepository.findByUserEmailIgnoreCase(
+                                APPLE_REVIEW_EMAIL
+                        ).orElseGet(() -> {
+
+                            UserEntity newReviewer =
+                                    new UserEntity();
+
+                            newReviewer.setUserEmail(
+                                    APPLE_REVIEW_EMAIL
+                            );
+
+                            newReviewer.setUserName(
+                                    "Apple Reviewer"
+                            );
+
+                            newReviewer.setInvited(true);
+                            newReviewer.setUserActive(true);
+
+                            return userRepository.save(
+                                    newReviewer
+                            );
+                        });
+
+                return generateJwtForUser(reviewer);
+            }
+
+            throw new RuntimeException(
+                    "User not invited. Please contact your administrator."
+            );
         }
 
-        // 3️⃣ We finally have the UserEntity
         UserEntity user = existingUser.get();
-        boolean updated = false; // now declared
 
-        // ✅ Validate active and invited
-        validateUserAccess(user);
+    /*
+     ----------------------------------------
+     SKIP ACCESS VALIDATION FOR REVIEWER
+     ----------------------------------------
+     */
 
-        // Attach provider IDs if first OAuth login
-        if (incomingUser.getGoogleId() != null && user.getGoogleId() == null) {
+        if (!isAppleReviewer) {
+            validateUserAccess(user);
+        }
+
+        boolean updated = false;
+
+        if (incomingUser.getGoogleId() != null
+                && user.getGoogleId() == null) {
+
             user.setGoogleId(incomingUser.getGoogleId());
             user.setProvider("google");
             updated = true;
         }
-        if (incomingUser.getAppleId() != null && user.getAppleId() == null) {
+
+        if (incomingUser.getAppleId() != null
+                && user.getAppleId() == null) {
+
             user.setAppleId(incomingUser.getAppleId());
             user.setProvider("apple");
             updated = true;
         }
 
-        // Optional: update name/image if missing
-        if (incomingUser.getUserName() != null && !incomingUser.getUserName().isBlank()) {
-            user.setUserName(incomingUser.getUserName());
-            updated = true;
-        }
-        if (incomingUser.getUserImage() != null && !incomingUser.getUserImage().isBlank()) {
-            user.setUserImage(incomingUser.getUserImage());
-            updated = true;
-        }
-
         if (updated) {
             user.setUpdatedAt(Instant.now());
+            userRepository.save(user);
         }
 
-        userRepository.save(user);
-
-        // Return JWT
         return generateJwtForUser(user);
     }
 
