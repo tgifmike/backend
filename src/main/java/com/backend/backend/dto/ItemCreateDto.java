@@ -29,7 +29,7 @@ public class ItemCreateDto {
     private String portionSize;
     private Boolean isPortioned;
 
-    private ItemTempCategory temperatureCategory;
+    private ItemTempCategory tempCategory;
     private Boolean isTempTaken;
 
     private Boolean isCheckMark;
