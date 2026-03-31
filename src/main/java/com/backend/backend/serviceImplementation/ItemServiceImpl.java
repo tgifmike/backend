@@ -165,7 +165,7 @@ public class ItemServiceImpl implements ItemService {
         // 🔥 APPLY TEMP RULES HERE
         applyTemperatureRules(
                 item,
-                dto.getTemperatureCategory(),
+                dto.getTempCategory(),
                 dto.getIsTempTaken()
         );
 
@@ -392,10 +392,4 @@ public class ItemServiceImpl implements ItemService {
         itemRepository.saveAll(items);
         itemRepository.flush(); // force DB update
     }
-
-
-
-
-
-
 }
