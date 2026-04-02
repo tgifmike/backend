@@ -39,4 +39,23 @@ public class EmailService {
 
         restTemplate.postForEntity(url, request, String.class);
     }
+    // Contact form
+    public void sendContactEmail(String name, String email, String message) {
+        String subject = "Contact Form Submission";
+        String body = String.format(
+                "Name: %s%nEmail: %s%n%nMessage:%n%s",
+                name, email, message
+        );
+        sendEmail("admin@themanagerlife.com", subject, body);
+    }
+
+    // Sales inquiry
+    public void sendSalesEmail(String name, String email, String restaurant, Integer locations, String message) {
+        String subject = "Sales Inquiry: " + restaurant;
+        String body = String.format(
+                "Name: %s%nEmail: %s%nRestaurant: %s%nLocations: %d%n%nMessage:%n%s",
+                name, email, restaurant, locations, message
+        );
+        sendEmail("admin@themanagerlife.com", subject, body);
+    }
 }
