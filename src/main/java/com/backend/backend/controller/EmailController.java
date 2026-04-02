@@ -2,6 +2,7 @@ package com.backend.backend.controller;
 
 import com.backend.backend.dto.ContactDto;
 import com.backend.backend.dto.EmailRequestDto;
+import com.backend.backend.dto.FreeTrialDto;
 import com.backend.backend.dto.SalesEmailDto;
 import com.backend.backend.service.EmailService;
 import jakarta.validation.Valid;
@@ -41,17 +42,15 @@ public class EmailController {
         return ResponseEntity.ok("Email sent");
     }
 
-//    @PostMapping("/sales")
-//    public ResponseEntity<?> sendSalesEmail(@RequestBody SalesEmailDto request) {
-//
-//        emailService.sendEmail(
-//                request.getName(),
-//                request.getEmail(),
-//                request.getRestaurant(),
-//                request.getLocations(),
-//                request.getMessage()
-//        );
-//
-//        return ResponseEntity.ok("Email sent successfully");
-//    }
+    @PostMapping("/free-trial")
+    public ResponseEntity<?> startFreeTrial(@RequestBody FreeTrialDto request) {
+        emailService.sendFreeTrialEmail(
+                request.getName(),
+                request.getEmail(),
+                request.getRestaurant(),
+                request.getLocations(),
+                request.getMessage()
+        );
+        return ResponseEntity.ok("Free trial request sent");
+    }
 }
