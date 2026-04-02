@@ -58,4 +58,13 @@ public class EmailService {
         );
         sendEmail("admin@themanagerlife.com", subject, body);
     }
+
+    public void sendFreeTrialEmail(String name, String email, String restaurant, Integer locations, String message) {
+        String subject = "Free Trial Request: " + restaurant;
+        String body = String.format(
+                "Name: %s%nEmail: %s%nRestaurant: %s%nLocations: %d%n%nMessage:%n%s",
+                name, email, restaurant, locations, message != null ? message : "N/A"
+        );
+        sendEmail("admin@themanagerlife.com", subject, body);
+    }
 }
