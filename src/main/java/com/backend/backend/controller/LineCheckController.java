@@ -78,13 +78,14 @@ public class LineCheckController {
     // ---------------------------------------------------------
 
     @GetMapping("/dashboard/{locationId}")
-    public ResponseEntity<DashboardMetricsDto> getDashboardMetrics(
-            @PathVariable UUID locationId
-    ) {
-
-        return ResponseEntity.ok(
-                lineCheckService.getDashboardMetrics(locationId)
-        );
+    public ResponseEntity<DashboardMetricsDto> getDashboardMetrics(@PathVariable UUID locationId) {
+        try {
+            DashboardMetricsDto metrics = lineCheckService.getDashboardMetrics(locationId);
+            return ResponseEntity.ok(metrics);
+        } catch (Exception e) {
+            e.printStackTrace(); // logs full error to Heroku console
+            return ResponseEntity.status(500).body(null);
+        }
     }
 
 }
