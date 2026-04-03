@@ -316,8 +316,18 @@ private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
 
 
         // Missing items today
+        // Missing items today
         dto.setMissingItemsToday(
                 lineCheckItemRepository.countMissingItemsToday(
+                        locationId,
+                        startOfDay,
+                        endOfDay
+                )
+        );
+
+// Missing item names today
+        dto.setMissingItemNamesToday(
+                lineCheckItemRepository.findMissingItemNamesToday(
                         locationId,
                         startOfDay,
                         endOfDay
