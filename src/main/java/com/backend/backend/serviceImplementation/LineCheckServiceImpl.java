@@ -4,11 +4,15 @@ import com.backend.backend.dto.*;
 import com.backend.backend.entity.*;
 import com.backend.backend.repositories.*;
 import com.backend.backend.service.LineCheckService;
-import jakarta.transaction.Transactional;
+import org.springframework.transaction.annotation.Transactional;
+
 import org.springframework.stereotype.Service;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 
@@ -201,6 +205,15 @@ public class LineCheckServiceImpl implements LineCheckService {
         dto.setStations(stationDtos);
         dto.setCompletedAt(entity.getCompletedAt()); // <-- new
 
+        if(entity.getCompletedAt() != null) {
+
+            long seconds =
+                    entity.getCompletedAt().getEpochSecond()
+                            - entity.getCheckTime().getEpochSecond();
+
+            dto.setDurationSeconds(seconds);
+        }
+
         return dto;
     }
 
@@ -255,6 +268,117 @@ private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
     public LineCheckDto getLineCheckDtoById(UUID id) {
         LineCheckEntity entity = getLineCheckById(id); // reuse existing method
         return convertToDto(entity); // private converter is fine
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public DashboardMetricsDto getDashboardMetrics(UUID locationId) {
+
+        DashboardMetricsDto dto = new DashboardMetricsDto();
+
+        ZoneId zone = ZoneId.systemDefault();
+
+        // Start / end of today
+        Instant startOfDay =
+                LocalDate.now(zone)
+                        .atStartOfDay(zone)
+                        .toInstant();
+
+        Instant endOfDay =
+                startOfDay.plus(1, ChronoUnit.DAYS);
+
+
+        // Start of week (Monday)
+        Instant startOfWeek =
+                LocalDate.now(zone)
+                        .with(java.time.DayOfWeek.MONDAY)
+                        .atStartOfDay(zone)
+                        .toInstant();
+
+
+        // Line checks today
+        dto.setTotalChecksToday(
+                lineCheckRepository.countChecksToday(
+                        locationId,
+                        startOfDay,
+                        endOfDay
+                )
+        );
+
+
+        // Week-to-date checks
+        dto.setTotalChecksWeekToDate(
+                lineCheckRepository.countChecksWeekToDate(
+                        locationId,
+                        startOfWeek
+                )
+        );
+
+
+        // Missing items today
+        dto.setMissingItemsToday(
+                lineCheckItemRepository.countMissingItemsToday(
+                        locationId,
+                        startOfDay,
+                        endOfDay
+                )
+        );
+
+
+        // Out-of-temp items today
+        dto.setOutOfTempItemsToday(
+                lineCheckItemRepository.countOutOfTempItemsToday(
+                        locationId,
+                        startOfDay,
+                        endOfDay
+                )
+        );
+
+
+        // Out-of-temp item names today
+        dto.setOutOfTempItemNamesToday(
+                lineCheckItemRepository.findOutOfTempItemNamesToday(
+                        locationId,
+                        startOfDay,
+                        endOfDay
+                )
+        );
+
+
+        // Incorrect prep items today
+        dto.setIncorrectPrepItemsToday(
+                lineCheckItemRepository.countIncorrectPrepItemsToday(
+                        locationId,
+                        startOfDay,
+                        endOfDay
+                )
+        );
+
+
+        // Incorrect prep item names today
+        dto.setIncorrectPrepItemNamesToday(
+                lineCheckItemRepository.findIncorrectPrepItemNamesToday(
+                        locationId,
+                        startOfDay,
+                        endOfDay
+                )
+        );
+
+
+        // Average completion duration
+        Double avgSeconds =
+                lineCheckRepository.avgCompletionSecondsToday(
+                        locationId,
+                        startOfDay,
+                        endOfDay
+                );
+
+        dto.setDurationSeconds(
+                avgSeconds != null ? avgSeconds.longValue() : 0
+        );
+
+
+        return dto;
     }
 }
 

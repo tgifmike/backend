@@ -1,5 +1,6 @@
 package com.backend.backend.controller;
 
+import com.backend.backend.dto.DashboardMetricsDto;
 import com.backend.backend.dto.LineCheckDto;
 import com.backend.backend.service.LineCheckService;
 import com.backend.backend.repositories.StationRepository;
@@ -71,6 +72,20 @@ public class LineCheckController {
             return ResponseEntity.ok(lineChecks);
         }
 
+
+    // ---------------------------------------------------------
+    // dashboard endpoint
+    // ---------------------------------------------------------
+
+    @GetMapping("/dashboard/{locationId}")
+    public ResponseEntity<DashboardMetricsDto> getDashboardMetrics(
+            @PathVariable UUID locationId
+    ) {
+
+        return ResponseEntity.ok(
+                lineCheckService.getDashboardMetrics(locationId)
+        );
+    }
 
 }
 
