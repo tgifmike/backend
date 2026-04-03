@@ -15,6 +15,8 @@ public class DashboardMetricsDto {
     private long totalChecksWeekToDate;
 
     private long missingItemsToday;
+    private List<String> missingItemNamesToday;
+
     private long outOfTempItemsToday;
     private List<String> outOfTempItemNamesToday;
 
