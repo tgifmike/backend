@@ -78,10 +78,10 @@ public interface LineCheckRepository extends JpaRepository<LineCheckEntity, UUID
     // Average completion time (seconds) scoped by location
     @Query(value = """
 SELECT AVG(EXTRACT(EPOCH FROM (lc.completed_at - lc.check_time)))
-FROM line_check lc
-JOIN line_check_station lcs
+FROM line_checks lc
+JOIN line_check_stations lcs
     ON lcs.line_check_id = lc.id
-JOIN station s
+JOIN stations s
     ON s.id = lcs.station_id
 WHERE lc.completed_at IS NOT NULL
 AND lc.check_time >= :startOfDay
