@@ -326,7 +326,7 @@ private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
             lineCheckIssues.add(issuesDto);
         }
 
-        dto.setLineCheckIssues(lineCheckIssues);
+        dto.setLineChecks(lineCheckIssues);
 
         return dto;
     }
