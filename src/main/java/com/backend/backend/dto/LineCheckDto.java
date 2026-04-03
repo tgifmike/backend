@@ -17,5 +17,7 @@ public class LineCheckDto {
     private Instant checkTime;
     private Instant completedAt;
 
+    private Long durationSeconds;
+
     private List<LineCheckStationDto> stations;
 }

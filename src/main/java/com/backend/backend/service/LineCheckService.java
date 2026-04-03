@@ -1,5 +1,6 @@
 package com.backend.backend.service;
 
+import com.backend.backend.dto.DashboardMetricsDto;
 import com.backend.backend.dto.LineCheckDto;
 import com.backend.backend.entity.LineCheckEntity;
 
@@ -26,6 +27,6 @@ public interface LineCheckService {
     // Save/update line check (from mobile app)
     //void updateLineCheck(LineCheckSaveDto dto);
     List<LineCheckDto> getCompletedLineChecksByLocation(UUID locationId);
-
+    DashboardMetricsDto getDashboardMetrics(UUID locationId);
 }
 
