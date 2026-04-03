@@ -25,4 +25,5 @@ public class DashboardMetricsDto {
 
     private Long durationSeconds;
 
+    private List<LineCheckItemIssuesDto> lineCheckIssues;
 }
