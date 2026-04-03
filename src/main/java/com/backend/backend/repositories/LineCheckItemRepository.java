@@ -68,15 +68,14 @@ public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEnti
 
     // Count items not prepped correctly
     @Query("""
-    SELECT COUNT(i)
-    FROM LineCheckItemEntity i
-    JOIN i.lineCheckStation lcs
-    JOIN lcs.station s
-    WHERE i.isChecked = true
-      AND i.item.itemChecked = false
-      AND lcs.lineCheck.checkTime >= :startOfDay
-      AND lcs.lineCheck.checkTime < :endOfDay
-      AND s.location.id = :locationId
+SELECT COUNT(i)
+FROM LineCheckItemEntity i
+JOIN i.lineCheckStation lcs
+JOIN lcs.station s
+WHERE i.isChecked = false
+  AND lcs.lineCheck.checkTime >= :startOfDay
+  AND lcs.lineCheck.checkTime < :endOfDay
+  AND s.location.id = :locationId
 """)
     long countIncorrectPrepItemsToday(
             @Param("locationId") UUID locationId,
@@ -87,15 +86,14 @@ public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEnti
 
     // Names of incorrectly prepped items
     @Query("""
-    SELECT i.item.itemName
-    FROM LineCheckItemEntity i
-    JOIN i.lineCheckStation lcs
-    JOIN lcs.station s
-    WHERE i.isChecked = true
-      AND i.item.itemChecked = false
-      AND lcs.lineCheck.checkTime >= :startOfDay
-      AND lcs.lineCheck.checkTime < :endOfDay
-      AND s.location.id = :locationId
+SELECT i.item.itemName
+FROM LineCheckItemEntity i
+JOIN i.lineCheckStation lcs
+JOIN lcs.station s
+WHERE i.isChecked = false
+  AND lcs.lineCheck.checkTime >= :startOfDay
+  AND lcs.lineCheck.checkTime < :endOfDay
+  AND s.location.id = :locationId
 """)
     List<String> findIncorrectPrepItemNamesToday(
             @Param("locationId") UUID locationId,
