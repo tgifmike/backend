@@ -308,7 +308,7 @@ public class StationServiceImpl implements StationService {
             newItem.setMinTemp(sourceItem.getMinTemp());
             newItem.setMaxTemp(sourceItem.getMaxTemp());
             newItem.setIsCheckMark(sourceItem.getIsCheckMark());
-            newItem.setIsItemChecked(sourceItem.getIsItemChecked());
+            newItem.setItemChecked(sourceItem.getItemChecked());
             newItem.setTemplateNotes(sourceItem.getTemplateNotes());
             newItem.setLineCheckNotes(sourceItem.getLineCheckNotes());
             newItem.setItemActive(sourceItem.getItemActive());

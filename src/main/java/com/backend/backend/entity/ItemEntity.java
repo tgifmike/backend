@@ -55,7 +55,7 @@ public class ItemEntity {
     @JsonProperty("isCheckMark")
     private Boolean isCheckMark;
 
-    private Boolean isItemChecked;
+    private Boolean itemChecked;
 
     @Column(name = "item_notes")
     private String templateNotes;
