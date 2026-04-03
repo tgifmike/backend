@@ -320,8 +320,13 @@ private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
             List<String> incorrectPrep = lineCheckItemRepository.findIncorrectPrepItemNamesByLineCheck(lc.getId());
 
             issuesDto.setMissingItems(missing);
+            issuesDto.setMissingCount(missing.size());
+
             issuesDto.setOutOfTempItems(outOfTemp);
+            issuesDto.setOutOfTempCount(outOfTemp.size());
+
             issuesDto.setIncorrectPrepItems(incorrectPrep);
+            issuesDto.setIncorrectPrepCount(incorrectPrep.size());
 
             lineCheckIssues.add(issuesDto);
         }
