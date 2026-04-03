@@ -99,5 +99,23 @@ public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEnti
             @Param("endOfDay") Instant endOfDay
     );
 
+    //name of missing
+    @Query("""
+SELECT i.name
+FROM LineCheckItemEntity lci
+JOIN lci.item i
+JOIN lci.lineCheckStation lcs
+JOIN lcs.lineCheck lc
+WHERE lc.location.id = :locationId
+AND lci.isCheckMark = false
+AND lc.createdAt >= :startOfDay
+AND lc.createdAt < :endOfDay
+""")
+    List<String> findMissingItemNamesToday(
+            UUID locationId,
+            Instant startOfDay,
+            Instant endOfDay
+    );
+
 }
 
