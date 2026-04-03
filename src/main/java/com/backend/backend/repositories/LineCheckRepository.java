@@ -94,4 +94,20 @@ AND s.location_id = :locationId
             Instant endOfDay
     );
 
+    @Query("""
+    SELECT lc
+    FROM LineCheckEntity lc
+    JOIN lc.stations s
+    WHERE lc.checkTime >= :startOfDay
+      AND lc.checkTime < :endOfDay
+      AND lc.completedAt IS NOT NULL
+      AND s.station.location.id = :locationId
+    ORDER BY lc.checkTime ASC
+""")
+    List<LineCheckEntity> findByLocationAndCheckTimeBetween(
+            @Param("locationId") UUID locationId,
+            @Param("startOfDay") Instant startOfDay,
+            @Param("endOfDay") Instant endOfDay
+    );
+
 }

@@ -273,120 +273,60 @@ private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
     @Override
     @Transactional(readOnly = true)
     public DashboardMetricsDto getDashboardMetrics(UUID locationId) {
-
         DashboardMetricsDto dto = new DashboardMetricsDto();
 
         ZoneId zone = ZoneId.systemDefault();
 
         // Start / end of today
-        Instant startOfDay =
-                LocalDate.now(zone)
-                        .atStartOfDay(zone)
-                        .toInstant();
-
-        Instant endOfDay =
-                startOfDay.plus(1, ChronoUnit.DAYS);
-
+        Instant startOfDay = LocalDate.now(zone).atStartOfDay(zone).toInstant();
+        Instant endOfDay = startOfDay.plus(1, ChronoUnit.DAYS);
 
         // Start of week (Monday)
-        Instant startOfWeek =
-                LocalDate.now(zone)
-                        .with(java.time.DayOfWeek.MONDAY)
-                        .atStartOfDay(zone)
-                        .toInstant();
+        Instant startOfWeek = LocalDate.now(zone)
+                .with(java.time.DayOfWeek.MONDAY)
+                .atStartOfDay(zone)
+                .toInstant();
 
+        // --- Existing summary totals ---
+        dto.setTotalChecksToday(lineCheckRepository.countChecksToday(locationId, startOfDay, endOfDay));
+        dto.setTotalChecksWeekToDate(lineCheckRepository.countChecksWeekToDate(locationId, startOfWeek));
 
-        // Line checks today
-        dto.setTotalChecksToday(
-                lineCheckRepository.countChecksToday(
-                        locationId,
-                        startOfDay,
-                        endOfDay
-                )
-        );
+        dto.setMissingItemsToday(lineCheckItemRepository.countMissingItemsToday(locationId, startOfDay, endOfDay));
+        dto.setMissingItemNamesToday(lineCheckItemRepository.findMissingItemNamesToday(locationId, startOfDay, endOfDay));
 
+        dto.setOutOfTempItemsToday(lineCheckItemRepository.countOutOfTempItemsToday(locationId, startOfDay, endOfDay));
+        dto.setOutOfTempItemNamesToday(lineCheckItemRepository.findOutOfTempItemNamesToday(locationId, startOfDay, endOfDay));
 
-        // Week-to-date checks
-        dto.setTotalChecksWeekToDate(
-                lineCheckRepository.countChecksWeekToDate(
-                        locationId,
-                        startOfWeek
-                )
-        );
+        dto.setIncorrectPrepItemsToday(lineCheckItemRepository.countIncorrectPrepItemsToday(locationId, startOfDay, endOfDay));
+        dto.setIncorrectPrepItemNamesToday(lineCheckItemRepository.findIncorrectPrepItemNamesToday(locationId, startOfDay, endOfDay));
 
+        Double avgSeconds = lineCheckRepository.avgCompletionSecondsToday(locationId, startOfDay, endOfDay);
+        dto.setDurationSeconds(avgSeconds != null ? avgSeconds.longValue() : 0L);
 
-        // Missing items today
-        // Missing items today
-        dto.setMissingItemsToday(
-                lineCheckItemRepository.countMissingItemsToday(
-                        locationId,
-                        startOfDay,
-                        endOfDay
-                )
-        );
+        // --- NEW: detailed issues per line check ---
+        List<LineCheckItemIssuesDto> lineCheckIssues = new ArrayList<>();
 
-// Missing item names today
-        dto.setMissingItemNamesToday(
-                lineCheckItemRepository.findMissingItemNamesToday(
-                        locationId,
-                        startOfDay,
-                        endOfDay
-                )
-        );
+        // Fetch all line checks for today
+        List<LineCheckEntity> lineChecksToday = lineCheckRepository.findByLocationAndCheckTimeBetween(locationId, startOfDay, endOfDay);
 
+        for (LineCheckEntity lc : lineChecksToday) {
+            LineCheckItemIssuesDto issuesDto = new LineCheckItemIssuesDto();
+            issuesDto.setLineCheckId(lc.getId());
+            issuesDto.setCheckTime(lc.getCheckTime());
 
-        // Out-of-temp items today
-        dto.setOutOfTempItemsToday(
-                lineCheckItemRepository.countOutOfTempItemsToday(
-                        locationId,
-                        startOfDay,
-                        endOfDay
-                )
-        );
+            // Fetch items per line check
+            List<String> missing = lineCheckItemRepository.findMissingItemNamesByLineCheck(lc.getId());
+            List<String> outOfTemp = lineCheckItemRepository.findOutOfTempItemNamesByLineCheck(lc.getId());
+            List<String> incorrectPrep = lineCheckItemRepository.findIncorrectPrepItemNamesByLineCheck(lc.getId());
 
+            issuesDto.setMissingItems(missing);
+            issuesDto.setOutOfTempItems(outOfTemp);
+            issuesDto.setIncorrectPrepItems(incorrectPrep);
 
-        // Out-of-temp item names today
-        dto.setOutOfTempItemNamesToday(
-                lineCheckItemRepository.findOutOfTempItemNamesToday(
-                        locationId,
-                        startOfDay,
-                        endOfDay
-                )
-        );
+            lineCheckIssues.add(issuesDto);
+        }
 
-
-        // Incorrect prep items today
-        dto.setIncorrectPrepItemsToday(
-                lineCheckItemRepository.countIncorrectPrepItemsToday(
-                        locationId,
-                        startOfDay,
-                        endOfDay
-                )
-        );
-
-
-        // Incorrect prep item names today
-        dto.setIncorrectPrepItemNamesToday(
-                lineCheckItemRepository.findIncorrectPrepItemNamesToday(
-                        locationId,
-                        startOfDay,
-                        endOfDay
-                )
-        );
-
-
-        // Average completion duration
-        Double avgSeconds =
-                lineCheckRepository.avgCompletionSecondsToday(
-                        locationId,
-                        startOfDay,
-                        endOfDay
-                );
-
-        dto.setDurationSeconds(
-                avgSeconds != null ? avgSeconds.longValue() : 0
-        );
-
+        dto.setLineCheckIssues(lineCheckIssues);
 
         return dto;
     }

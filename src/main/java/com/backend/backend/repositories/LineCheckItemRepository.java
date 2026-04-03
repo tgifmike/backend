@@ -119,5 +119,31 @@ WHERE i.isChecked = false
             @Param("endOfDay") Instant endOfDay
     );
 
+    @Query("""
+SELECT i.item.itemName
+FROM LineCheckItemEntity i
+WHERE i.lineCheckStation.lineCheck.id = :lineCheckId
+  AND i.isMissing = true
+""")
+    List<String> findMissingItemNamesByLineCheck(@Param("lineCheckId") UUID lineCheckId);
+
+    // Names of out-of-temp items for a given line check
+    @Query("""
+SELECT i.item.itemName
+FROM LineCheckItemEntity i
+WHERE i.lineCheckStation.lineCheck.id = :lineCheckId
+  AND i.temperature IS NOT NULL
+  AND (i.temperature < i.item.minTemp OR i.temperature > i.item.maxTemp)
+""")
+    List<String> findOutOfTempItemNamesByLineCheck(@Param("lineCheckId") UUID lineCheckId);
+
+    // Names of incorrectly prepped items for a given line check
+    @Query("""
+SELECT i.item.itemName
+FROM LineCheckItemEntity i
+WHERE i.lineCheckStation.lineCheck.id = :lineCheckId
+  AND i.isItemChecked = false
+""")
+    List<String> findIncorrectPrepItemNamesByLineCheck(@Param("lineCheckId") UUID lineCheckId);
 }
 
