@@ -101,20 +101,20 @@ public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEnti
 
     //name of missing
     @Query("""
-SELECT i.name
-FROM LineCheckItemEntity lci
-JOIN lci.item i
-JOIN lci.lineCheckStation lcs
-JOIN lcs.lineCheck lc
-WHERE lc.location.id = :locationId
-AND lci.isCheckMark = false
-AND lc.createdAt >= :startOfDay
-AND lc.createdAt < :endOfDay
+    SELECT i.itemName
+    FROM LineCheckItemEntity lci
+    JOIN lci.item i
+    JOIN lci.lineCheckStation lcs
+    JOIN lcs.station s
+    WHERE s.location.id = :locationId
+      AND lci.isChecked = false
+      AND lcs.lineCheck.createdAt >= :startOfDay
+      AND lcs.lineCheck.createdAt < :endOfDay
 """)
     List<String> findMissingItemNamesToday(
-            UUID locationId,
-            Instant startOfDay,
-            Instant endOfDay
+            @Param("locationId") UUID locationId,
+            @Param("startOfDay") Instant startOfDay,
+            @Param("endOfDay") Instant endOfDay
     );
 
 }
