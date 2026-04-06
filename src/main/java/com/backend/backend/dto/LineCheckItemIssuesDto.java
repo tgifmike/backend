@@ -25,5 +25,10 @@ public class LineCheckItemIssuesDto {
     private long incorrectPrepCount;
     private List<String> incorrectPrepItems;
 
+    private long totalChecksMonthToDate;
+
+    private long totalChecksYesterday;
+
+    private String employeeName;
 
 }

@@ -1,5 +1,6 @@
 package com.backend.backend.repositories;
 
+import com.backend.backend.dto.EmployeeCheckCountDto;
 import com.backend.backend.entity.LineCheckEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -14,7 +15,6 @@ import java.util.UUID;
 @Repository
 public interface LineCheckRepository extends JpaRepository<LineCheckEntity, UUID> {
 
-
     @Query("""
         SELECT lc
         FROM LineCheckEntity lc
@@ -24,9 +24,7 @@ public interface LineCheckRepository extends JpaRepository<LineCheckEntity, UUID
     """)
     Optional<LineCheckEntity> findByIdWithStationsAndItems(UUID id);
 
-
     List<LineCheckEntity> findAllByOrderByCheckTimeDesc();
-
     List<LineCheckEntity> findAllByCompletedAtIsNotNullOrderByCheckTimeDesc();
 
     List<LineCheckEntity>
@@ -34,8 +32,6 @@ public interface LineCheckRepository extends JpaRepository<LineCheckEntity, UUID
             UUID locationId
     );
 
-
-    // Count line checks today
     @Query("""
         SELECT COUNT(l)
         FROM LineCheckEntity l
@@ -55,8 +51,6 @@ public interface LineCheckRepository extends JpaRepository<LineCheckEntity, UUID
             @Param("endOfDay") Instant endOfDay
     );
 
-
-    // Count week-to-date checks
     @Query("""
         SELECT COUNT(l)
         FROM LineCheckEntity l
@@ -74,24 +68,59 @@ public interface LineCheckRepository extends JpaRepository<LineCheckEntity, UUID
             @Param("startOfWeek") Instant startOfWeek
     );
 
+    @Query("""
+        SELECT COUNT(l)
+        FROM LineCheckEntity l
+        WHERE l.checkTime >= :startOfMonth
+        AND l.completedAt IS NOT NULL
+        AND EXISTS (
+            SELECT s
+            FROM LineCheckStationEntity s
+            WHERE s.lineCheck = l
+            AND s.station.location.id = :locationId
+        )
+    """)
+    long countChecksMonthToDate(
+            @Param("locationId") UUID locationId,
+            @Param("startOfMonth") Instant startOfMonth
+    );
 
-    // Average completion time (seconds) scoped by location
-    @Query(value = """
-SELECT AVG(EXTRACT(EPOCH FROM (lc.completed_at - lc.check_time)))
-FROM line_checks lc
-JOIN line_check_stations lcs
-    ON lcs.line_check_id = lc.id
-JOIN stations s
-    ON s.id = lcs.station_id
-WHERE lc.completed_at IS NOT NULL
-AND lc.check_time >= :startOfDay
-AND lc.check_time < :endOfDay
-AND s.location_id = :locationId
-""", nativeQuery = true)
-    Double avgCompletionSecondsToday(
-            UUID locationId,
-            Instant startOfDay,
-            Instant endOfDay
+    @Query("""
+SELECT new com.backend.backend.dto.EmployeeCheckCountDto(
+    lc.user.id,
+    lc.user.userName,
+    COUNT(lc)
+)
+FROM LineCheckEntity lc
+WHERE lc.checkTime BETWEEN :start AND :end
+AND lc.completedAt IS NOT NULL
+AND EXISTS (
+    SELECT s
+    FROM LineCheckStationEntity s
+    WHERE s.lineCheck = lc
+    AND s.station.location.id = :locationId
+)
+GROUP BY lc.user.id, lc.user.userName
+""")
+    List<EmployeeCheckCountDto> countChecksPerEmployee(
+            @Param("locationId") UUID locationId,
+            @Param("start") Instant start,
+            @Param("end") Instant end
+    );
+
+    // ✅ Employee performance returning entities for Java processing
+    @Query("""
+SELECT lc
+FROM LineCheckEntity lc
+JOIN lc.stations s
+WHERE lc.completedAt IS NOT NULL
+AND lc.checkTime BETWEEN :start AND :end
+AND s.station.location.id = :locationId
+""")
+    List<LineCheckEntity> employeePerformance(
+            @Param("locationId") UUID locationId,
+            @Param("start") Instant start,
+            @Param("end") Instant end
     );
 
     @Query("""
@@ -110,4 +139,21 @@ AND s.location_id = :locationId
             @Param("endOfDay") Instant endOfDay
     );
 
+    @Query(value = """
+    SELECT AVG(EXTRACT(EPOCH FROM (lc.completed_at - lc.check_time)))
+    FROM line_checks lc
+    JOIN line_check_stations lcs
+        ON lcs.line_check_id = lc.id
+    JOIN stations s
+        ON s.id = lcs.station_id
+    WHERE lc.completed_at IS NOT NULL
+      AND lc.check_time >= :startOfDay
+      AND lc.check_time < :endOfDay
+      AND s.location_id = :locationId
+""", nativeQuery = true)
+    Double avgCompletionSecondsToday(
+            @Param("locationId") UUID locationId,
+            @Param("startOfDay") Instant startOfDay,
+            @Param("endOfDay") Instant endOfDay
+    );
 }
