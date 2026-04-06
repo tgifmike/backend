@@ -12,7 +12,7 @@ import java.util.UUID;
 public class EmployeePerformanceDto {
 
     private UUID userId;
-    private String name;
+    private String userName;
     private Long checkCount;
-    private Double avgDurationSeconds;
+    private Double avgCompletionSeconds;
 }
