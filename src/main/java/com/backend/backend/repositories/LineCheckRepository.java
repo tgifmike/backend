@@ -110,7 +110,7 @@ GROUP BY lc.user.id, lc.user.userName
 
     // ✅ Employee performance returning entities for Java processing
     @Query("""
-SELECT lc
+SELECT DISTINCT lc
 FROM LineCheckEntity lc
 JOIN lc.stations s
 WHERE lc.completedAt IS NOT NULL
