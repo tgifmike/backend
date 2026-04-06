@@ -282,9 +282,18 @@ public class LineCheckServiceImpl implements LineCheckService {
         LocationEntity location = locationRepository.findById(locationId)
                 .orElseThrow(() -> new RuntimeException("Location not found"));
 
-        ZoneId zone = location.getLocationTimeZone() != null
-                ? ZoneId.of(location.getLocationTimeZone())
-                : ZoneId.systemDefault();
+        String tz = location.getLocationTimeZone();
+        ZoneId zone;
+        try {
+            zone = tz != null ? ZoneId.of(tz) : ZoneId.systemDefault();
+        } catch (DateTimeException e) {
+            // fallback to a default or map manually
+            switch (tz) {
+                case "Eastern Time (GMT-5)" -> zone = ZoneId.of("America/New_York");
+                case "Central Time (GMT-6)" -> zone = ZoneId.of("America/Chicago");
+                default -> zone = ZoneId.systemDefault();
+            }
+        }
 
         LocalDate today = LocalDate.now(zone);
         DayOfWeek startDay = location.getStartOfWeek() == StartOfWeek.SUNDAY
