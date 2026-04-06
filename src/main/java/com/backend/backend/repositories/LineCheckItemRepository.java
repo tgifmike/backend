@@ -76,6 +76,7 @@ WHERE i.isChecked = false
   AND lcs.lineCheck.checkTime >= :startOfDay
   AND lcs.lineCheck.checkTime < :endOfDay
   AND s.location.id = :locationId
+  AND i.isMissing = false
 """)
     long countIncorrectPrepItemsToday(
             @Param("locationId") UUID locationId,
@@ -94,6 +95,7 @@ WHERE i.isChecked = false
   AND lcs.lineCheck.checkTime >= :startOfDay
   AND lcs.lineCheck.checkTime < :endOfDay
   AND s.location.id = :locationId
+  AND i.isMissing = false
 """)
     List<String> findIncorrectPrepItemNamesToday(
             @Param("locationId") UUID locationId,
