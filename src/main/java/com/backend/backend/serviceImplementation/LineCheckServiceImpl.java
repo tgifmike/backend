@@ -1,5 +1,6 @@
 package com.backend.backend.serviceImplementation;
 
+import com.backend.backend.config.StartOfWeek;
 import com.backend.backend.dto.*;
 import com.backend.backend.entity.*;
 import com.backend.backend.repositories.*;
@@ -8,12 +9,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.stereotype.Service;
 
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.*;
 import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
+import java.util.stream.Collectors;
 
 
 @Service
@@ -25,27 +25,30 @@ public class LineCheckServiceImpl implements LineCheckService {
     private final StationRepository stationRepository;
     //private final ItemRepository itemRepository;
     private final LineCheckItemRepository lineCheckItemRepository;
+    private final LocationRepository locationRepository;
 
     public LineCheckServiceImpl(
             LineCheckRepository lineCheckRepository,
             UserRepository userRepository,
             StationRepository stationRepository,
-          //  ItemRepository itemRepository,
+            //  ItemRepository itemRepository,
             LineCheckStationRepository lineCheckStationRepository,
-            LineCheckItemRepository lineCheckItemRepository
+            LineCheckItemRepository lineCheckItemRepository,
+            LocationRepository locationRepository
     ) {
         this.lineCheckRepository = lineCheckRepository;
         this.userRepository = userRepository;
         this.stationRepository = stationRepository;
-       // this.itemRepository = itemRepository;
+        // this.itemRepository = itemRepository;
         this.lineCheckStationRepository = lineCheckStationRepository;
         this.lineCheckItemRepository = lineCheckItemRepository;
+        this.locationRepository = locationRepository;
     }
 
     // ---------------------------------------------------------
     // CREATE NEW EMPTY LINE CHECK (fresh check)
     // ---------------------------------------------------------
-   // @Override
+    // @Override
     @Transactional
     public LineCheckDto createLineCheck(UUID userId, List<UUID> stationIds) {
         UserEntity user = userRepository.findById(userId)
@@ -184,9 +187,6 @@ public class LineCheckServiceImpl implements LineCheckService {
     }
 
 
-
-
-
     // ============================================================
     // DTO CONVERSION HELPERS
     // ============================================================
@@ -205,7 +205,7 @@ public class LineCheckServiceImpl implements LineCheckService {
         dto.setStations(stationDtos);
         dto.setCompletedAt(entity.getCompletedAt()); // <-- new
 
-        if(entity.getCompletedAt() != null) {
+        if (entity.getCompletedAt() != null) {
 
             long seconds =
                     entity.getCompletedAt().getEpochSecond()
@@ -232,35 +232,35 @@ public class LineCheckServiceImpl implements LineCheckService {
         return dto;
     }
 
-private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
-    ItemEntity item = e.getItem();
+    private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
+        ItemEntity item = e.getItem();
 
-    LineCheckItemDto dto = new LineCheckItemDto();
-    dto.setId(e.getId());
+        LineCheckItemDto dto = new LineCheckItemDto();
+        dto.setId(e.getId());
 
-    // Template fields
-    dto.setItemName(item.getItemName());
-    dto.setShelfLife(item.getShelfLife());
-    dto.setPanSize(item.getPanSize());
-    dto.setTool(item.getIsTool());
-    dto.setToolName(item.getToolName());
-    dto.setPortioned(item.getIsPortioned());
-    dto.setPortionSize(item.getPortionSize());
-    dto.setCheckMark(item.getIsCheckMark());  // ✅ template flag
-    dto.setMinTemp(item.getMinTemp());
-    dto.setMaxTemp(item.getMaxTemp());
-    dto.setTemplateNotes(item.getTemplateNotes());
-    dto.setSortOrder(item.getSortOrder());
+        // Template fields
+        dto.setItemName(item.getItemName());
+        dto.setShelfLife(item.getShelfLife());
+        dto.setPanSize(item.getPanSize());
+        dto.setTool(item.getIsTool());
+        dto.setToolName(item.getToolName());
+        dto.setPortioned(item.getIsPortioned());
+        dto.setPortionSize(item.getPortionSize());
+        dto.setCheckMark(item.getIsCheckMark());  // ✅ template flag
+        dto.setMinTemp(item.getMinTemp());
+        dto.setMaxTemp(item.getMaxTemp());
+        dto.setTemplateNotes(item.getTemplateNotes());
+        dto.setSortOrder(item.getSortOrder());
 
-    // User-entered fields (important!)
-    dto.setItemChecked(e.isItemChecked());   // ✅ actual user check
-    dto.setTempTaken(item.getIsTempTaken());    // ✅ can stay from template
-    dto.setTemperature(e.getTemperature());  // ✅ user-entered
-    dto.setObservations(e.getObservations()); // ✅ user-entered
-    dto.setMissing(e.isMissing());
+        // User-entered fields (important!)
+        dto.setItemChecked(e.isItemChecked());   // ✅ actual user check
+        dto.setTempTaken(item.getIsTempTaken());    // ✅ can stay from template
+        dto.setTemperature(e.getTemperature());  // ✅ user-entered
+        dto.setObservations(e.getObservations()); // ✅ user-entered
+        dto.setMissing(e.isMissing());
 
-    return dto;
-}
+        return dto;
+    }
 
 
     @Override
@@ -273,68 +273,138 @@ private LineCheckItemDto convertItemToDto(LineCheckItemEntity e) {
     @Override
     @Transactional(readOnly = true)
     public DashboardMetricsDto getDashboardMetrics(UUID locationId) {
+
         DashboardMetricsDto dto = new DashboardMetricsDto();
 
-        ZoneId zone = ZoneId.systemDefault();
+        // -------------------------------
+        // Load location configuration
+        // -------------------------------
+        LocationEntity location = locationRepository.findById(locationId)
+                .orElseThrow(() -> new RuntimeException("Location not found"));
 
-        // Start / end of today
-        Instant startOfDay = LocalDate.now(zone).atStartOfDay(zone).toInstant();
+        ZoneId zone = location.getLocationTimeZone() != null
+                ? ZoneId.of(location.getLocationTimeZone())
+                : ZoneId.systemDefault();
+
+        LocalDate today = LocalDate.now(zone);
+        DayOfWeek startDay = location.getStartOfWeek() == StartOfWeek.SUNDAY
+                ? DayOfWeek.SUNDAY
+                : DayOfWeek.MONDAY;
+
+        // -------------------------------
+        // Date boundaries
+        // -------------------------------
+        Instant startOfDay = today.atStartOfDay(zone).toInstant();
         Instant endOfDay = startOfDay.plus(1, ChronoUnit.DAYS);
 
-        // Start of week (Monday)
-        Instant startOfWeek = LocalDate.now(zone)
-                .with(java.time.DayOfWeek.MONDAY)
-                .atStartOfDay(zone)
-                .toInstant();
+        Instant startOfYesterday = startOfDay.minus(1, ChronoUnit.DAYS);
+        Instant startOfWeek = today.with(TemporalAdjusters.previousOrSame(startDay))
+                .atStartOfDay(zone).toInstant();
+        Instant startOfMonth = today.withDayOfMonth(1).atStartOfDay(zone).toInstant();
+        Instant now = Instant.now();
 
-        // --- Existing summary totals ---
+        // -------------------------------
+        // Line check totals
+        // -------------------------------
         dto.setTotalChecksToday(lineCheckRepository.countChecksToday(locationId, startOfDay, endOfDay));
+        dto.setTotalChecksYesterday(lineCheckRepository.countChecksToday(locationId, startOfYesterday, startOfDay));
         dto.setTotalChecksWeekToDate(lineCheckRepository.countChecksWeekToDate(locationId, startOfWeek));
+        dto.setTotalChecksMonthToDate(lineCheckRepository.countChecksMonthToDate(locationId, startOfMonth));
 
-        dto.setMissingItemsToday(lineCheckItemRepository.countMissingItemsToday(locationId, startOfDay, endOfDay));
-        dto.setMissingItemNamesToday(lineCheckItemRepository.findMissingItemNamesToday(locationId, startOfDay, endOfDay));
+        // -------------------------------
+        // Employee productivity metrics
+        // -------------------------------
+        dto.setEmployeeChecksToday(lineCheckRepository.countChecksPerEmployee(locationId, startOfDay, endOfDay));
+        dto.setEmployeeChecksWeek(lineCheckRepository.countChecksPerEmployee(locationId, startOfWeek, now));
+        dto.setEmployeeChecksMonth(lineCheckRepository.countChecksPerEmployee(locationId, startOfMonth, now));
 
-        dto.setOutOfTempItemsToday(lineCheckItemRepository.countOutOfTempItemsToday(locationId, startOfDay, endOfDay));
-        dto.setOutOfTempItemNamesToday(lineCheckItemRepository.findOutOfTempItemNamesToday(locationId, startOfDay, endOfDay));
+        // -------------------------------
+        // Employee performance metrics (new)
+        // -------------------------------
+        List<LineCheckEntity> checks = lineCheckRepository.employeePerformance(locationId, startOfDay, endOfDay);
 
-        dto.setIncorrectPrepItemsToday(lineCheckItemRepository.countIncorrectPrepItemsToday(locationId, startOfDay, endOfDay));
-        dto.setIncorrectPrepItemNamesToday(lineCheckItemRepository.findIncorrectPrepItemNamesToday(locationId, startOfDay, endOfDay));
+        List<EmployeePerformanceDto> performanceList = checks.stream()
+                .collect(Collectors.groupingBy(LineCheckEntity::getUser)) // group by employee
+                .entrySet().stream()
+                .map(e -> {
+                    var user = e.getKey();
+                    var userChecks = e.getValue();
+                    long count = userChecks.size();
+                    double avgSeconds = userChecks.stream()
+                            .filter(lc -> lc.getCompletedAt() != null)
+                            .mapToLong(lc -> Duration.between(lc.getCheckTime(), lc.getCompletedAt()).getSeconds())
+                            .average().orElse(0);
+                    return new EmployeePerformanceDto(user.getId(), user.getUserName(), count, avgSeconds);
+                })
+                .toList();
 
+        dto.setEmployeePerformanceToday(performanceList);
+
+        // -------------------------------
+        // Issue summary totals (today)
+        // -------------------------------
+        dto.setMissingItemsToday(
+                lineCheckItemRepository.countMissingItemsToday(locationId, startOfDay, endOfDay)
+        );
+        dto.setMissingItemNamesToday(
+                lineCheckItemRepository.findMissingItemNamesToday(locationId, startOfDay, endOfDay)
+        );
+        dto.setOutOfTempItemsToday(
+                lineCheckItemRepository.countOutOfTempItemsToday(locationId, startOfDay, endOfDay)
+        );
+        dto.setOutOfTempItemNamesToday(
+                lineCheckItemRepository.findOutOfTempItemNamesToday(locationId, startOfDay, endOfDay)
+        );
+        dto.setIncorrectPrepItemsToday(
+                lineCheckItemRepository.countIncorrectPrepItemsToday(locationId, startOfDay, endOfDay)
+        );
+        dto.setIncorrectPrepItemNamesToday(
+                lineCheckItemRepository.findIncorrectPrepItemNamesToday(locationId, startOfDay, endOfDay)
+        );
+
+        // -------------------------------
+        // Average completion duration (today)
+        // -------------------------------
         Double avgSeconds = lineCheckRepository.avgCompletionSecondsToday(locationId, startOfDay, endOfDay);
         dto.setDurationSeconds(avgSeconds != null ? avgSeconds.longValue() : 0L);
 
-        // --- NEW: detailed issues per line check ---
-        List<LineCheckItemIssuesDto> lineCheckIssues = new ArrayList<>();
+        // -------------------------------
+        // Detailed issue breakdown (today)
+        // -------------------------------
+        List<LineCheckItemIssuesDto> issueDtos = new ArrayList<>();
+        List<LineCheckEntity> checksToday = lineCheckRepository.findByLocationAndCheckTimeBetween(
+                locationId, startOfDay, endOfDay
+        );
 
-        // Fetch all line checks for today
-        List<LineCheckEntity> lineChecksToday = lineCheckRepository.findByLocationAndCheckTimeBetween(locationId, startOfDay, endOfDay);
-
-        for (LineCheckEntity lc : lineChecksToday) {
+        for (LineCheckEntity lc : checksToday) {
             LineCheckItemIssuesDto issuesDto = new LineCheckItemIssuesDto();
             issuesDto.setLineCheckId(lc.getId());
             issuesDto.setCheckTime(lc.getCheckTime());
+            if (lc.getUser() != null) {
+                issuesDto.setEmployeeName(lc.getUser().getUserName());
+            }
 
-            // Fetch items per line check
             List<String> missing = lineCheckItemRepository.findMissingItemNamesByLineCheck(lc.getId());
             List<String> outOfTemp = lineCheckItemRepository.findOutOfTempItemNamesByLineCheck(lc.getId());
             List<String> incorrectPrep = lineCheckItemRepository.findIncorrectPrepItemNamesByLineCheck(lc.getId());
 
             issuesDto.setMissingItems(missing);
             issuesDto.setMissingCount(missing.size());
-
             issuesDto.setOutOfTempItems(outOfTemp);
             issuesDto.setOutOfTempCount(outOfTemp.size());
-
             issuesDto.setIncorrectPrepItems(incorrectPrep);
             issuesDto.setIncorrectPrepCount(incorrectPrep.size());
 
-            lineCheckIssues.add(issuesDto);
+            issueDtos.add(issuesDto);
         }
 
-        dto.setLineChecks(lineCheckIssues);
+        dto.setLineChecks(issueDtos);
 
+        // -------------------------------
+        // Return dashboard payload
+        // -------------------------------
         return dto;
     }
+
+
 }
-
-
