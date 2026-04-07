@@ -185,7 +185,7 @@ public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEnti
 
 //    missing items by weekday
 @Query(value = """
-SELECT TO_CHAR(lc.check_time, 'Day') AS dayOfWeek,
+SELECT TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
        COUNT(i.id) AS count
 FROM line_check_items i
 JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
@@ -193,18 +193,20 @@ JOIN line_checks lc ON lcs.line_check_id = lc.id
 JOIN stations s ON lcs.station_id = s.id
 WHERE i.is_missing = true
 AND lc.check_time >= :startDate
+AND lc.check_time <= NOW()
 AND s.location_id = :locationId
 GROUP BY dayOfWeek
 ORDER BY count DESC
 """, nativeQuery = true)
 List<Object[]> missingItemsByWeekday(
-        UUID locationId,
-        Instant startDate
+        @Param("locationId") UUID locationId,
+        @Param("startDate") Instant startDate,
+        @Param("endDate") Instant endDate
 );
 
 // out of temp weekday agregation
 @Query(value = """
-SELECT TO_CHAR(lc.check_time, 'Day') AS dayOfWeek,
+SELECT TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
        COUNT(i.id) AS count
 FROM line_check_items i
 JOIN items it ON it.id = i.item_id
@@ -215,6 +217,7 @@ WHERE i.temperature IS NOT NULL
 AND (i.temperature < it.min_temp OR i.temperature > it.max_temp)
 AND i.is_missing = false
 AND lc.check_time >= :startDate
+AND lc.check_time <= NOW()
 AND s.location_id = :locationId
 GROUP BY dayOfWeek
 ORDER BY count DESC
@@ -226,7 +229,7 @@ List<Object[]> outOfTempByWeekday(
 
 // incorrect prep weekday aggregation
 @Query(value = """
-SELECT TO_CHAR(lc.check_time, 'Day') AS dayOfWeek,
+SELECT TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
        COUNT(i.id) AS count
 FROM line_check_items i
 JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
@@ -235,15 +238,14 @@ JOIN stations s ON lcs.station_id = s.id
 WHERE i.is_checked = false
 AND i.is_missing = false
 AND lc.check_time >= :startDate
+AND lc.check_time <= NOW()
 AND s.location_id = :locationId
 GROUP BY dayOfWeek
 ORDER BY count DESC
 """, nativeQuery = true)
-List<Object[]> incorrectPrepByWeekday(UUID locationId, Instant startDate);
-
-//
-
-
-
+List<Object[]> incorrectPrepByWeekday(
+        @Param("locationId") UUID locationId,
+        @Param("startDate") Instant startDate
+);
 
 }

@@ -311,7 +311,12 @@ public class LineCheckServiceImpl implements LineCheckService {
                 .atStartOfDay(zone).toInstant();
         Instant startOfMonth = today.withDayOfMonth(1).atStartOfDay(zone).toInstant();
         Instant now = Instant.now();
-        Instant last30Days = Instant.now().minus(30, ChronoUnit.DAYS);
+        Instant last30Days =
+                today.minusDays(30)
+                        .atStartOfDay(zone)
+                        .toInstant();
+        Instant start = today.minusDays(30).atStartOfDay(zone).toInstant();
+        Instant end = now; // Instant.now() in same zone conversion if needed
 
         // -------------------------------
         // Line check totals
@@ -392,7 +397,7 @@ public class LineCheckServiceImpl implements LineCheckService {
 
         dto.setMostMissingItemsDay(
                 extractTopDay(
-                        lineCheckItemRepository.missingItemsByWeekday(locationId, last30Days)
+                        lineCheckItemRepository.missingItemsByWeekday(locationId, last30Days, end)
                 )
         );
 
@@ -442,13 +447,23 @@ public class LineCheckServiceImpl implements LineCheckService {
         // -------------------------------
         // Return dashboard payload
         // -------------------------------
+
+        System.out.println("Missing weekday: " + dto.getMostMissingItemsDay());
+        System.out.println("Temp weekday: " + dto.getMostOutOfTempDay());
+        System.out.println("Prep weekday: " + dto.getMostIncorrectPrepDay());
+        System.out.println("Weakest weekday: " + dto.getWeakestLineCheckDay());
+
+
+
         return dto;
     }
 
     private String extractTopDay(List<Object[]> results) {
         if (results == null || results.isEmpty()) return "N/A";
-
-        return results.get(0)[0].toString().trim();
+        Object[] row = results.get(0);
+        if (row[0] == null) return "N/A";
+        // Return short day name (Mon, Tue, etc.)
+        return row[0].toString().trim();
     }
 
 
