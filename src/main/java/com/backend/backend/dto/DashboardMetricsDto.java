@@ -36,6 +36,12 @@ public class DashboardMetricsDto {
     // Average completion duration (today)
     private long durationSeconds;
 
+    //most days misseded
+    private String mostMissingItemsDay;
+    private String mostOutOfTempDay;
+    private String mostIncorrectPrepDay;
+    private String weakestLineCheckDay;
+
     // Detailed issue breakdown
     private List<LineCheckItemIssuesDto> lineChecks;
 }
