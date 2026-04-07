@@ -159,16 +159,20 @@ AND s.station.location.id = :locationId
 
     //missing goal weekday metric
     @Query(value = """
-SELECT TO_CHAR(lc.check_time, 'Day') AS dayOfWeek,
+SELECT TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
        COUNT(lc.id) AS count
 FROM line_checks lc
 JOIN line_check_stations lcs ON lcs.line_check_id = lc.id
 JOIN stations s ON s.id = lcs.station_id
 WHERE lc.completed_at IS NOT NULL
 AND lc.check_time >= :startDate
+AND lc.check_time <= NOW()
 AND s.location_id = :locationId
 GROUP BY dayOfWeek
 ORDER BY count ASC
 """, nativeQuery = true)
-    List<Object[]> weakestCheckDays(UUID locationId, Instant startDate);
+    List<Object[]> weakestCheckDays(
+            @Param("locationId") UUID locationId,
+            @Param("startDate") Instant startDate
+    );
 }
