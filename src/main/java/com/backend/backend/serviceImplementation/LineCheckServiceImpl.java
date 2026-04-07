@@ -311,6 +311,7 @@ public class LineCheckServiceImpl implements LineCheckService {
                 .atStartOfDay(zone).toInstant();
         Instant startOfMonth = today.withDayOfMonth(1).atStartOfDay(zone).toInstant();
         Instant now = Instant.now();
+        Instant last30Days = Instant.now().minus(30, ChronoUnit.DAYS);
 
         // -------------------------------
         // Line check totals
@@ -385,6 +386,35 @@ public class LineCheckServiceImpl implements LineCheckService {
                 locationId, startOfDay, endOfDay
         );
 
+        // -------------------------------
+        // total missed items
+        // -------------------------------
+
+        dto.setMostMissingItemsDay(
+                extractTopDay(
+                        lineCheckItemRepository.missingItemsByWeekday(locationId, last30Days)
+                )
+        );
+
+        dto.setMostOutOfTempDay(
+                extractTopDay(
+                        lineCheckItemRepository.outOfTempByWeekday(locationId, last30Days)
+                )
+        );
+
+        dto.setMostIncorrectPrepDay(
+                extractTopDay(
+                        lineCheckItemRepository.incorrectPrepByWeekday(locationId, last30Days)
+                )
+        );
+
+        dto.setWeakestLineCheckDay(
+                extractTopDay(
+                        lineCheckRepository.weakestCheckDays(locationId, last30Days)
+                )
+        );
+
+
         for (LineCheckEntity lc : checksToday) {
             LineCheckItemIssuesDto issuesDto = new LineCheckItemIssuesDto();
             issuesDto.setLineCheckId(lc.getId());
@@ -413,6 +443,12 @@ public class LineCheckServiceImpl implements LineCheckService {
         // Return dashboard payload
         // -------------------------------
         return dto;
+    }
+
+    private String extractTopDay(List<Object[]> results) {
+        if (results == null || results.isEmpty()) return "N/A";
+
+        return results.get(0)[0].toString().trim();
     }
 
 
