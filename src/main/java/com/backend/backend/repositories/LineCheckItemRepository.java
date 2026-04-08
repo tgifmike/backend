@@ -204,6 +204,34 @@ List<Object[]> missingItemsByWeekday(
         @Param("endDate") Instant endDate
 );
 
+//updated above with avg
+@Query(value = """
+SELECT dayOfWeek, ROUND(AVG(daily_count), 1) AS avgCount
+FROM (
+    SELECT
+        DATE(lc.check_time) AS day,
+        TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
+        COUNT(i.id) AS daily_count
+    FROM line_check_items i
+    JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
+    JOIN line_checks lc ON lcs.line_check_id = lc.id
+    JOIN stations s ON lcs.station_id = s.id
+    WHERE i.is_missing = true
+      AND lc.check_time >= :startDate
+      AND lc.check_time <= :endDate
+      AND s.location_id = :locationId
+    GROUP BY day, dayOfWeek
+) daily
+GROUP BY dayOfWeek
+ORDER BY avgCount DESC
+LIMIT 3
+""", nativeQuery = true)
+List<Object[]> topMissingDays(
+        @Param("locationId") UUID locationId,
+        @Param("startDate") Instant startDate,
+        @Param("endDate") Instant endDate
+);
+
 // out of temp weekday agregation
 @Query(value = """
 SELECT TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
@@ -224,7 +252,39 @@ ORDER BY count DESC
 """, nativeQuery = true)
 List<Object[]> outOfTempByWeekday(
         @Param("locationId") UUID locationId,
-        @Param("startDate") Instant startDate
+        @Param("startDate") Instant startDate,
+        @Param("endDate") Instant endDate
+);
+
+//upgreade above
+@Query(value = """
+SELECT dayOfWeek, ROUND(AVG(daily_count), 1) AS avgCount
+FROM (
+    SELECT
+        DATE(lc.check_time) AS day,
+        TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
+        COUNT(i.id) AS daily_count
+    FROM line_check_items i
+    JOIN items it ON it.id = i.item_id
+    JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
+    JOIN line_checks lc ON lcs.line_check_id = lc.id
+    JOIN stations s ON lcs.station_id = s.id
+    WHERE i.temperature IS NOT NULL
+      AND (i.temperature < it.min_temp OR i.temperature > it.max_temp)
+      AND i.is_missing = false
+      AND lc.check_time >= :startDate
+      AND lc.check_time <= :endDate
+      AND s.location_id = :locationId
+    GROUP BY day, dayOfWeek
+) daily
+GROUP BY dayOfWeek
+ORDER BY avgCount DESC
+LIMIT 3
+""", nativeQuery = true)
+List<Object[]> topOutOfTempDays(
+        @Param("locationId") UUID locationId,
+        @Param("startDate") Instant startDate,
+        @Param("endDate") Instant endDate
 );
 
 // incorrect prep weekday aggregation
@@ -245,7 +305,138 @@ ORDER BY count DESC
 """, nativeQuery = true)
 List<Object[]> incorrectPrepByWeekday(
         @Param("locationId") UUID locationId,
-        @Param("startDate") Instant startDate
+        @Param("startDate") Instant startDate,
+        @Param("endDate") Instant endDate
 );
+
+//upgrade above
+@Query(value = """
+SELECT dayOfWeek, ROUND(AVG(daily_count), 1) AS avgCount
+FROM (
+    SELECT
+        DATE(lc.check_time) AS day,
+        TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
+        COUNT(i.id) AS daily_count
+    FROM line_check_items i
+    JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
+    JOIN line_checks lc ON lcs.line_check_id = lc.id
+    JOIN stations s ON lcs.station_id = s.id
+    WHERE i.is_checked = false
+      AND i.is_missing = false
+      AND lc.check_time >= :startDate
+      AND lc.check_time <= :endDate
+      AND s.location_id = :locationId
+    GROUP BY day, dayOfWeek
+) daily
+GROUP BY dayOfWeek
+ORDER BY avgCount DESC
+LIMIT 3
+""", nativeQuery = true)
+List<Object[]> topIncorrectPrepDays(
+        @Param("locationId") UUID locationId,
+        @Param("startDate") Instant startDate,
+        @Param("endDate") Instant endDate
+);
+
+    @Query(value = """
+SELECT dayOfWeek, ROUND(AVG(completion_rate), 1) AS completionRate
+FROM (
+    SELECT
+        DATE(lc.check_time) AS day,
+        TRIM(TO_CHAR(lc.check_time, 'Day')) AS dayOfWeek,
+        AVG(
+            CASE
+                WHEN i.is_checked = true THEN 1
+                ELSE 0
+            END
+        ) * 100 AS completion_rate
+    FROM line_check_items i
+    JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
+    JOIN line_checks lc ON lcs.line_check_id = lc.id
+    JOIN stations s ON lcs.station_id = s.id
+    WHERE lc.check_time >= :startDate
+      AND lc.check_time <= :endDate
+      AND s.location_id = :locationId
+    GROUP BY day, dayOfWeek
+) daily
+GROUP BY dayOfWeek
+ORDER BY completionRate ASC
+LIMIT 3
+""", nativeQuery = true)
+    List<Object[]> topWeakestCompletionDays(
+            @Param("locationId") UUID locationId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate
+    );
+
+    //top 5 missing itmes
+    @Query(value = """
+SELECT it.item_name, COUNT(i.id) AS count
+FROM line_check_items i
+JOIN items it ON it.id = i.item_id
+JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
+JOIN line_checks lc ON lcs.line_check_id = lc.id
+JOIN stations s ON lcs.station_id = s.id
+WHERE i.is_missing = true
+  AND lc.check_time >= :startDate
+  AND lc.check_time <= :endDate
+  AND s.location_id = :locationId
+GROUP BY it.item_name
+ORDER BY count DESC
+LIMIT 5
+""", nativeQuery = true)
+    List<Object[]> topMissingItems(
+            @Param("locationId") UUID locationId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate
+    );
+
+    //top 5 out of temps items
+    @Query(value = """
+SELECT it.item_name, COUNT(i.id) AS count
+FROM line_check_items i
+JOIN items it ON it.id = i.item_id
+JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
+JOIN line_checks lc ON lcs.line_check_id = lc.id
+JOIN stations s ON lcs.station_id = s.id
+WHERE i.temperature IS NOT NULL
+  AND (i.temperature < it.min_temp OR i.temperature > it.max_temp)
+  AND i.is_missing = false
+  AND lc.check_time >= :startDate
+  AND lc.check_time <= :endDate
+  AND s.location_id = :locationId
+GROUP BY it.item_name
+ORDER BY count DESC
+LIMIT 5
+""", nativeQuery = true)
+    List<Object[]> topOutOfTempItems(
+            @Param("locationId") UUID locationId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate
+    );
+
+    //top 5 incorrect prep itmes
+    @Query(value = """
+SELECT it.item_name, COUNT(i.id) AS count
+FROM line_check_items i
+JOIN items it ON it.id = i.item_id
+JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
+JOIN line_checks lc ON lcs.line_check_id = lc.id
+JOIN stations s ON lcs.station_id = s.id
+WHERE i.is_checked = false
+  AND i.is_missing = false
+  AND lc.check_time >= :startDate
+  AND lc.check_time <= :endDate
+  AND s.location_id = :locationId
+GROUP BY it.item_name
+ORDER BY count DESC
+LIMIT 5
+""", nativeQuery = true)
+    List<Object[]> topIncorrectPrepItems(
+            @Param("locationId") UUID locationId,
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate
+    );
+
 
 }

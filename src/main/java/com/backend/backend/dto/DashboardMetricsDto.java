@@ -42,6 +42,16 @@ public class DashboardMetricsDto {
     private String mostIncorrectPrepDay;
     private String weakestLineCheckDay;
 
+    //upgrate most days missed etc
+    private RankedDayDto[] topMissingDays;
+    private RankedDayDto[] topOutOfTempDays;
+    private RankedDayDto[] topIncorrectPrepDays;
+    private RankedDayDto[] topWeakestCompletionDays;
+
+    private RankedItemDto[] topMissingItems;
+    private RankedItemDto[] topOutOfTempItems;
+    private RankedItemDto[] topIncorrectPrepItems;
+
     // Detailed issue breakdown
     private List<LineCheckItemIssuesDto> lineChecks;
 }

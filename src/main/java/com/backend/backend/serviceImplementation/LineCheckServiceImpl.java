@@ -311,10 +311,10 @@ public class LineCheckServiceImpl implements LineCheckService {
                 .atStartOfDay(zone).toInstant();
         Instant startOfMonth = today.withDayOfMonth(1).atStartOfDay(zone).toInstant();
         Instant now = Instant.now();
-        Instant last30Days =
-                today.minusDays(30)
-                        .atStartOfDay(zone)
-                        .toInstant();
+//        Instant last30Days =
+//                today.minusDays(30)
+//                        .atStartOfDay(zone)
+//                        .toInstant();
         Instant start = today.minusDays(30).atStartOfDay(zone).toInstant();
         Instant end = now; // Instant.now() in same zone conversion if needed
 
@@ -397,25 +397,76 @@ public class LineCheckServiceImpl implements LineCheckService {
 
         dto.setMostMissingItemsDay(
                 extractTopDay(
-                        lineCheckItemRepository.missingItemsByWeekday(locationId, last30Days, end)
+                        lineCheckItemRepository.missingItemsByWeekday(locationId, start, end)
                 )
         );
 
         dto.setMostOutOfTempDay(
                 extractTopDay(
-                        lineCheckItemRepository.outOfTempByWeekday(locationId, last30Days)
+                        lineCheckItemRepository.outOfTempByWeekday(locationId, start, end)
                 )
         );
 
         dto.setMostIncorrectPrepDay(
                 extractTopDay(
-                        lineCheckItemRepository.incorrectPrepByWeekday(locationId, last30Days)
+                        lineCheckItemRepository.incorrectPrepByWeekday(locationId, start, end)
                 )
         );
 
         dto.setWeakestLineCheckDay(
                 extractTopDay(
-                        lineCheckRepository.weakestCheckDays(locationId, last30Days)
+                        lineCheckRepository.weakestCheckDays(locationId, start, end)
+                )
+        );
+
+        // -------------------------------
+// Top 3 weekday analytics (last 30 days)
+// -------------------------------
+
+        dto.setTopMissingDays(
+                mapRankedDays(
+                        lineCheckItemRepository.topMissingDays(locationId, start, end)
+                )
+        );
+
+        dto.setTopOutOfTempDays(
+                mapRankedDays(
+                        lineCheckItemRepository.topOutOfTempDays(locationId, start, end)
+                )
+        );
+
+        dto.setTopIncorrectPrepDays(
+                mapRankedDays(
+                        lineCheckItemRepository.topIncorrectPrepDays(locationId, start, end)
+                )
+        );
+
+        dto.setTopWeakestCompletionDays(
+                mapRankedDays(
+                        lineCheckItemRepository.topWeakestCompletionDays(locationId, start, end)
+                )
+        );
+
+
+// -------------------------------
+// Top 5 issue items (last 30 days)
+// -------------------------------
+
+        dto.setTopMissingItems(
+                mapRankedItems(
+                        lineCheckItemRepository.topMissingItems(locationId, start, end)
+                )
+        );
+
+        dto.setTopOutOfTempItems(
+                mapRankedItems(
+                        lineCheckItemRepository.topOutOfTempItems(locationId, start, end)
+                )
+        );
+
+        dto.setTopIncorrectPrepItems(
+                mapRankedItems(
+                        lineCheckItemRepository.topIncorrectPrepItems(locationId, start, end)
                 )
         );
 
@@ -448,13 +499,6 @@ public class LineCheckServiceImpl implements LineCheckService {
         // Return dashboard payload
         // -------------------------------
 
-        System.out.println("Missing weekday: " + dto.getMostMissingItemsDay());
-        System.out.println("Temp weekday: " + dto.getMostOutOfTempDay());
-        System.out.println("Prep weekday: " + dto.getMostIncorrectPrepDay());
-        System.out.println("Weakest weekday: " + dto.getWeakestLineCheckDay());
-
-
-
         return dto;
     }
 
@@ -465,6 +509,25 @@ public class LineCheckServiceImpl implements LineCheckService {
         // Return short day name (Mon, Tue, etc.)
         return row[0].toString().trim();
     }
+
+    private RankedDayDto[] mapRankedDays(List<Object[]> rows) {
+        return rows.stream()
+                .map(r -> new RankedDayDto(
+                        (String) r[0],
+                        ((Number) r[1]).doubleValue()
+                ))
+                .toArray(RankedDayDto[]::new);
+    }
+
+    private RankedItemDto[] mapRankedItems(List<Object[]> rows) {
+        return rows.stream()
+                .map(r -> new RankedItemDto(
+                        (String) r[0],
+                        ((Number) r[1]).longValue()
+                ))
+                .toArray(RankedItemDto[]::new);
+    }
+
 
 
 }
