@@ -173,6 +173,7 @@ ORDER BY count ASC
 """, nativeQuery = true)
     List<Object[]> weakestCheckDays(
             @Param("locationId") UUID locationId,
-            @Param("startDate") Instant startDate
+            @Param("startDate") Instant startDate,
+            @Param("endDate") Instant endDate
     );
 }
