@@ -402,6 +402,9 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
     @Override
     public String handleOAuthLogin(UserEntity incomingUser) {
 
+        System.out.println("LOGIN EMAIL: " + incomingUser.getUserEmail());
+        System.out.println("LOGIN GOOGLE ID: " + incomingUser.getGoogleId());
+
         if ((incomingUser.getUserEmail() == null || incomingUser.getUserEmail().isBlank())
                 && incomingUser.getGoogleId() == null
                 && incomingUser.getAppleId() == null) {
@@ -538,8 +541,12 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
         return JWT.create()
                 .withSubject(user.getId().toString())
                 .withClaim("email", user.getUserEmail())
-                .withClaim("name", user.getUserName())
-                .withClaim("role", user.getAppRole().name())
+                .withClaim("name", user.getUserName()).withClaim(
+                        "role",
+                        user.getAppRole() != null
+                                ? user.getAppRole().name()
+                                : AppRole.MEMBER.name()
+                )
                 .withExpiresAt(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24)) // 24 hours
                 .sign(algorithm);
     }

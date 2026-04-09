@@ -10,6 +10,7 @@ import com.backend.backend.service.UserService;
 import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.nimbusds.jwt.SignedJWT;
 
+import jakarta.transaction.Transactional;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -291,6 +292,8 @@ public class UserController {
             UserEntity user =
                     userService.createOrFindOAuthUser(oauthUser);
 
+            user = userService.getUserById(user.getId()); // 🔥 FORCE FRESH ENTITY
+
             userService.validateUserAccess(user);
 
             String jwt =
@@ -482,7 +485,7 @@ public class UserController {
     //////////////////////////////////////////////////////////////
 // MANUAL USER CREATION
     //////////////////////////////////////////////////////////////
-
+    @Transactional
     @PostMapping("/invite")
     public ResponseEntity<?> inviteUser(
             @RequestBody InviteUserDto request
