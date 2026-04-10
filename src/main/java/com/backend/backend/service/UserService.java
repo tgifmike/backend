@@ -1,5 +1,6 @@
 package com.backend.backend.service;
 
+import com.backend.backend.dto.LoginResponse;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
 import org.springframework.http.ResponseEntity;
@@ -35,15 +36,18 @@ public interface UserService {
     boolean isEmailDuplicate(String email, UUID excludeId);
     boolean isNameDuplicate(String name, UUID excludeId);
 //    UserEntity createOrFindGoogleUser(String email, String name, String googleId, String picture);
-    UserEntity createOrFindOAuthUser(UserEntity incomingUser);
+//    UserEntity createOrFindOAuthUser(UserEntity incomingUser);
     String generateJwtForUser(UserEntity user);
    // void validateUserAccess(UserEntity user);
-    String handleOAuthLogin(UserEntity incomingUser);
+//    String handleOAuthLogin(UserEntity incomingUser);
     UserEntity inviteUser(
             String email,
             String appRole,
             String accessRole,
             String accountId
     );
-    void validateUserAccess(UUID userId);
+   // void validateUserAccess(UUID userId);
+    LoginResponse handleOAuthLogin(UserEntity incomingUser);
+    UserEntity resolveUserIdentity(UserEntity incomingUser);
+
 }

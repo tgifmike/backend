@@ -2,6 +2,7 @@ package com.backend.backend.controller;
 
 import com.backend.backend.config.GoogleTokenVerifier;
 import com.backend.backend.dto.InviteUserDto;
+import com.backend.backend.dto.LoginResponse;
 import com.backend.backend.dto.UpdateUserDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
@@ -234,127 +235,103 @@ public class UserController {
     ////////////////////////////////////////////////////////////
 
     @PostMapping("/oauth-login")
-    public ResponseEntity<?> loginWithOAuth(@RequestBody Map<String, Object> body) {
-        System.out.println("OAUTH LOGIN HIT");
+    public ResponseEntity<?> loginWithOAuth(
+            @RequestBody Map<String, Object> body
+    ) {
 
         try {
-            String provider = ((String) body.get("provider")).toLowerCase();
-            String idToken = extractIdToken(body);
 
-            System.out.println("PROVIDER: " + provider);
+            String provider =
+                    ((String) body.get("provider")).toLowerCase();
 
+            String idToken =
+                    extractIdToken(body);
 
-            UserEntity oauthUser = new UserEntity();
+            UserEntity oauthUser =
+                    new UserEntity();
 
             switch (provider) {
+
                 case "google" -> {
-                    var payload = GoogleTokenVerifier.verifyToken(idToken);
-                    if (payload == null) return unauthorized("Invalid Google token");
 
-                    oauthUser.setGoogleId(payload.getSubject());
-                    oauthUser.setUserEmail(payload.getEmail());
-                    oauthUser.setUserName((String) payload.get("name"));
-                    oauthUser.setUserImage((String) payload.get("picture"));
+                    var payload =
+                            GoogleTokenVerifier.verifyToken(idToken);
+
+                    if (payload == null)
+                        return unauthorized("Invalid Google token");
+
+                    oauthUser.setGoogleId(
+                            payload.getSubject()
+                    );
+
+                    oauthUser.setUserEmail(
+                            payload.getEmail()
+                    );
+
+                    oauthUser.setUserName(
+                            (String) payload.get("name")
+                    );
+
+                    oauthUser.setUserImage(
+                            (String) payload.get("picture")
+                    );
                 }
+
                 case "apple" -> {
-                    var jwt = SignedJWT.parse(idToken);
-                    oauthUser.setAppleId(jwt.getJWTClaimsSet().getSubject());
-                    oauthUser.setUserEmail((String) jwt.getJWTClaimsSet().getClaim("email"));
+
+                    var jwt =
+                            SignedJWT.parse(idToken);
+
+                    oauthUser.setAppleId(
+                            jwt.getJWTClaimsSet().getSubject()
+                    );
+
+                    oauthUser.setUserEmail(
+                            (String)
+                                    jwt.getJWTClaimsSet()
+                                            .getClaim("email")
+                    );
                 }
-                default -> {
-                    return ResponseEntity
-                            .status(HttpStatus.BAD_REQUEST)
-                            .body("Unsupported provider");
-                }
 
-
-
+                default ->
+                        throw new RuntimeException(
+                                "Unsupported provider"
+                        );
             }
 
-            UserEntity user =
-                    userService.createOrFindOAuthUser(oauthUser);
-
-           // user = userService.getUserById(user.getId()); // 🔥 FORCE FRESH ENTITY
-
-            userService.validateUserAccess(user.getId());
-
-            String jwt =
-                    userService.generateJwtForUser(user);
-
-            System.out.println("Found user in DB: " + user.getUserEmail() + ", provider=" + user.getProvider() + ", invited=" + user.isInvited() + ", active=" + user.isUserActive());
-
-            System.out.println("DB googleId: " + user.getGoogleId());
-            System.out.println("Token googleId: " + oauthUser.getGoogleId());
-
-            return ResponseEntity.ok(buildMobileResponse(user, jwt));
-
-        } catch (RuntimeException ex) {
-            String msg = ex.getMessage();
-            if ("AccessDenied".equals(msg)) return forbidden("User not invited yet");
-            if ("InactiveUser".equals(msg)) return forbidden("User account inactive");
-            if ("NoAccountsAssigned".equals(msg))
-                return forbidden("User has no assigned accounts");
-            return unauthorized("Login failed");
-        } catch (Exception ex) {
-            System.out.println("LOGIN FAILURE REASON: " + ex.getMessage());
-            return unauthorized("Login failed: " + ex.getMessage());
-        }
-    }
-
-
-
-    private ResponseEntity<?> handleOAuthLogin(UserEntity oauthUser) {
-
-        System.out.println("EMAIL FROM WEB LOGIN: " + oauthUser.getUserEmail());
-
-        try {
-            // 1️⃣ Find or create user
-            UserEntity user = userService.createOrFindOAuthUser(oauthUser);
-
-            // 2️⃣ Validate access
-            userService.validateUserAccess(user.getId());
-
-            // 3️⃣ Generate JWT
-            String jwt = userService.generateJwtForUser(user);
-
-            // 4️⃣ Build response
-            Map<String, Object> response = new HashMap<>();
-            response.put("user", Map.of(
-                    "id", user.getId(),
-                    "email", user.getUserEmail(),
-                    "googleId", user.getGoogleId(),
-                    "appleId", user.getAppleId(),
-                    "accessRole", user.getAccessRole(),
-                    "appRole", user.getAppRole(),
-                    "invited", user.isInvited(),
-                    "userActive", user.isUserActive()
-            ));
-            response.put("token", jwt);
-
-            System.out.println("APP ROLE: " + user.getAppRole());
-            System.out.println("ACCESS ROLE: " + user.getAccessRole());
+            LoginResponse response =
+                    userService.handleOAuthLogin(oauthUser);
 
             return ResponseEntity.ok(response);
 
-        } catch (RuntimeException ex) {
-            System.out.println("OAuth login error: " + ex.getMessage());
+        }
 
-            if ("AccessDenied".equals(ex.getMessage())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "User not invited yet"));
-            }
+        catch (RuntimeException ex) {
 
-            if ("InactiveUser".equals(ex.getMessage())) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("error", "User account inactive"));
-            }
+            return switch (ex.getMessage()) {
 
-            // Return 401 with JSON
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("error", "Login failed"));
+                case "AccessDenied" ->
+                        forbidden("User not invited yet");
+
+                case "InactiveUser" ->
+                        forbidden("User account inactive");
+
+                case "NoAccountsAssigned" ->
+                        forbidden("User has no assigned accounts");
+
+                default ->
+                        unauthorized("Login failed");
+            };
+        }
+
+        catch (Exception ex) {
+
+            return unauthorized(
+                    "Login failed: "
+                            + ex.getMessage()
+            );
         }
     }
-
 //////////////////////////////////////////////////////////////
 // RESPONSE BUILDERS
     //////////////////////////////////////////////////////////////

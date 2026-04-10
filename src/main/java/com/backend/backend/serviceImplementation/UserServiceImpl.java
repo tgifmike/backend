@@ -2,6 +2,7 @@ package com.backend.backend.serviceImplementation;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.backend.backend.dto.LoginResponse;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserAccountAccessEntity;
 import com.backend.backend.enums.AccessRole;
@@ -231,85 +232,55 @@ public class UserServiceImpl implements UserService {
 
 
 @Override
-public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
-    System.out.println("Incoming OAuth user:");
-    System.out.println("email: " + incomingUser.getUserEmail());
-    System.out.println("googleId: " + incomingUser.getGoogleId());
-    System.out.println("appleId: " + incomingUser.getAppleId());
+public UserEntity resolveUserIdentity(UserEntity incomingUser) {
 
-    // 1️⃣ Basic validation: require at least email or OAuth ID
-    if (incomingUser.getUserEmail() == null &&
-            incomingUser.getGoogleId() == null &&
-            incomingUser.getAppleId() == null) {
+    if (incomingUser.getUserEmail() == null
+            && incomingUser.getGoogleId() == null
+            && incomingUser.getAppleId() == null) {
+
         throw new IllegalArgumentException("OAuth identity missing");
     }
 
-    // 2️⃣ Normalize email
-    if (incomingUser.getUserEmail() != null) {
-        incomingUser.setUserEmail(incomingUser.getUserEmail().toLowerCase().trim());
+    Optional<UserEntity> userOpt = Optional.empty();
+
+    if (incomingUser.getGoogleId() != null) {
+        userOpt =
+                userRepository.findByGoogleId(
+                        incomingUser.getGoogleId()
+                );
     }
 
-    Optional<UserEntity> existingUser = Optional.empty();
+    if (userOpt.isEmpty()
+            && incomingUser.getAppleId() != null) {
 
-    // 3️⃣ Primary lookup by email
-    if (incomingUser.getUserEmail() != null) {
-        existingUser = userRepository.findByUserEmailIgnoreCase(incomingUser.getUserEmail());
-        System.out.println("Lookup by Email: " + existingUser.isPresent());
+        userOpt =
+                userRepository.findByAppleId(
+                        incomingUser.getAppleId()
+                );
     }
 
-    // 4️⃣ Secondary lookup by provider ID if email not found
-    if (existingUser.isEmpty() && incomingUser.getGoogleId() != null) {
-        existingUser = userRepository.findByGoogleId(incomingUser.getGoogleId());
-        System.out.println("Lookup by GoogleId: " + existingUser.isPresent());
+    if (userOpt.isEmpty()
+            && incomingUser.getUserEmail() != null) {
+
+        userOpt =
+                userRepository.findByUserEmailIgnoreCase(
+                        incomingUser.getUserEmail()
+                );
     }
-    if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
-        existingUser = userRepository.findByAppleId(incomingUser.getAppleId());
-        System.out.println("Lookup by AppleId: " + existingUser.isPresent());
-    }
 
-    // 5️⃣ User exists → update provider info and return
-    if (existingUser.isPresent()) {
-        UserEntity user = existingUser.get();
+    if (userOpt.isEmpty()) {
 
-        // Ensure the user is invited and active
-        if (!user.isInvited()) {
-            throw new RuntimeException("AccessDenied: User not invited");
-        }
-        if (!user.isUserActive()) {
-            throw new RuntimeException("InactiveUser: User is disabled");
+        if (isAppleReviewer(incomingUser)) {
+
+            return createAppleReviewerUser();
         }
 
-        boolean updated = false;
-
-        // Update provider IDs if missing
-        if (incomingUser.getGoogleId() != null && user.getGoogleId() == null) {
-            user.setGoogleId(incomingUser.getGoogleId());
-            user.setProvider("google");
-            updated = true;
-        }
-        if (incomingUser.getAppleId() != null && user.getAppleId() == null) {
-            user.setAppleId(incomingUser.getAppleId());
-            user.setProvider("apple");
-            updated = true;
-        }
-
-        // Update optional fields
-        user.setUserName(
-                incomingUser.getUserName() != null ? incomingUser.getUserName() : user.getUserName()
+        throw new RuntimeException(
+                "User not invited. Please contact your administrator."
         );
-        user.setUserImage(
-                incomingUser.getUserImage() != null ? incomingUser.getUserImage() : user.getUserImage()
-        );
-
-        if (updated) {
-            user.setUpdatedAt(Instant.now());
-        }
-
-        return userRepository.save(user);
     }
 
-    // 6️⃣ Unknown user → invite-only restriction
-    throw new RuntimeException("User not invited. Please contact your administrator.");
+    return userOpt.get();
 }
 
     /**
@@ -319,108 +290,48 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
      */
     @Transactional
     @Override
-    public String handleOAuthLogin(UserEntity incomingUser) {
+    public LoginResponse handleOAuthLogin(UserEntity incomingUser) {
 
-        System.out.println("LOGIN EMAIL: " + incomingUser.getUserEmail());
-        System.out.println("LOGIN GOOGLE ID: " + incomingUser.getGoogleId());
+        normalizeEmail(incomingUser);
 
-        if ((incomingUser.getUserEmail() == null || incomingUser.getUserEmail().isBlank())
-                && incomingUser.getGoogleId() == null
-                && incomingUser.getAppleId() == null) {
+        UserEntity user = resolveUserIdentity(incomingUser);
 
-            throw new IllegalArgumentException("OAuth identity missing");
+        validateUserStatus(user);
+
+        updateProviderIdsIfNeeded(user, incomingUser);
+
+        boolean hasAccess =
+                accountRepository.countAccounts(user.getId()) > 0;
+
+        String jwt = generateJwtForUser(user);
+
+        return new LoginResponse(
+                jwt,
+                user.getId(),
+                user.getUserEmail(),
+                user.getUserName(),
+                user.getAppRole().name(),
+                hasAccess
+        );
+    }
+
+    private void validateUserStatus(UserEntity user) {
+
+        if (!user.isInvited()) {
+
+            throw new RuntimeException("AccessDenied");
         }
 
-        // Normalize email
-        if (incomingUser.getUserEmail() != null) {
-            incomingUser.setUserEmail(
-                    incomingUser.getUserEmail().toLowerCase().trim()
-            );
+        if (!user.isUserActive()) {
+
+            throw new RuntimeException("InactiveUser");
         }
+    }
 
-        Optional<UserEntity> existingUser = Optional.empty();
-
-        // Lookup by provider first
-        if (incomingUser.getGoogleId() != null) {
-            existingUser = userRepository.findByGoogleId(
-                    incomingUser.getGoogleId()
-            );
-        }
-
-        if (existingUser.isEmpty() && incomingUser.getAppleId() != null) {
-            existingUser = userRepository.findByAppleId(
-                    incomingUser.getAppleId()
-            );
-        }
-
-        // fallback email lookup
-        if (existingUser.isEmpty()
-                && incomingUser.getUserEmail() != null) {
-
-            existingUser =
-                    userRepository.findByUserEmailIgnoreCase(
-                            incomingUser.getUserEmail()
-                    );
-        }
-
-    /*
-     ----------------------------------------
-     APPLE REVIEW BYPASS STARTS HERE
-     ----------------------------------------
-     */
-
-        boolean isAppleReviewer =
-                incomingUser.getUserEmail() != null &&
-                        incomingUser.getUserEmail()
-                                .equalsIgnoreCase(APPLE_REVIEW_EMAIL);
-
-        if (existingUser.isEmpty()) {
-
-            if (isAppleReviewer) {
-
-                UserEntity reviewer =
-                        userRepository.findByUserEmailIgnoreCase(
-                                APPLE_REVIEW_EMAIL
-                        ).orElseGet(() -> {
-
-                            UserEntity newReviewer =
-                                    new UserEntity();
-
-                            newReviewer.setUserEmail(
-                                    APPLE_REVIEW_EMAIL
-                            );
-
-                            newReviewer.setUserName(
-                                    "Apple Reviewer"
-                            );
-
-                            newReviewer.setInvited(true);
-                            newReviewer.setUserActive(true);
-
-                            return userRepository.save(
-                                    newReviewer
-                            );
-                        });
-
-                return generateJwtForUser(reviewer);
-            }
-
-            throw new RuntimeException(
-                    "User not invited. Please contact your administrator."
-            );
-        }
-
-        UserEntity user = existingUser.get();
-
-    /*
-     ----------------------------------------
-     SKIP ACCESS VALIDATION FOR REVIEWER
-     ----------------------------------------
-     */
-
-        if (!isAppleReviewer) {
-            validateUserAccess(user.getId());
-        }
+    private void updateProviderIdsIfNeeded(
+            UserEntity user,
+            UserEntity incomingUser
+    ) {
 
         boolean updated = false;
 
@@ -429,6 +340,7 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
 
             user.setGoogleId(incomingUser.getGoogleId());
             user.setProvider("google");
+
             updated = true;
         }
 
@@ -437,17 +349,56 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
 
             user.setAppleId(incomingUser.getAppleId());
             user.setProvider("apple");
+
             updated = true;
         }
 
         if (updated) {
+
             user.setUpdatedAt(Instant.now());
+
             userRepository.save(user);
         }
+    }
+    private void normalizeEmail(UserEntity user) {
 
-        return generateJwtForUser(user);
+        if (user.getUserEmail() != null) {
+
+            user.setUserEmail(
+                    user.getUserEmail()
+                            .toLowerCase()
+                            .trim()
+            );
+        }
     }
 
+    private boolean isAppleReviewer(UserEntity user) {
+
+        return user.getUserEmail() != null
+                && user.getUserEmail()
+                .equalsIgnoreCase(APPLE_REVIEW_EMAIL);
+    }
+
+    private UserEntity createAppleReviewerUser() {
+
+        return userRepository
+                .findByUserEmailIgnoreCase(APPLE_REVIEW_EMAIL)
+                .orElseGet(() -> {
+
+                    UserEntity reviewer =
+                            new UserEntity();
+
+                    reviewer.setUserEmail(APPLE_REVIEW_EMAIL);
+
+                    reviewer.setUserName("Apple Reviewer");
+
+                    reviewer.setInvited(true);
+
+                    reviewer.setUserActive(true);
+
+                    return userRepository.save(reviewer);
+                });
+    }
 
 
     @Override
@@ -471,58 +422,8 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
     }
 
 
-//   @Override
-//
-//        public void validateUserAccess(UserEntity user) {
-//        if (!user.isInvited()) throw new RuntimeException("AccessDenied");
-//        if (!user.isUserActive()) throw new RuntimeException("InactiveUser");
-//
-//        List<AccountEntity> accounts = accountRepository.findAccountsForUser(user.getId());
-//        System.out.println("User " + user.getUserEmail() + " has accounts: " + accounts.size());
-//
-//        System.out.println("VALIDATION USER: " + user.getUserEmail());
-//
-//        List<AccountEntity> validAccounts =
-//                accountRepository.findAccountsForUser(user.getId());
-//
-//        System.out.println("VALIDATION ACCOUNT COUNT: " + validAccounts.size());
-//
-//        if (accounts.isEmpty()) {
-//            throw new RuntimeException("NoAccountsAssigned"); // or handle differently
-//        }
-//    }
 
-    //update for above
-    @Override
-    public void validateUserAccess(UUID userId) {
 
-        UserEntity user = userRepository.findById(userId)
-                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
-
-        if (!user.isInvited()) {
-            throw new RuntimeException("AccessDenied");
-        }
-
-        if (!user.isUserActive()) {
-            throw new RuntimeException("InactiveUser");
-        }
-
-        System.out.println("VALIDATION USER: " + user.getUserEmail());
-
-        long accountCount = accountRepository.countAccounts(userId);
-
-        System.out.println("VALIDATION ACCOUNT COUNT: " + accountCount);
-
-        if (accountCount == 0) {
-            throw new RuntimeException("NoAccountsAssigned");
-        }
-
-        List<AccountEntity> validAccounts =
-                accountRepository.findAccountsForUser(userId);
-
-        System.out.println("User " + user.getUserEmail()
-                + " has accounts: " + validAccounts.size());
-    }
 
     //----------------Manager sends email to user to get invited to website/app
 
