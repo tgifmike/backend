@@ -419,7 +419,7 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
      */
 
         if (!isAppleReviewer) {
-            validateUserAccess(user);
+            validateUserAccess(user.getId());
         }
 
         boolean updated = false;
@@ -471,18 +471,57 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
     }
 
 
+//   @Override
+//
+//        public void validateUserAccess(UserEntity user) {
+//        if (!user.isInvited()) throw new RuntimeException("AccessDenied");
+//        if (!user.isUserActive()) throw new RuntimeException("InactiveUser");
+//
+//        List<AccountEntity> accounts = accountRepository.findAccountsForUser(user.getId());
+//        System.out.println("User " + user.getUserEmail() + " has accounts: " + accounts.size());
+//
+//        System.out.println("VALIDATION USER: " + user.getUserEmail());
+//
+//        List<AccountEntity> validAccounts =
+//                accountRepository.findAccountsForUser(user.getId());
+//
+//        System.out.println("VALIDATION ACCOUNT COUNT: " + validAccounts.size());
+//
+//        if (accounts.isEmpty()) {
+//            throw new RuntimeException("NoAccountsAssigned"); // or handle differently
+//        }
+//    }
+
+    //update for above
     @Override
+    public void validateUserAccess(UUID userId) {
 
-        public void validateUserAccess(UserEntity user) {
-        if (!user.isInvited()) throw new RuntimeException("AccessDenied");
-        if (!user.isUserActive()) throw new RuntimeException("InactiveUser");
+        UserEntity user = userRepository.findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found: " + userId));
 
-        List<AccountEntity> accounts = accountRepository.findAccountsForUser(user.getId());
-        System.out.println("User " + user.getUserEmail() + " has accounts: " + accounts.size());
-
-        if (accounts.isEmpty()) {
-            throw new RuntimeException("NoAccountsAssigned"); // or handle differently
+        if (!user.isInvited()) {
+            throw new RuntimeException("AccessDenied");
         }
+
+        if (!user.isUserActive()) {
+            throw new RuntimeException("InactiveUser");
+        }
+
+        System.out.println("VALIDATION USER: " + user.getUserEmail());
+
+        long accountCount = accountRepository.countAccounts(userId);
+
+        System.out.println("VALIDATION ACCOUNT COUNT: " + accountCount);
+
+        if (accountCount == 0) {
+            throw new RuntimeException("NoAccountsAssigned");
+        }
+
+        List<AccountEntity> validAccounts =
+                accountRepository.findAccountsForUser(userId);
+
+        System.out.println("User " + user.getUserEmail()
+                + " has accounts: " + validAccounts.size());
     }
 
     //----------------Manager sends email to user to get invited to website/app

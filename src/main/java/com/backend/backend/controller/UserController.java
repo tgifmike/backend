@@ -276,7 +276,7 @@ public class UserController {
 
            // user = userService.getUserById(user.getId()); // 🔥 FORCE FRESH ENTITY
 
-            userService.validateUserAccess(user);
+            userService.validateUserAccess(user.getId());
 
             String jwt =
                     userService.generateJwtForUser(user);
@@ -312,7 +312,7 @@ public class UserController {
             UserEntity user = userService.createOrFindOAuthUser(oauthUser);
 
             // 2️⃣ Validate access
-            userService.validateUserAccess(user);
+            userService.validateUserAccess(user.getId());
 
             // 3️⃣ Generate JWT
             String jwt = userService.generateJwtForUser(user);
