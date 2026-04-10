@@ -248,10 +248,11 @@ public class UserController {
     //////////////////////////////////////////////////////////////
 // UNIVERSAL OAUTH LOGIN ENDPOINT
     ////////////////////////////////////////////////////////////
-
+    @Transactional
     @PostMapping("/oauth-login")
     public ResponseEntity<?> loginWithOAuth(@RequestBody Map<String, Object> body) {
         System.out.println("OAUTH LOGIN HIT");
+
         try {
             String provider = ((String) body.get("provider")).toLowerCase();
             String idToken = extractIdToken(body);
@@ -281,6 +282,9 @@ public class UserController {
                             .status(HttpStatus.BAD_REQUEST)
                             .body("Unsupported provider");
                 }
+
+
+
             }
 
             // Delegate everything to service
@@ -300,6 +304,9 @@ public class UserController {
                     userService.generateJwtForUser(user);
 
             System.out.println("Found user in DB: " + user.getUserEmail() + ", provider=" + user.getProvider() + ", invited=" + user.isInvited() + ", active=" + user.isUserActive());
+
+            System.out.println("DB googleId: " + user.getGoogleId());
+            System.out.println("Token googleId: " + oauthUser.getGoogleId());
 
             return ResponseEntity.ok(buildMobileResponse(user, jwt));
 
