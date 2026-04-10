@@ -149,102 +149,86 @@ public class UserController {
         }
     }
 
-/////////////////////////////////////////////////////////////
-// weblogi in
-    //////////////////////////////////////////////////////////////
-
-//    @PostMapping("/oauth-login")
-//    public ResponseEntity<?> loginWithOAuth(@RequestBody Map<String, Object> body) {
-//        String provider = (String) body.get("provider");
-//        if ("google".equalsIgnoreCase(provider)) {
-//            return loginWithGoogle(body);
-//        } else if ("apple".equalsIgnoreCase(provider)) {
-//            return loginWithApple(body);
-//        } else {
-//            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
-//                    .body("Unsupported provider");
-//        }
-//    }
 
 //////////////////////////////////////////////////////////////
 // MOBILE GOOGLE LOGIN
     //////////////////////////////////////////////////////////////
 
-    @PostMapping("/mobile")
-    public ResponseEntity<?> loginWithGoogle(
-            @RequestBody Map<String, Object> body
-    ) {
-
-        try {
-
-            String idToken = extractIdToken(body);
-
-            GoogleIdToken.Payload payload =
-                    GoogleTokenVerifier.verifyToken(idToken);
-
-            if (payload == null) {
-
-                return unauthorized("Invalid Google token");
-            }
-
-            String googleId = payload.getSubject();
-            String email = payload.getEmail();
-            String name = (String) payload.get("name");
-            String picture = (String) payload.get("picture");
-
-            UserEntity oauthUser = new UserEntity();
-
-            oauthUser.setGoogleId(googleId);
-            oauthUser.setUserEmail(email);
-            oauthUser.setUserName(name);
-            oauthUser.setUserImage(picture);
-
-            return handleOAuthLogin(oauthUser);
-
-        } catch (Exception e) {
-
-            return unauthorized("Google login failed");
-        }
-    }
+//    @PostMapping("/mobile")
+//    public ResponseEntity<?> loginWithGoogle(
+//            @RequestBody Map<String, Object> body
+//    ) {
+//
+//        try {
+//
+//            String idToken = extractIdToken(body);
+//
+//            GoogleIdToken.Payload payload =
+//                    GoogleTokenVerifier.verifyToken(idToken);
+//
+//            if (payload == null) {
+//
+//                return unauthorized("Invalid Google token");
+//            }
+//
+//            String googleId = payload.getSubject();
+//            String email = payload.getEmail();
+//            String name = (String) payload.get("name");
+//            String picture = (String) payload.get("picture");
+//
+//            UserEntity oauthUser = new UserEntity();
+//
+//            oauthUser.setGoogleId(googleId);
+//            oauthUser.setUserEmail(email);
+//            oauthUser.setUserName(name);
+//            oauthUser.setUserImage(picture);
+//
+//            return handleOAuthLogin(oauthUser);
+//
+//        } catch (Exception e) {
+//
+//            return unauthorized("Google login failed");
+//        }
+//    }
 
 //////////////////////////////////////////////////////////////
 // MOBILE APPLE LOGIN
     //////////////////////////////////////////////////////////////
 
-    @PostMapping("/mobile/apple")
-    public ResponseEntity<?> loginWithApple(
-            @RequestBody Map<String, Object> body
-    ) {
-
-        try {
-
-            String idToken = extractIdToken(body);
-
-            SignedJWT jwt = SignedJWT.parse(idToken);
-
-            String appleId =
-                    jwt.getJWTClaimsSet().getSubject();
-
-            String email =
-                    (String) jwt.getJWTClaimsSet()
-                            .getClaim("email");
-
-            UserEntity oauthUser = new UserEntity();
-
-            oauthUser.setAppleId(appleId);
-
-            // Apple sometimes only returns email on first login
-            if (email != null) {
-                oauthUser.setUserEmail(email);
-            }
-
-            return handleOAuthLogin(oauthUser);
-
-        } catch (Exception e) {
-
-            return unauthorized("Apple login failed");
-        }
-    }
+//    @PostMapping("/mobile/apple")
+//    public ResponseEntity<?> loginWithApple(
+//            @RequestBody Map<String, Object> body
+//    ) {
+//
+//        try {
+//
+//            String idToken = extractIdToken(body);
+//
+//            SignedJWT jwt = SignedJWT.parse(idToken);
+//
+//            String appleId =
+//                    jwt.getJWTClaimsSet().getSubject();
+//
+//            String email =
+//                    (String) jwt.getJWTClaimsSet()
+//                            .getClaim("email");
+//
+//            UserEntity oauthUser = new UserEntity();
+//
+//            oauthUser.setAppleId(appleId);
+//
+//            // Apple sometimes only returns email on first login
+//            if (email != null) {
+//                oauthUser.setUserEmail(email);
+//            }
+//
+//            return handleOAuthLogin(oauthUser);
+//
+//        } catch (Exception e) {
+//
+//            return unauthorized("Apple login failed");
+//        }
+//    }
     //////////////////////////////////////////////////////////////
 // UNIVERSAL OAUTH LOGIN ENDPOINT
     ////////////////////////////////////////////////////////////
@@ -287,12 +271,6 @@ public class UserController {
 
             }
 
-            // Delegate everything to service
-//            String jwt = userService.handleOAuthLogin(oauthUser);
-//
-//            UserEntity user = userService.findByEmail(oauthUser.getUserEmail());
-
-
             UserEntity user =
                     userService.createOrFindOAuthUser(oauthUser);
 
@@ -314,6 +292,8 @@ public class UserController {
             String msg = ex.getMessage();
             if ("AccessDenied".equals(msg)) return forbidden("User not invited yet");
             if ("InactiveUser".equals(msg)) return forbidden("User account inactive");
+            if ("NoAccountsAssigned".equals(msg))
+                return forbidden("User has no assigned accounts");
             return unauthorized("Login failed");
         } catch (Exception ex) {
             System.out.println("LOGIN FAILURE REASON: " + ex.getMessage());
@@ -321,58 +301,6 @@ public class UserController {
         }
     }
 
-//////////////////////////////////////////////////////////////
-// SHARED OAUTH LOGIN PIPELINE
-    //////////////////////////////////////////////////////////////
-
-
-
-//    private ResponseEntity<?> handleOAuthLogin(
-//            UserEntity oauthUser
-//    ) {
-//
-//        System.out.println("EMAIL FROM WEB LOGIN: " + oauthUser.getUserEmail());
-//
-//        try {
-//
-//            UserEntity user =
-//                    userService.createOrFindOAuthUser(
-//                            oauthUser
-//                    );
-//
-//            // 🔒 ACCESS CONTROL CHECK
-//            userService.validateUserAccess(user);
-//
-//            String jwt =
-//                    userService.generateJwtForUser(user);
-//
-//            return ResponseEntity.ok(
-//                    buildMobileResponse(user, jwt)
-//            );
-//
-//        } catch (RuntimeException ex) {
-//
-//            if ("AccessDenied".equals(
-//                    ex.getMessage()
-//            )) {
-//
-//                return forbidden(
-//                        "User not invited yet"
-//                );
-//            }
-//
-//            if ("InactiveUser".equals(
-//                    ex.getMessage()
-//            )) {
-//
-//                return forbidden(
-//                        "User account inactive"
-//                );
-//            }
-//
-//            return unauthorized("Login failed");
-//        }
-//    }
 
 
     private ResponseEntity<?> handleOAuthLogin(UserEntity oauthUser) {
