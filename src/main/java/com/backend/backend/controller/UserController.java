@@ -232,7 +232,7 @@ public class UserController {
     //////////////////////////////////////////////////////////////
 // UNIVERSAL OAUTH LOGIN ENDPOINT
     ////////////////////////////////////////////////////////////
-    @Transactional
+
     @PostMapping("/oauth-login")
     public ResponseEntity<?> loginWithOAuth(@RequestBody Map<String, Object> body) {
         System.out.println("OAUTH LOGIN HIT");
@@ -274,7 +274,7 @@ public class UserController {
             UserEntity user =
                     userService.createOrFindOAuthUser(oauthUser);
 
-            user = userService.getUserById(user.getId()); // 🔥 FORCE FRESH ENTITY
+           // user = userService.getUserById(user.getId()); // 🔥 FORCE FRESH ENTITY
 
             userService.validateUserAccess(user);
 
