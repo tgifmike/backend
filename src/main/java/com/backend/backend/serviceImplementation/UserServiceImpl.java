@@ -231,57 +231,69 @@ public class UserServiceImpl implements UserService {
 
 
 
-@Override
-public UserEntity resolveUserIdentity(UserEntity incomingUser) {
+    @Override
+    public UserEntity resolveUserIdentity(UserEntity incomingUser) {
 
-    if (incomingUser.getUserEmail() == null
-            && incomingUser.getGoogleId() == null
-            && incomingUser.getAppleId() == null) {
+        System.out.println("IDENTITY RESOLUTION START");
+        System.out.println("Incoming email: " + incomingUser.getUserEmail());
+        System.out.println("Incoming googleId: " + incomingUser.getGoogleId());
+        System.out.println("Incoming appleId: " + incomingUser.getAppleId());
 
-        throw new IllegalArgumentException("OAuth identity missing");
-    }
+        Optional<UserEntity> userOpt = Optional.empty();
 
-    Optional<UserEntity> userOpt = Optional.empty();
+        if (incomingUser.getGoogleId() != null) {
 
-    if (incomingUser.getGoogleId() != null) {
-        userOpt =
-                userRepository.findByGoogleId(
-                        incomingUser.getGoogleId()
-                );
-    }
+            userOpt =
+                    userRepository.findByGoogleId(
+                            incomingUser.getGoogleId()
+                    );
 
-    if (userOpt.isEmpty()
-            && incomingUser.getAppleId() != null) {
-
-        userOpt =
-                userRepository.findByAppleId(
-                        incomingUser.getAppleId()
-                );
-    }
-
-    if (userOpt.isEmpty()
-            && incomingUser.getUserEmail() != null) {
-
-        userOpt =
-                userRepository.findByUserEmailIgnoreCase(
-                        incomingUser.getUserEmail()
-                );
-    }
-
-    if (userOpt.isEmpty()) {
-
-        if (isAppleReviewer(incomingUser)) {
-
-            return createAppleReviewerUser();
+            System.out.println("Lookup by GoogleId: " + userOpt.isPresent());
         }
 
-        throw new RuntimeException(
-                "User not invited. Please contact your administrator."
-        );
-    }
+        if (userOpt.isEmpty()
+                && incomingUser.getAppleId() != null) {
 
-    return userOpt.get();
-}
+            userOpt =
+                    userRepository.findByAppleId(
+                            incomingUser.getAppleId()
+                    );
+
+            System.out.println("Lookup by AppleId: " + userOpt.isPresent());
+        }
+
+        if (userOpt.isEmpty()
+                && incomingUser.getUserEmail() != null) {
+
+            userOpt =
+                    userRepository.findByUserEmailIgnoreCase(
+                            incomingUser.getUserEmail()
+                    );
+
+            System.out.println("Lookup by Email: " + userOpt.isPresent());
+        }
+
+        if (userOpt.isEmpty()) {
+
+            System.out.println("USER NOT FOUND IN DB");
+
+            if (isAppleReviewer(incomingUser)) {
+
+                return createAppleReviewerUser();
+            }
+
+            throw new RuntimeException(
+                    "User not invited. Please contact your administrator."
+            );
+        }
+
+        UserEntity resolvedUser = userOpt.get();
+
+        System.out.println("RESOLVED USER ID: " + resolvedUser.getId());
+        System.out.println("RESOLVED USER EMAIL: " + resolvedUser.getUserEmail());
+
+        return resolvedUser;
+    }
 
     /**
      * Universal OAuth login method.
@@ -300,8 +312,13 @@ public UserEntity resolveUserIdentity(UserEntity incomingUser) {
 
         updateProviderIdsIfNeeded(user, incomingUser);
 
-        boolean hasAccess =
-                accountRepository.countAccounts(user.getId()) > 0;
+        long accountCount =
+                accountRepository.countAccounts(user.getId());
+
+        System.out.println("ACCOUNT COUNT: " + accountCount);
+        System.out.println("ACCOUNT CHECK USER ID: " + user.getId());
+
+        boolean hasAccess = accountCount > 0;
 
         String jwt = generateJwtForUser(user);
 
@@ -335,8 +352,17 @@ public UserEntity resolveUserIdentity(UserEntity incomingUser) {
 
         boolean updated = false;
 
+        System.out.println("LINKING PROVIDER IDS");
+        System.out.println("Existing googleId: " + user.getGoogleId());
+        System.out.println("Incoming googleId: " + incomingUser.getGoogleId());
+        System.out.println("Existing appleId: " + user.getAppleId());
+        System.out.println("Incoming appleId: " + incomingUser.getAppleId());
+
         if (incomingUser.getGoogleId() != null
-                && user.getGoogleId() == null) {
+                && user.getGoogleId() == null
+                && incomingUser.getUserEmail() != null
+                && incomingUser.getUserEmail()
+                .equalsIgnoreCase(user.getUserEmail())) {
 
             user.setGoogleId(incomingUser.getGoogleId());
             user.setProvider("google");
@@ -359,6 +385,8 @@ public UserEntity resolveUserIdentity(UserEntity incomingUser) {
 
             userRepository.save(user);
         }
+
+
     }
     private void normalizeEmail(UserEntity user) {
 
