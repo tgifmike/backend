@@ -331,6 +331,9 @@ public class UserController {
             ));
             response.put("token", jwt);
 
+            System.out.println("APP ROLE: " + user.getAppRole());
+            System.out.println("ACCESS ROLE: " + user.getAccessRole());
+
             return ResponseEntity.ok(response);
 
         } catch (RuntimeException ex) {
