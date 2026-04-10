@@ -317,6 +317,7 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
      * Handles Google, Apple, or email-based login.
      * Returns a signed JWT if the user exists and is active.
      */
+    @Transactional
     @Override
     public String handleOAuthLogin(UserEntity incomingUser) {
 
@@ -471,7 +472,8 @@ public UserEntity createOrFindOAuthUser(UserEntity incomingUser) {
 
 
     @Override
-    public void validateUserAccess(UserEntity user) {
+
+        public void validateUserAccess(UserEntity user) {
         if (!user.isInvited()) throw new RuntimeException("AccessDenied");
         if (!user.isUserActive()) throw new RuntimeException("InactiveUser");
 
