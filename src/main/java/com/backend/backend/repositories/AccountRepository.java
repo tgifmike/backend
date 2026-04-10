@@ -54,11 +54,18 @@ public interface AccountRepository extends JpaRepository<AccountEntity, UUID> {
            """)
     List<AccountEntity> findAccountsForUser(@Param("userId") UUID userId);
 
+//    @Query("""
+//    SELECT COUNT(a)
+//    FROM AccountEntity a
+//    JOIN UserAccountAccessEntity uaa ON uaa.account.id = a.id
+//    WHERE uaa.user.id = :userId
+//""")
+//    long countAccounts(@Param("userId") UUID userId);
+
     @Query("""
-    SELECT COUNT(a)
-    FROM AccountEntity a
-    JOIN UserAccountAccessEntity uaa ON uaa.account.id = a.id
-    WHERE uaa.user.id = :userId
+SELECT COUNT(uaa)
+FROM UserAccountAccessEntity uaa
+WHERE uaa.user.id = :userId
 """)
     long countAccounts(@Param("userId") UUID userId);
 }
