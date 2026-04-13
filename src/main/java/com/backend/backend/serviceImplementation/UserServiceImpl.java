@@ -318,7 +318,9 @@ public class UserServiceImpl implements UserService {
         System.out.println("ACCOUNT COUNT: " + accountCount);
         System.out.println("ACCOUNT CHECK USER ID: " + user.getId());
 
-        boolean hasAccess = accountCount > 0;
+        boolean hasAccess =
+                accountCount > 0
+                        || isDemoUser(user);
 
         String jwt = generateJwtForUser(user);
 
@@ -335,6 +337,10 @@ public class UserServiceImpl implements UserService {
     }
 
     private void validateUserStatus(UserEntity user) {
+
+        if (isDemoUser(user)) {
+            return;
+        }
 
         if (!user.isInvited()) {
 
@@ -441,13 +447,17 @@ public class UserServiceImpl implements UserService {
         return JWT.create()
                 .withSubject(user.getId().toString())
                 .withClaim("email", user.getUserEmail())
-                .withClaim("name", user.getUserName()).withClaim(
-                        "role",
+                .withClaim("name", user.getUserName())
+                .withClaim("role",
                         user.getAppRole() != null
                                 ? user.getAppRole().name()
                                 : AppRole.MEMBER.name()
                 )
-                .withExpiresAt(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24)) // 24 hours
+                .withClaim(
+                        "mode",
+                        isDemoUser(user) ? "demo" : "normal"
+                )
+                .withExpiresAt(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24))
                 .sign(algorithm);
     }
 
@@ -530,5 +540,30 @@ public class UserServiceImpl implements UserService {
                 message
         );
 
+    }
+
+    //----------------Create demo user
+    private UserEntity createDemoUser() {
+
+        UserEntity demo = new UserEntity();
+
+        demo.setUserEmail("testingtml4@gmail.com");
+        demo.setUserName("Demo User");
+        demo.setInvited(true);
+        demo.setUserActive(true);
+
+        demo.setAppRole(AppRole.MANAGER);
+        demo.setAccessRole(AccessRole.ADMIN);
+
+        return userRepository.save(demo);
+    }
+
+
+    //-------helper for dmeo mode
+    private boolean isDemoUser(UserEntity user) {
+
+        return user.getUserEmail() != null
+                && user.getUserEmail()
+                .equalsIgnoreCase("testingtml4@gmail.com");
     }
 }
