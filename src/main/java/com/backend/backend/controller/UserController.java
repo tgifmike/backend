@@ -433,5 +433,20 @@ public class UserController {
 
         }
     }
+
+    //-----create demo login for app store
+    @PostMapping("/demo-login")
+    public ResponseEntity<?> demoLogin() {
+
+        UserEntity demoUser =
+                userRepository
+                        .findByUserEmailIgnoreCase("testingtml4@gmail.com")
+                        .orElseGet(this::createDemoUser);
+
+        LoginResponse response =
+                userService.handleOAuthLogin(demoUser);
+
+        return ResponseEntity.ok(response);
+    }
 }
 
