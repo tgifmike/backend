@@ -44,7 +44,8 @@ public class UserController {
 
 //////////////////////////////////////////////////////////////
 // ADMIN USER MANAGEMENT ENDPOINTS
-    //////////////////////////////////////////////////////////////
+
+    /// ///////////////////////////////////////////////////////////
 
     @GetMapping("/all")
     public List<UserEntity> getAllUsers() {
@@ -123,7 +124,8 @@ public class UserController {
 
 //////////////////////////////////////////////////////////////
 // MANUAL USER CREATION
-    //////////////////////////////////////////////////////////////
+
+    /// ///////////////////////////////////////////////////////////
 
     @PostMapping("/create")
     public ResponseEntity<?> createUser(
@@ -232,7 +234,8 @@ public class UserController {
 //    }
     //////////////////////////////////////////////////////////////
 // UNIVERSAL OAUTH LOGIN ENDPOINT
-    ////////////////////////////////////////////////////////////
+
+    /// /////////////////////////////////////////////////////////
 
     @PostMapping("/oauth-login")
     public ResponseEntity<?> loginWithOAuth(
@@ -293,10 +296,9 @@ public class UserController {
                     );
                 }
 
-                default ->
-                        throw new RuntimeException(
-                                "Unsupported provider"
-                        );
+                default -> throw new RuntimeException(
+                        "Unsupported provider"
+                );
             }
 
             LoginResponse response =
@@ -304,27 +306,19 @@ public class UserController {
 
             return ResponseEntity.ok(response);
 
-        }
-
-        catch (RuntimeException ex) {
+        } catch (RuntimeException ex) {
 
             return switch (ex.getMessage()) {
 
-                case "AccessDenied" ->
-                        forbidden("User not invited yet");
+                case "AccessDenied" -> forbidden("User not invited yet");
 
-                case "InactiveUser" ->
-                        forbidden("User account inactive");
+                case "InactiveUser" -> forbidden("User account inactive");
 
-                case "NoAccountsAssigned" ->
-                        forbidden("User has no assigned accounts");
+                case "NoAccountsAssigned" -> forbidden("User has no assigned accounts");
 
-                default ->
-                        unauthorized("Login failed");
+                default -> unauthorized("Login failed");
             };
-        }
-
-        catch (Exception ex) {
+        } catch (Exception ex) {
 
             return unauthorized(
                     "Login failed: "
@@ -334,7 +328,8 @@ public class UserController {
     }
 //////////////////////////////////////////////////////////////
 // RESPONSE BUILDERS
-    //////////////////////////////////////////////////////////////
+
+    /// ///////////////////////////////////////////////////////////
 
     private Map<String, Object> buildMobileResponse(
             UserEntity user,
@@ -360,7 +355,8 @@ public class UserController {
 
 //////////////////////////////////////////////////////////////
 // HELPERS
-    //////////////////////////////////////////////////////////////
+
+    /// ///////////////////////////////////////////////////////////
 
     private String extractIdToken(
             Map<String, Object> body
@@ -399,7 +395,8 @@ public class UserController {
 
     //////////////////////////////////////////////////////////////
 // MANUAL USER CREATION
-    //////////////////////////////////////////////////////////////
+
+    /// ///////////////////////////////////////////////////////////
     @Transactional
     @PostMapping("/invite")
     public ResponseEntity<?> inviteUser(
@@ -423,9 +420,7 @@ public class UserController {
                     )
             );
 
-        }
-
-        catch (RuntimeException ex) {
+        } catch (RuntimeException ex) {
 
             return ResponseEntity
                     .badRequest()
@@ -434,19 +429,19 @@ public class UserController {
         }
     }
 
-    //-----create demo login for app store
-    @PostMapping("/demo-login")
-    public ResponseEntity<?> demoLogin() {
+        //-----create demo login for app store
+        @PostMapping("/demo-login")
+        public ResponseEntity<?> demoLogin () {
 
-        UserEntity demoUser =
-                userRepository
-                        .findByUserEmailIgnoreCase("testingtml4@gmail.com")
-                        .orElseGet(this::createDemoUser);
+            UserEntity demoUser =
+                    userRepository
+                            .findByUserEmailIgnoreCase("testingtml4@gmail.com")
+                            .orElseGet(userService::createDemoUser);
 
-        LoginResponse response =
-                userService.handleOAuthLogin(demoUser);
+            LoginResponse response =
+                    userService.handleOAuthLogin(demoUser);
 
-        return ResponseEntity.ok(response);
-    }
+            return ResponseEntity.ok(response);
+        }
+
 }
-
