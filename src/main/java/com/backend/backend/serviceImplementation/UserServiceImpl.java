@@ -461,6 +461,22 @@ public class UserServiceImpl implements UserService {
                 .sign(algorithm);
     }
 
+    //----------------Create demo user
+    public UserEntity createDemoUser() {
+
+        UserEntity demo = new UserEntity();
+
+        demo.setUserEmail("testingtml4@gmail.com");
+        demo.setUserName("Demo User");
+        demo.setInvited(true);
+        demo.setUserActive(true);
+
+        demo.setAppRole(AppRole.MANAGER);
+        demo.setAccessRole(AccessRole.ADMIN);
+
+        return userRepository.save(demo);
+    }
+
 
 
 
@@ -542,21 +558,7 @@ public class UserServiceImpl implements UserService {
 
     }
 
-    //----------------Create demo user
-    private UserEntity createDemoUser() {
 
-        UserEntity demo = new UserEntity();
-
-        demo.setUserEmail("testingtml4@gmail.com");
-        demo.setUserName("Demo User");
-        demo.setInvited(true);
-        demo.setUserActive(true);
-
-        demo.setAppRole(AppRole.MANAGER);
-        demo.setAccessRole(AccessRole.ADMIN);
-
-        return userRepository.save(demo);
-    }
 
 
     //-------helper for dmeo mode

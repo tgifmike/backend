@@ -49,5 +49,5 @@ public interface UserService {
    // void validateUserAccess(UUID userId);
     LoginResponse handleOAuthLogin(UserEntity incomingUser);
     UserEntity resolveUserIdentity(UserEntity incomingUser);
-
+    UserEntity createDemoUser();
 }
