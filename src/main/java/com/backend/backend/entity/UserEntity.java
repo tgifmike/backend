@@ -74,4 +74,7 @@ public class UserEntity {
     protected void onUpdate() {
         updatedAt = Instant.now();
     }
+
+    private Instant deletedAt;
+    private UUID deletedBy;
 }

@@ -16,7 +16,9 @@ import com.backend.backend.service.EmailService;
 import com.backend.backend.service.UserService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.Date;
@@ -108,9 +110,24 @@ public class UserServiceImpl implements UserService {
     }
 
     //delete user
+//    @Override
+//    public void deleteUser(UUID id){
+//        userRepository.deleteById(id);
+//    }
+    //delete user soft
     @Override
-    public void deleteUser(UUID id){
-        userRepository.deleteById(id);
+    @Transactional
+    public void deleteUser(UUID id) {
+
+        UserEntity user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+                );
+
+        user.setDeletedAt(Instant.now());
+        user.setUserActive(false);
+
+        userRepository.save(user);
     }
 
     //toggle active
@@ -234,10 +251,10 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserEntity resolveUserIdentity(UserEntity incomingUser) {
 
-        System.out.println("IDENTITY RESOLUTION START");
-        System.out.println("Incoming email: " + incomingUser.getUserEmail());
-        System.out.println("Incoming googleId: " + incomingUser.getGoogleId());
-        System.out.println("Incoming appleId: " + incomingUser.getAppleId());
+//        System.out.println("IDENTITY RESOLUTION START");
+//        System.out.println("Incoming email: " + incomingUser.getUserEmail());
+//        System.out.println("Incoming googleId: " + incomingUser.getGoogleId());
+//        System.out.println("Incoming appleId: " + incomingUser.getAppleId());
 
         Optional<UserEntity> userOpt = Optional.empty();
 
@@ -248,7 +265,7 @@ public class UserServiceImpl implements UserService {
                             incomingUser.getGoogleId()
                     );
 
-            System.out.println("Lookup by GoogleId: " + userOpt.isPresent());
+//            System.out.println("Lookup by GoogleId: " + userOpt.isPresent());
         }
 
         if (userOpt.isEmpty()
@@ -259,7 +276,7 @@ public class UserServiceImpl implements UserService {
                             incomingUser.getAppleId()
                     );
 
-            System.out.println("Lookup by AppleId: " + userOpt.isPresent());
+//            System.out.println("Lookup by AppleId: " + userOpt.isPresent());
         }
 
         if (userOpt.isEmpty()
@@ -270,12 +287,12 @@ public class UserServiceImpl implements UserService {
                             incomingUser.getUserEmail()
                     );
 
-            System.out.println("Lookup by Email: " + userOpt.isPresent());
+//            System.out.println("Lookup by Email: " + userOpt.isPresent());
         }
 
         if (userOpt.isEmpty()) {
 
-            System.out.println("USER NOT FOUND IN DB");
+//            System.out.println("USER NOT FOUND IN DB");
 
             if (isAppleReviewer(incomingUser)) {
 
@@ -289,8 +306,8 @@ public class UserServiceImpl implements UserService {
 
         UserEntity resolvedUser = userOpt.get();
 
-        System.out.println("RESOLVED USER ID: " + resolvedUser.getId());
-        System.out.println("RESOLVED USER EMAIL: " + resolvedUser.getUserEmail());
+//        System.out.println("RESOLVED USER ID: " + resolvedUser.getId());
+//        System.out.println("RESOLVED USER EMAIL: " + resolvedUser.getUserEmail());
 
         return resolvedUser;
     }
@@ -315,8 +332,8 @@ public class UserServiceImpl implements UserService {
         long accountCount =
                 accountRepository.countAccounts(user.getId());
 
-        System.out.println("ACCOUNT COUNT: " + accountCount);
-        System.out.println("ACCOUNT CHECK USER ID: " + user.getId());
+//        System.out.println("ACCOUNT COUNT: " + accountCount);
+//        System.out.println("ACCOUNT CHECK USER ID: " + user.getId());
 
         boolean hasAccess =
                 accountCount > 0
@@ -342,6 +359,13 @@ public class UserServiceImpl implements UserService {
             return;
         }
 
+        if (user.getDeletedAt() != null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "Account has been deleted"
+            );
+        }
+
         if (!user.isInvited()) {
 
             throw new RuntimeException("AccessDenied");
@@ -360,11 +384,11 @@ public class UserServiceImpl implements UserService {
 
         boolean updated = false;
 
-        System.out.println("LINKING PROVIDER IDS");
-        System.out.println("Existing googleId: " + user.getGoogleId());
-        System.out.println("Incoming googleId: " + incomingUser.getGoogleId());
-        System.out.println("Existing appleId: " + user.getAppleId());
-        System.out.println("Incoming appleId: " + incomingUser.getAppleId());
+//        System.out.println("LINKING PROVIDER IDS");
+//        System.out.println("Existing googleId: " + user.getGoogleId());
+//        System.out.println("Incoming googleId: " + incomingUser.getGoogleId());
+//        System.out.println("Existing appleId: " + user.getAppleId());
+//        System.out.println("Incoming appleId: " + incomingUser.getAppleId());
 
         if (incomingUser.getGoogleId() != null
                 && user.getGoogleId() == null
@@ -567,5 +591,19 @@ public class UserServiceImpl implements UserService {
         return user.getUserEmail() != null
                 && user.getUserEmail()
                 .equalsIgnoreCase("testingtml4@gmail.com");
+    }
+
+    //-------restore user
+    public void restoreUser(UUID id) {
+
+        UserEntity user = userRepository.findById(id)
+                .orElseThrow(() ->
+                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
+                );
+
+        user.setDeletedAt(null);
+        user.setUserActive(true);
+
+        userRepository.save(user);
     }
 }
