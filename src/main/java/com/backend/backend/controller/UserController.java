@@ -7,15 +7,14 @@ import com.backend.backend.dto.UpdateUserDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.UserRepository;
+import com.backend.backend.service.TokenService;
 import com.backend.backend.service.UserService;
-import com.google.api.client.googleapis.auth.oauth2.GoogleIdToken;
 import com.nimbusds.jwt.SignedJWT;
-
-import jakarta.transaction.Transactional;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 
 import java.util.*;
 
@@ -29,16 +28,17 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
-    private final GoogleTokenVerifier googleTokenVerifier;
+    private final TokenService tokenService;
+
 
     public UserController(
             UserService userService,
             UserRepository userRepository,
-            GoogleTokenVerifier googleTokenVerifier
+            TokenService tokenService
     ) {
         this.userService = userService;
         this.userRepository = userRepository;
-        this.googleTokenVerifier = googleTokenVerifier;
+        this.tokenService = tokenService;
     }
 
 
@@ -317,35 +317,38 @@ public class UserController {
 // MANUAL USER CREATION
 
     /// ///////////////////////////////////////////////////////////
-    @Transactional
+
     @PostMapping("/invite")
     public ResponseEntity<?> inviteUser(
-            @RequestBody InviteUserDto request
+            @RequestBody InviteUserDto request,
+            @RequestHeader("Authorization") String authHeader
     ) {
 
         try {
+
+            String token = authHeader.replace("Bearer ", "");
+
+            String inviterName = tokenService.getName(token);
 
             UserEntity user =
                     userService.inviteUser(
                             request.getEmail(),
                             request.getAppRole(),
                             request.getAccessRole(),
-                            request.getAccountId()
+                            request.getAccountId(),
+                            inviterName
                     );
 
-            return ResponseEntity.ok(
-                    Map.of(
-                            "message", "Invitation sent",
-                            "user", user
-                    )
-            );
+            return ResponseEntity.status(HttpStatus.CREATED)
+                    .body(Map.of(
+                            "message", "Invitation sent successfully",
+                            "userId", user.getId(),
+                            "email", user.getUserEmail()
+                    ));
 
-        } catch (RuntimeException ex) {
-
-            return ResponseEntity
-                    .badRequest()
-                    .body(ex.getMessage());
-
+        } catch (Exception ex) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", ex.getMessage()));
         }
     }
 

@@ -13,12 +13,14 @@ import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.repositories.UserAccountAccessRepository;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.EmailService;
+import com.backend.backend.service.EmailTemplateService;
 import com.backend.backend.service.UserService;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
+
 
 import java.time.Instant;
 import java.util.Date;
@@ -30,8 +32,6 @@ import java.util.UUID;
 public class UserServiceImpl implements UserService {
 
 
-
-
     @Value("${jwt.secret}")
     private String secret;
 
@@ -39,15 +39,22 @@ public class UserServiceImpl implements UserService {
     private final EmailService emailService;
     private final AccountRepository accountRepository;
     private final UserAccountAccessRepository userAccountAccessRepository;
+    private final EmailTemplateService emailTemplateService;
 
     private static final String APPLE_REVIEW_EMAIL = "testingtml4@gmail.com";
 
 
-    public UserServiceImpl(UserRepository userRepository, EmailService emailService, AccountRepository accountRepository, UserAccountAccessRepository userAccountAccessRepository) {
+    public UserServiceImpl(UserRepository userRepository,
+                           EmailService emailService,
+                           AccountRepository accountRepository,
+                           UserAccountAccessRepository userAccountAccessRepository,
+                           EmailTemplateService emailTemplateService) {
+
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.accountRepository = accountRepository;
         this.userAccountAccessRepository = userAccountAccessRepository;
+        this.emailTemplateService = emailTemplateService;
     }
 
     //create user from button
@@ -85,28 +92,28 @@ public class UserServiceImpl implements UserService {
 
     //get all users
     @Override
-    public List<UserEntity> getAllUsers(){
+    public List<UserEntity> getAllUsers() {
         return userRepository.findAll();
     }
 
     //find by id
     @Override
-    public UserEntity getUserById(UUID id){
+    public UserEntity getUserById(UUID id) {
         return userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id " + id));
     }
 
     //update user name and email
     @Override
-    public UserEntity updateUser(UserEntity user){
+    public UserEntity updateUser(UserEntity user) {
         return userRepository.save(user);
     }
 
     //find by email
     @Override
-    public UserEntity findByEmail(String email){
+    public UserEntity findByEmail(String email) {
         return userRepository.findByUserEmailIgnoreCase(email)
-                .orElseThrow(()-> new RuntimeException("User not found with email " + email));
+                .orElseThrow(() -> new RuntimeException("User not found with email " + email));
     }
 
     //delete user
@@ -185,7 +192,7 @@ public class UserServiceImpl implements UserService {
 
     //update app role
     @Override
-    public UserDto updateAppRole(UUID id, String role){
+    public UserDto updateAppRole(UUID id, String role) {
         UserEntity user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("User no found"));
         user.setAppRole(AppRole.valueOf(role));
@@ -205,12 +212,12 @@ public class UserServiceImpl implements UserService {
 
     //update user name an email
     @Override
-    public void updateUser(UUID id, String newName, String newEmail){
+    public void updateUser(UUID id, String newName, String newEmail) {
         //validate input
-        if (newName == null || newName.trim().isEmpty()){
+        if (newName == null || newName.trim().isEmpty()) {
             throw new IllegalArgumentException("User name cannot be blank");
         }
-        if (newEmail == null || newEmail.trim().isEmpty()){
+        if (newEmail == null || newEmail.trim().isEmpty()) {
             throw new IllegalArgumentException(("User email cannot be blank"));
         }
 
@@ -224,7 +231,7 @@ public class UserServiceImpl implements UserService {
 
         Optional<UserEntity> userOpt = userRepository.findById(id);
 
-        if(userOpt.isPresent()){
+        if (userOpt.isPresent()) {
             UserEntity user = userOpt.get();
             user.setUserName(newName);
             user.setUserEmail(newEmail);
@@ -234,7 +241,7 @@ public class UserServiceImpl implements UserService {
         }
 
 
-        }
+    }
 
     @Override
     public boolean isEmailDuplicate(String email, UUID excludeId) {
@@ -245,7 +252,6 @@ public class UserServiceImpl implements UserService {
     public boolean isNameDuplicate(String name, UUID excludeId) {
         return userRepository.existsByUserNameAndIdNot(name, excludeId);
     }
-
 
 
     @Override
@@ -421,6 +427,7 @@ public class UserServiceImpl implements UserService {
 
 
     }
+
     private void normalizeEmail(UserEntity user) {
 
         if (user.getUserEmail() != null) {
@@ -503,108 +510,339 @@ public class UserServiceImpl implements UserService {
     }
 
 
-
-
-
     //----------------Manager sends email to user to get invited to website/app
 
+
+
+
     @Override
+    @Transactional
     public UserEntity inviteUser(
             String email,
             String appRole,
             String accessRole,
-            String accountId
+            String accountId,
+            String inviterName
     ) {
 
         if (email == null || email.isBlank()) {
-            throw new RuntimeException("Email required");
+            throw new IllegalArgumentException("Email is required");
         }
 
-        String normalizedEmail = email.toLowerCase().trim();
+        if (inviterName == null || inviterName.isBlank()) {
+            throw new IllegalArgumentException("Inviter name required");
+        }
 
-        UserEntity user = userRepository
-                .findByUserEmailIgnoreCase(normalizedEmail)
-                .orElseGet(() -> {
-                    UserEntity newUser = new UserEntity();
-                    newUser.setUserEmail(normalizedEmail);
-                    return newUser;
-                });
+
+        String normalizedEmail =
+                email.trim().toLowerCase();
+
+
+        AccessRole parsedAccessRole =
+                parseAccessRole(accessRole);
+
+        AppRole parsedAppRole =
+                parseAppRole(appRole);
+
+
+        UserEntity user =
+                userRepository
+                        .findByUserEmailIgnoreCase(normalizedEmail)
+                        .orElseGet(() -> {
+
+                            UserEntity newUser =
+                                    new UserEntity();
+
+                            newUser.setUserEmail(normalizedEmail);
+
+                            return newUser;
+                        });
+
 
         user.setInvited(true);
         user.setUserActive(true);
-        user.setAccessRole(AccessRole.valueOf(accessRole));
-        user.setAppRole(AppRole.valueOf(appRole));
+        user.setAccessRole(parsedAccessRole);
+        user.setAppRole(parsedAppRole);
+
 
         userRepository.save(user);
 
-        // ⚡ Link user to account
-        if (accountId != null && !accountId.isBlank()) {
-            UUID accountUuid = UUID.fromString(accountId);
-            AccountEntity account = accountRepository.findById(accountUuid)
-                    .orElseThrow(() -> new RuntimeException("Account not found"));
 
-            UserAccountAccessEntity access = new UserAccountAccessEntity();
+        String accountName =
+                resolveAccountAccessIfPresent(
+                        accountId,
+                        user
+                );
+
+
+        sendInviteEmail(
+                normalizedEmail,
+                inviterName,
+                accountName,
+                parsedAppRole.name(),
+                parsedAccessRole.name()
+        );
+
+
+        return user;
+    }
+
+    private String resolveAccountAccessIfPresent(
+            String accountId,
+            UserEntity user
+    ) {
+
+        if (accountId == null || accountId.isBlank()) {
+            return "Your Organization";
+        }
+
+        UUID accountUuid =
+                UUID.fromString(accountId);
+
+        AccountEntity account =
+                accountRepository
+                        .findById(accountUuid)
+                        .orElseThrow(() ->
+                                new IllegalArgumentException(
+                                        "Account not found"
+                                )
+                        );
+
+
+        boolean alreadyLinked =
+                userAccountAccessRepository
+                        .existsByUserIdAndAccountId(
+                                user.getId(),
+                                accountUuid
+                        );
+
+
+        if (!alreadyLinked) {
+
+            UserAccountAccessEntity access =
+                    new UserAccountAccessEntity();
+
             access.setUser(user);
             access.setAccount(account);
 
             userAccountAccessRepository.save(access);
         }
 
-        sendInviteEmail(normalizedEmail);
 
-        return user;
+        return account.getAccountName();
     }
 
-    private void sendInviteEmail(String email) {
+    private AccessRole parseAccessRole(String role) {
+
+        try {
+
+            return AccessRole.valueOf(
+                    role.toUpperCase()
+            );
+
+        } catch (Exception ex) {
+
+            throw new IllegalArgumentException(
+                    "Invalid access role: " + role
+            );
+        }
+    }
+
+    private AppRole parseAppRole(String role) {
+
+        try {
+
+            return AppRole.valueOf(
+                    role.toUpperCase()
+            );
+
+        } catch (Exception ex) {
+
+            throw new IllegalArgumentException(
+                    "Invalid app role: " + role
+            );
+        }
+    }
+
+    private void sendInviteEmail(
+            String email,
+            String inviterName,
+            String accountName,
+            String appRole,
+            String accessRole
+    ) {
 
         String loginUrl =
                 "https://www.themanagerlife.com/login?email=" + email;
 
         String subject =
-                "You're invited to The Manager Life";
+                inviterName + " invited you to join The Manager Life";
 
-        String message =
-                """
-                You've been invited to The Manager Life.
-                
-                Sign in using Google or Apple with this email:
-                
-                %s
-                
-                Login here:
-                %s
-                """.formatted(email, loginUrl);
+        try {
+            System.out.println("ABOUT TO BUILD TEMPLATE");
 
-        emailService.sendEmail(
-                email,
-                subject,
-                message
-        );
+            String htmlMessage = emailTemplateService.buildInviteEmail(
+                    inviterName,
+                    accountName,
+                    appRole,
+                    accessRole,
+                    email,
+                    loginUrl
+            );
 
+            System.out.println("TEMPLATE OK");
+
+            String plainTextMessage = buildInviteText(
+                    inviterName,
+                    accountName,
+                    appRole,
+                    accessRole,
+                    loginUrl,
+                    email
+            );
+
+            System.out.println("ABOUT TO SEND EMAIL");
+
+            emailService.sendMultipartEmail(
+                    email,
+                    subject,
+                    plainTextMessage,
+                    htmlMessage
+            );
+
+            System.out.println("EMAIL SENT CALL FINISHED");
+
+        } catch (Exception e) {
+            e.printStackTrace();
+            throw new RuntimeException("Email failed: " + e.getMessage(), e);
+        }
     }
 
+//    private String buildInviteHtml(
+//            String inviterName,
+//            String accountName,
+//            String appRole,
+//            String accessRole,
+//            String loginUrl,
+//            String email
+//    ) {
+//
+//        return """
+//<html>
+//<body style="font-family:Arial;background:#f8fafc;padding:24px;">
+//
+//<div style="max-width:600px;background:white;padding:32px;border-radius:10px;margin:auto;">
+//
+//<div style="text-align:center;margin-bottom:24px;">
+//  <img src="https://www.themanagerlife.com/newLogo.png" width="140" />
+//  <h1 style="font-size:18px;color:#111;margin-top:10px;">
+//    The Manager Life
+//  </h1>
+//</div>
+//
+//<h2 style="font-size:18px;line-height:1.4;">
+//  You’ve been invited to join The Manager Life workspace.
+//</h2>
+//
+//<p>
+//  Use the button below to access your workspace.
+//</p>
+//
+//<p>
+//  <strong>%s</strong> invited you.
+//</p>
+//
+//<p>
+//  Account: <strong>%s</strong><br>
+//  App Role: %s<br>
+//  Access Role: %s<br>
+//  Email: %s
+//</p>
+//
+//<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+//
+//<table role="presentation" width="100%" style="margin-top:24px;">
+//  <tr>
+//    <td align="right" style="padding-top:8px;">
+//      <a href="%s"
+//        style="
+//          background:#2563eb;
+//          color:white;
+//          padding:14px 22px;
+//          text-decoration:none;
+//          border-radius:6px;
+//          display:inline-block;
+//          font-weight:bold;
+//        ">
+//        Sign in
+//      </a>
+//    </td>
+//  </tr>
+//</table>
+//
+//<p style="color:#64748b;font-size:14px;">
+//  Invitation expires in 7 days
+//</p>
+//
+//</div>
+//</body>
+//</html>
+//"""
+//                .formatted(
+//                        inviterName,
+//                        accountName,
+//                        appRole,
+//                        accessRole,
+//                        email,
+//                        loginUrl
+//                );
+//    }
 
 
 
-    //-------helper for dmeo mode
+    private String buildInviteText(
+            String inviterName,
+            String accountName,
+            String appRole,
+            String accessRole,
+            String loginUrl,
+            String email
+    ) {
+
+        return """
+                %s invited you to join The Manager Life.
+                
+                Account: %s
+                
+                App Role: %s
+                Access Role: %s
+                
+                Sign in:
+                %s
+                
+                Email:
+                %s
+                
+                Invitation expires in 7 days.
+                """
+                .formatted(
+                        inviterName,
+                        accountName,
+                        appRole,
+                        accessRole,
+                        loginUrl,
+                        email
+                );
+    }
+
     private boolean isDemoUser(UserEntity user) {
 
-        return user.getUserEmail() != null
-                && user.getUserEmail()
-                .equalsIgnoreCase("testingtml4@gmail.com");
+        if (user == null || user.getUserEmail() == null) {
+            return false;
+        }
+
+        return user.getUserEmail()
+                .equalsIgnoreCase(APPLE_REVIEW_EMAIL);
     }
 
-    //-------restore user
-    public void restoreUser(UUID id) {
-
-        UserEntity user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
-                );
-
-        user.setDeletedAt(null);
-        user.setUserActive(true);
-
-        userRepository.save(user);
-    }
 }
