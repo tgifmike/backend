@@ -15,4 +15,5 @@ public class InviteUserDto {
     private String appRole;
     private String accessRole;
     private String accountId;
+    private String inviterName;
 }

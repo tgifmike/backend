@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<body style="font-family:Arial;background:#f8fafc;padding:24px;">
+
+<div style="max-width:600px;background:white;padding:32px;border-radius:10px;margin:auto;">
+
+    <div style="text-align:center;margin-bottom:24px;">
+        <img src="https://www.themanagerlife.com/newLogo.png" width="140" />
+        <h1 style="font-size:18px;color:#111;margin-top:10px;">
+            The Manager Life
+        </h1>
+    </div>
+
+    <h2>You’ve been invited to join The Manager Life workspace by <strong th:text="${inviterName}"></strong>.</h2>
+
+    <p>Use the button below to access your workspace.</p>
+
+<!--    <p><strong th:text="${inviterName}"></strong> invited you.</p>-->
+
+    <p>
+        New User Info: <br>
+        Account: <strong th:text="${accountName}"></strong><br>
+        App Role: <span th:text="${appRole}"></span><br>
+        Access Role: <span th:text="${accessRole}"></span><br>
+        Email: <span th:text="${email}"></span>
+    </p>
+
+<!--    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />-->
+
+    <table width="100%">
+        <tr>
+            <td align="right">
+                <a th:href="${loginUrl}"
+                   style="background:#2563eb;color:white;padding:14px 22px;text-decoration:none;border-radius:6px;font-weight:bold;">
+                    Sign in
+                </a>
+            </td>
+        </tr>
+    </table>
+
+    <p style="color:#64748b;font-size:14px;">
+        Invitation expires in 7 days
+    </p>
+
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+
+    <p style="color:#64748b;font-size:12px;line-height:1.5;text-align:center;">
+        © 2026 The Manager Life. All rights reserved.
+    </p>
+
+    <p style="color:#64748b;font-size:12px;line-height:1.5;text-align:center;">
+        New York, United States
+    </p>
+
+    <p style="color:#64748b;font-size:12px;line-height:1.5;text-align:center;">
+        This is a system-generated invitation email. If you did not expect this email, you can safely ignore it.
+    </p>
+
+    <p style="color:#64748b;font-size:12px;text-align:center;margin-top:12px;">
+        Sent by The Manager Life Notifications <br/>
+        admin@themanagerlife.com
+    </p>
+
+</div>
+
+</body>
+</html>

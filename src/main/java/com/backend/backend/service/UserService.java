@@ -40,12 +40,13 @@ public interface UserService {
     String generateJwtForUser(UserEntity user);
    // void validateUserAccess(UserEntity user);
 //    String handleOAuthLogin(UserEntity incomingUser);
-    UserEntity inviteUser(
-            String email,
-            String appRole,
-            String accessRole,
-            String accountId
-    );
+   UserEntity inviteUser(
+           String email,
+           String appRole,
+           String accessRole,
+           String accountId,
+           String inviterName
+   );
    // void validateUserAccess(UUID userId);
     LoginResponse handleOAuthLogin(UserEntity incomingUser);
     UserEntity resolveUserIdentity(UserEntity incomingUser);
