@@ -8,6 +8,7 @@ public record LoginResponse(
         String email,
         String name,
         String appRole,
+        String accessRole,
         boolean hasAccountAccess,
         String userImage
 ) {}

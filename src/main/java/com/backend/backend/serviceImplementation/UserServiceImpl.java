@@ -347,6 +347,7 @@ public class UserServiceImpl implements UserService {
                 user.getUserEmail(),
                 user.getUserName(),
                 user.getAppRole().name(),
+                user.getAccessRole().name(),
                 hasAccess,
                 user.getUserImage()
 
