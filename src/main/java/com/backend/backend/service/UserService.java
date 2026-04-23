@@ -2,6 +2,7 @@ package com.backend.backend.service;
 
 import com.backend.backend.dto.LoginResponse;
 import com.backend.backend.dto.UserDto;
+import com.backend.backend.dto.UserMeResponse;
 import com.backend.backend.entity.UserEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -51,4 +52,6 @@ public interface UserService {
     LoginResponse handleOAuthLogin(UserEntity incomingUser);
     UserEntity resolveUserIdentity(UserEntity incomingUser);
     UserEntity createDemoUser();
+
+    UserMeResponse getCurrentUser();
 }
