@@ -1,10 +1,7 @@
 package com.backend.backend.controller;
 
 import com.backend.backend.config.GoogleTokenVerifier;
-import com.backend.backend.dto.InviteUserDto;
-import com.backend.backend.dto.LoginResponse;
-import com.backend.backend.dto.UpdateUserDto;
-import com.backend.backend.dto.UserDto;
+import com.backend.backend.dto.*;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.TokenService;
@@ -366,5 +363,12 @@ public class UserController {
 
             return ResponseEntity.ok(response);
         }
+
+    @GetMapping("/me")
+    public UserMeResponse me() {
+
+        return userService.getCurrentUser();
+
+    }
 
 }

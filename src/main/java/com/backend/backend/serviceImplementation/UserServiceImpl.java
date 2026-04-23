@@ -2,7 +2,9 @@ package com.backend.backend.serviceImplementation;
 
 import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
+import com.backend.backend.config.UserContext;
 import com.backend.backend.dto.LoginResponse;
+import com.backend.backend.dto.UserMeResponse;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserAccountAccessEntity;
 import com.backend.backend.enums.AccessRole;
@@ -843,6 +845,29 @@ public class UserServiceImpl implements UserService {
 
         return user.getUserEmail()
                 .equalsIgnoreCase(APPLE_REVIEW_EMAIL);
+    }
+
+    @Override
+    public UserMeResponse getCurrentUser() {
+
+        UUID userId = UserContext.getCurrentUser();
+
+        if (userId == null) {
+            throw new RuntimeException("No authenticated user in context");
+        }
+
+        UserEntity user = userRepository
+                .findById(userId)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return UserMeResponse.builder()
+                .id(user.getId().toString())
+                .name(user.getUserName())
+                .email(user.getUserEmail())
+                .image(user.getUserImage())
+                .appRole(user.getAppRole().name())
+                .accessRole(user.getAccessRole().name())
+                .build();
     }
 
 }
