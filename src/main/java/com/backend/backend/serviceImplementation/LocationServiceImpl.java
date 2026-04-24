@@ -1,6 +1,6 @@
 package com.backend.backend.serviceImplementation;
 
-import com.backend.backend.config.StartOfWeek;
+import com.backend.backend.enums.StartOfWeek;
 import com.backend.backend.dto.LineCheckSettingsDto;
 import com.backend.backend.dto.LocationDto;
 import com.backend.backend.entity.AccountEntity;
@@ -13,7 +13,6 @@ import com.backend.backend.repositories.LocationRepository;
 import com.backend.backend.service.GeocodingService;
 import com.backend.backend.service.LocationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;

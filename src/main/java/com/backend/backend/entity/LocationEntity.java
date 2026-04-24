@@ -1,6 +1,6 @@
 package com.backend.backend.entity;
 
-import com.backend.backend.config.StartOfWeek;
+import com.backend.backend.enums.StartOfWeek;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
