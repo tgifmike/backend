@@ -118,11 +118,7 @@ public class UserServiceImpl implements UserService {
                 .orElseThrow(() -> new RuntimeException("User not found with email " + email));
     }
 
-    //delete user
-//    @Override
-//    public void deleteUser(UUID id){
-//        userRepository.deleteById(id);
-//    }
+
     //delete user soft
     @Override
     @Transactional
@@ -259,10 +255,6 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserEntity resolveUserIdentity(UserEntity incomingUser) {
 
-//        System.out.println("IDENTITY RESOLUTION START");
-//        System.out.println("Incoming email: " + incomingUser.getUserEmail());
-//        System.out.println("Incoming googleId: " + incomingUser.getGoogleId());
-//        System.out.println("Incoming appleId: " + incomingUser.getAppleId());
 
         Optional<UserEntity> userOpt = Optional.empty();
 
@@ -314,8 +306,6 @@ public class UserServiceImpl implements UserService {
 
         UserEntity resolvedUser = userOpt.get();
 
-//        System.out.println("RESOLVED USER ID: " + resolvedUser.getId());
-//        System.out.println("RESOLVED USER EMAIL: " + resolvedUser.getUserEmail());
 
         return resolvedUser;
     }
@@ -340,8 +330,6 @@ public class UserServiceImpl implements UserService {
         long accountCount =
                 accountRepository.countAccounts(user.getId());
 
-//        System.out.println("ACCOUNT COUNT: " + accountCount);
-//        System.out.println("ACCOUNT CHECK USER ID: " + user.getId());
 
         boolean hasAccess =
                 accountCount > 0
@@ -393,11 +381,6 @@ public class UserServiceImpl implements UserService {
 
         boolean updated = false;
 
-//        System.out.println("LINKING PROVIDER IDS");
-//        System.out.println("Existing googleId: " + user.getGoogleId());
-//        System.out.println("Incoming googleId: " + incomingUser.getGoogleId());
-//        System.out.println("Existing appleId: " + user.getAppleId());
-//        System.out.println("Incoming appleId: " + incomingUser.getAppleId());
 
         if (incomingUser.getGoogleId() != null
                 && user.getGoogleId() == null
@@ -720,88 +703,6 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-//    private String buildInviteHtml(
-//            String inviterName,
-//            String accountName,
-//            String appRole,
-//            String accessRole,
-//            String loginUrl,
-//            String email
-//    ) {
-//
-//        return """
-//<html>
-//<body style="font-family:Arial;background:#f8fafc;padding:24px;">
-//
-//<div style="max-width:600px;background:white;padding:32px;border-radius:10px;margin:auto;">
-//
-//<div style="text-align:center;margin-bottom:24px;">
-//  <img src="https://www.themanagerlife.com/newLogo.png" width="140" />
-//  <h1 style="font-size:18px;color:#111;margin-top:10px;">
-//    The Manager Life
-//  </h1>
-//</div>
-//
-//<h2 style="font-size:18px;line-height:1.4;">
-//  You’ve been invited to join The Manager Life workspace.
-//</h2>
-//
-//<p>
-//  Use the button below to access your workspace.
-//</p>
-//
-//<p>
-//  <strong>%s</strong> invited you.
-//</p>
-//
-//<p>
-//  Account: <strong>%s</strong><br>
-//  App Role: %s<br>
-//  Access Role: %s<br>
-//  Email: %s
-//</p>
-//
-//<hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
-//
-//<table role="presentation" width="100%" style="margin-top:24px;">
-//  <tr>
-//    <td align="right" style="padding-top:8px;">
-//      <a href="%s"
-//        style="
-//          background:#2563eb;
-//          color:white;
-//          padding:14px 22px;
-//          text-decoration:none;
-//          border-radius:6px;
-//          display:inline-block;
-//          font-weight:bold;
-//        ">
-//        Sign in
-//      </a>
-//    </td>
-//  </tr>
-//</table>
-//
-//<p style="color:#64748b;font-size:14px;">
-//  Invitation expires in 7 days
-//</p>
-//
-//</div>
-//</body>
-//</html>
-//"""
-//                .formatted(
-//                        inviterName,
-//                        accountName,
-//                        appRole,
-//                        accessRole,
-//                        email,
-//                        loginUrl
-//                );
-//    }
-
-
-
     private String buildInviteText(
             String inviterName,
             String accountName,
@@ -853,7 +754,8 @@ public class UserServiceImpl implements UserService {
         UUID userId = UserContext.getCurrentUser();
 
         if (userId == null) {
-            throw new RuntimeException("No authenticated user in context");
+            System.out.println("❌ UserContext is NULL in /users/me");
+            throw new RuntimeException("Missing authentication context");
         }
 
         UserEntity user = userRepository

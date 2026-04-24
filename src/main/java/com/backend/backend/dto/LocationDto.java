@@ -1,6 +1,6 @@
 package com.backend.backend.dto;
 
-import com.backend.backend.config.StartOfWeek;
+import com.backend.backend.enums.StartOfWeek;
 import com.backend.backend.entity.LocationEntity;
 import lombok.*;
 

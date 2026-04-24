@@ -1,13 +1,15 @@
 package com.backend.backend.config;
 
 import com.auth0.jwt.JWT;
-import com.auth0.jwt.algorithms.Algorithm;
+import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -18,21 +20,24 @@ import java.util.UUID;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-    @Value("${jwt.secret}")
-    private String secret;
 
-    /**
-     * Routes that NEVER require JWT
-     * (OAuth + public endpoints)
-     */
+
+    private final JwtConfig jwtConfig;
+
     private static final List<String> PUBLIC_PATHS = List.of(
-            "/auth/",
-            "/auth/google/",
+            "/",
+            "/privacy",
+            "/terms",
+            "/contact",
             "/auth/google/login",
             "/auth/google/callback",
-            "/users/auth/",
-            "/error"
+            "/error",
+            "/favicon.ico"
     );
+
+    public JwtAuthenticationFilter(JwtConfig jwtConfig) {
+        this.jwtConfig = jwtConfig;
+    }
 
     @Override
     protected void doFilterInternal(
@@ -43,60 +48,63 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
+        System.out.println("🔥 JWT FILTER HIT: " + request.getRequestURI());
         try {
 
-            // --------------------------------------------------
-            // 1. PUBLIC ROUTES (skip EVERYTHING)
-            // --------------------------------------------------
-            if (path.startsWith("/auth/")) {
+            if (isPublic(path)) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // --------------------------------------------------
-            // 2. NO AUTH HEADER → just continue or reject depending route
-            // --------------------------------------------------
-            String header = request.getHeader("Authorization");
+            String header = request.getHeader(HttpHeaders.AUTHORIZATION);
 
             if (header == null || !header.startsWith("Bearer ")) {
-
-                // IMPORTANT:
-                // do NOT auto-401 here for ALL routes
-                filterChain.doFilter(request, response);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
 
-            // --------------------------------------------------
-            // 3. VALIDATE JWT ONLY WHEN PRESENT
-            // --------------------------------------------------
             String token = header.substring(7);
 
-            String userId = JWT.require(Algorithm.HMAC256(secret))
+            DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
                     .build()
-                    .verify(token)
-                    .getSubject();
+                    .verify(token);
 
-            UserContext.setCurrentUser(UUID.fromString(userId));
+            String userId = jwt.getSubject();
+
+            if (userId == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+
+            System.out.println("✅ JWT AUTH SUCCESS: " + userId);
+
+            UUID uuid = UUID.fromString(userId);
+
+            // 🔥 THIS IS THE MISSING PIECE
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(
+                            uuid,
+                            null,
+                            List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                    );
+
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            UserContext.setCurrentUser(uuid);
 
             filterChain.doFilter(request, response);
 
-        } catch (Exception ex) {
+        } catch (Exception e) {
 
-            // DO NOT blindly block OAuth or public routes
-            System.out.println("JWT ERROR: " + ex.getMessage());
-
+            System.out.println("❌ JWT ERROR: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
 
         } finally {
-
             UserContext.clear();
         }
     }
 
-    /**
-     * Centralized public route check
-     */
-    private boolean isPublicPath(String path) {
-        return PUBLIC_PATHS.stream().anyMatch(path::startsWith);
+    private boolean isPublic(String path) {
+        return PUBLIC_PATHS.contains(path);
     }
 }
