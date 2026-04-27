@@ -7,9 +7,12 @@ import com.backend.backend.entity.UserEntity;
 import com.backend.backend.service.UserService;
 import com.backend.backend.service.google.GoogleOAuthService;
 import com.backend.backend.service.google.GoogleUserInfoService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.ResponseCookie;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.http.HttpHeaders;
 
 import java.io.IOException;
 import java.net.URLEncoder;
@@ -30,6 +33,9 @@ public class AuthController {
 
     @Value("${frontend.redirect.url}")
     private String frontendRedirectUrl;
+
+    @Value("${app.cookie.secure}")
+    private boolean cookieSecure;
 
     private final GoogleOAuthService googleOAuthService;
     private final GoogleUserInfoService googleUserInfoService;
@@ -65,9 +71,39 @@ public class AuthController {
         response.sendRedirect(url);
     }
 
+//    @GetMapping("/google/callback")
+//    public void googleCallback(
+//            @RequestParam String code,
+//            HttpServletResponse response
+//    ) throws IOException {
+//
+//        GoogleTokenResponse token =
+//                googleOAuthService.exchangeCodeForToken(code);
+//
+//        GoogleUserInfo userInfo =
+//                googleUserInfoService.fetchUserInfo(token.getAccessToken());
+//
+//        UserEntity incoming = new UserEntity();
+//        incoming.setUserEmail(userInfo.getEmail());
+//        incoming.setUserName(userInfo.getName());
+//        incoming.setGoogleId(userInfo.getSub());
+//        incoming.setUserImage(userInfo.getPicture());
+//
+//        LoginResponse login =
+//                userService.handleOAuthLogin(incoming);
+//
+//        response.sendRedirect(
+//                frontendRedirectUrl + "/auth/callback?token=" + login.token()
+//        );
+//
+//
+//    }
+
+    //new call back with cookies
     @GetMapping("/google/callback")
     public void googleCallback(
             @RequestParam String code,
+            HttpServletRequest request,
             HttpServletResponse response
     ) throws IOException {
 
@@ -86,9 +122,38 @@ public class AuthController {
         LoginResponse login =
                 userService.handleOAuthLogin(incoming);
 
-        response.sendRedirect(
-                frontendRedirectUrl + "/auth/callback?token=" + login.token()
-        );
+
+        // ✅ Set HTTP-only cookie
+        ResponseCookie cookie = ResponseCookie.from("auth_token", login.token())
+                .httpOnly(true)
+                .secure(cookieSecure)
+                .path("/")
+                .sameSite("Lax")
+                .maxAge(60 * 60 * 24)
+                .build();
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+        // ✅ Redirect without exposing token
+        response.sendRedirect(frontendRedirectUrl + "/dashboard");
     }
+
+  @PostMapping("/logout")
+public void logout(
+        HttpServletRequest request,
+        HttpServletResponse response
+) {
+
+
+    ResponseCookie cookie = ResponseCookie.from("auth_token", "")
+            .httpOnly(true)
+            .secure(cookieSecure)
+            .path("/")
+            .sameSite("Lax")
+            .maxAge(0)
+            .build();
+
+    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+}
 
 }
