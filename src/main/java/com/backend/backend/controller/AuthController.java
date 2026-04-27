@@ -128,7 +128,7 @@ public class AuthController {
                 .httpOnly(true)
                 .secure(cookieSecure)
                 .path("/")
-                .sameSite("Lax")
+                .sameSite("None")
                 .maxAge(60 * 60 * 24)
                 .build();
 

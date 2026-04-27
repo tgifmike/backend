@@ -119,6 +119,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             filterChain.doFilter(request, response);
 
+
         } catch (Exception e) {
 
             System.out.println("❌ JWT ERROR: " + e.getMessage());
