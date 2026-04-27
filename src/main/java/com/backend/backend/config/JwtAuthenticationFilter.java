@@ -56,14 +56,39 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
-            String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+//            String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+//
+//            if (header == null || !header.startsWith("Bearer ")) {
+//                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+//                return;
+//            }
+//
+//            String token = header.substring(7);
 
-            if (header == null || !header.startsWith("Bearer ")) {
+            //new for cookies
+            String token = null;
+
+// 1. Try cookie first
+            if (request.getCookies() != null) {
+                for (var cookie : request.getCookies()) {
+                    if ("auth_token".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                    }
+                }
+            }
+
+// 2. (Optional fallback for dev/testing)
+            if (token == null) {
+                String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+                if (header != null && header.startsWith("Bearer ")) {
+                    token = header.substring(7);
+                }
+            }
+
+            if (token == null) {
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 return;
             }
-
-            String token = header.substring(7);
 
             DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
                     .build()
