@@ -20,7 +20,20 @@ import java.util.UUID;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
+
+
     private final JwtConfig jwtConfig;
+
+    private static final List<String> PUBLIC_PATHS = List.of(
+            "/",
+            "/privacy",
+            "/terms",
+            "/contact",
+            "/auth/google/login",
+            "/auth/google/callback",
+            "/error",
+            "/favicon.ico"
+    );
 
     public JwtAuthenticationFilter(JwtConfig jwtConfig) {
         this.jwtConfig = jwtConfig;
@@ -35,84 +48,89 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        System.out.println("🔥 JWT FILTER HIT: " + path);
-
-        // ✅ ALWAYS SKIP AUTH ROUTES
-        if (isPublicRoute(path)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
+        System.out.println("🔥 JWT FILTER HIT: " + request.getRequestURI());
         try {
 
-            String token = extractToken(request);
+            if (isPublic(path)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
 
-            if (token != null) {
+//            String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+//
+//            if (header == null || !header.startsWith("Bearer ")) {
+//                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+//                return;
+//            }
+//
+//            String token = header.substring(7);
 
-                DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
-                        .build()
-                        .verify(token);
+            //new for cookies
+            String token = null;
 
-                String userId = jwt.getSubject();
-
-                if (userId != null) {
-
-                    UUID uuid = UUID.fromString(userId);
-
-                    UsernamePasswordAuthenticationToken auth =
-                            new UsernamePasswordAuthenticationToken(
-                                    uuid,
-                                    null,
-                                    List.of(new SimpleGrantedAuthority("ROLE_USER"))
-                            );
-
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                    UserContext.setCurrentUser(uuid);
+// 1. Try cookie first
+            if (request.getCookies() != null) {
+                for (var cookie : request.getCookies()) {
+                    if ("auth_token".equals(cookie.getName())) {
+                        token = cookie.getValue();
+                    }
                 }
             }
 
+// 2. (Optional fallback for dev/testing)
+            if (token == null) {
+                String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+                if (header != null && header.startsWith("Bearer ")) {
+                    token = header.substring(7);
+                }
+            }
+
+            if (token == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+
+            DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
+                    .build()
+                    .verify(token);
+
+            String userId = jwt.getSubject();
+
+            if (userId == null) {
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                return;
+            }
+
+            System.out.println("✅ JWT AUTH SUCCESS: " + userId);
+
+            UUID uuid = UUID.fromString(userId);
+
+            // 🔥 THIS IS THE MISSING PIECE
+            UsernamePasswordAuthenticationToken auth =
+                    new UsernamePasswordAuthenticationToken(
+                            uuid,
+                            null,
+                            List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                    );
+
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+            UserContext.setCurrentUser(uuid);
+
             filterChain.doFilter(request, response);
-            System.out.println("TOKEN FOUND = " + token);
+
 
         } catch (Exception e) {
+
             System.out.println("❌ JWT ERROR: " + e.getMessage());
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+
         } finally {
             UserContext.clear();
         }
     }
 
-    // ------------------------------------------------------------
-    // PUBLIC ROUTES (OAuth + static)
-    // ------------------------------------------------------------
-    private boolean isPublicRoute(String path) {
-        return path.startsWith("/auth/")
-                || path.startsWith("/oauth2/")
-                || path.startsWith("/error")
-                || path.startsWith("/favicon");
-    }
-
-    // ------------------------------------------------------------
-    // TOKEN EXTRACTION
-    // ------------------------------------------------------------
-    private String extractToken(HttpServletRequest request) {
-
-        System.out.println("🍪 COOKIES:");
-        // 1. Cookie (production)
-        if (request.getCookies() != null) {
-            for (var cookie : request.getCookies()) {
-                if ("auth_token".equals(cookie.getName())) {
-                    return cookie.getValue();
-                }
-            }
-        }
-
-        // 2. Authorization header (dev/testing)
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header != null && header.startsWith("Bearer ")) {
-            return header.substring(7);
-        }
-
-        return null;
+    private boolean isPublic(String path) {
+        return PUBLIC_PATHS.contains(path);
     }
 }
