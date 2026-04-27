@@ -149,7 +149,7 @@ public void logout(
             .httpOnly(true)
             .secure(cookieSecure)
             .path("/")
-            .sameSite("Lax")
+            .sameSite("None")
             .maxAge(0)
             .build();
 
