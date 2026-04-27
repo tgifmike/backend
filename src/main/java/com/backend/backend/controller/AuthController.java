@@ -11,6 +11,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.HttpHeaders;
 
@@ -132,28 +133,26 @@ public class AuthController {
                 .maxAge(60 * 60 * 24)
                 .build();
 
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         // ✅ Redirect without exposing token
         response.sendRedirect(frontendRedirectUrl + "/dashboard");
     }
 
-  @PostMapping("/logout")
-public void logout(
-        HttpServletRequest request,
-        HttpServletResponse response
-) {
+    @PostMapping("/logout")
+    public ResponseEntity<Void> logout(HttpServletResponse response) {
 
+        ResponseCookie cookie = ResponseCookie.from("auth_token", "")
+                .httpOnly(true)
+                .secure(true)
+                .sameSite("None")
+                .path("/")
+                .maxAge(0)
+                .build();
 
-    ResponseCookie cookie = ResponseCookie.from("auth_token", "")
-            .httpOnly(true)
-            .secure(cookieSecure)
-            .path("/")
-            .sameSite("Lax")
-            .maxAge(0)
-            .build();
-
-    response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-}
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, cookie.toString())
+                .build();
+    }
 
 }
