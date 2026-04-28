@@ -18,28 +18,13 @@ public class SecurityConfig {
     }
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain debugChain(HttpSecurity http) throws Exception {
 
         http
-                .cors(Customizer.withDefaults())
-
-                .csrf(csrf -> csrf
-                        .ignoringRequestMatchers("/auth/apple/callback")
-                        .disable()
-                )
-
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/error").permitAll()
-                        .requestMatchers("/favicon.ico").permitAll()
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 )
-
-                .addFilterBefore(
-                        jwtAuthenticationFilter,
-                        UsernamePasswordAuthenticationFilter.class
-                );
+                .csrf(csrf -> csrf.disable());
 
         return http.build();
     }
