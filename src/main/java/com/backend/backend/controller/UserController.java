@@ -227,6 +227,9 @@ public class UserController {
             LoginResponse response =
                     userService.handleOAuthLogin(oauthUser);
 
+            System.out.println("PROVIDER = " + provider);
+            System.out.println("TOKEN = " + idToken.substring(0,30));
+
             return ResponseEntity.ok(response);
 
         } catch (RuntimeException ex) {
