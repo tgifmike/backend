@@ -26,6 +26,8 @@ public class SecurityConfig {
 
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
                         .requestMatchers("/favicon.ico").permitAll()
                         .anyRequest().authenticated()
                 );
