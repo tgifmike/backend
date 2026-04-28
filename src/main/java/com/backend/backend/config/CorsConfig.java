@@ -20,7 +20,8 @@ public class CorsConfig {
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:3000",
                 "https://themanagerlife.com",
-                "https://www.themanagerlife.com"
+                "https://www.themanagerlife.com",
+                "https://appleid.apple.com"
         ));
 
         config.setAllowedMethods(List.of(
