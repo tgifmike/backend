@@ -19,24 +19,28 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
-
         http
-                .cors(Customizer.withDefaults())   // <-- REQUIRED
+                .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
-
+                .exceptionHandling(ex -> ex
+                        .authenticationEntryPoint((req, res, authEx) -> {
+                            res.setStatus(401);
+                            res.setContentType("application/json");
+                            res.getWriter().write("{\"error\":\"UNAUTHORIZED\"}");
+                        })
+                        .accessDeniedHandler((req, res, accessDeniedEx) -> {
+                            res.setStatus(403);
+                            res.setContentType("application/json");
+                            res.getWriter().write("{\"error\":\"FORBIDDEN\"}");
+                        })
+                )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
-                        .requestMatchers("/favicon.ico").permitAll()
                         .anyRequest().authenticated()
                 );
 
-        http.addFilterBefore(
-                jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class
-        );
+        http.addFilterBefore(jwtAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
