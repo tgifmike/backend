@@ -38,7 +38,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         System.out.println("🔥 JWT FILTER HIT: " + path);
 
         // ✅ ALWAYS SKIP AUTH ROUTES
-        if (isPublicRoute(path)) {
+        if (path.startsWith("/auth/")) {
             filterChain.doFilter(request, response);
             return;
         }
