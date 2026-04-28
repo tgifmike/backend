@@ -58,6 +58,8 @@ public class AppleOAuthService {
         HttpEntity<MultiValueMap<String, String>> request =
                 new HttpEntity<>(form, headers);
 
+
+
         return restTemplate.postForObject(
                 "https://appleid.apple.com/auth/token",
                 request,
