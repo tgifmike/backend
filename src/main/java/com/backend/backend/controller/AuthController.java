@@ -143,58 +143,115 @@ public class AuthController {
         System.out.println("APPLE TOKEN REDIRECT URI = " + appleRedirectUri);
     }
 
-    @PostMapping(
-            value = "/apple/callback",
-            consumes = MediaType.APPLICATION_FORM_URLENCODED_VALUE
-    )
-    public void appleCallback(HttpServletRequest request, HttpServletResponse response) throws IOException {
+    @PostMapping("/apple/callback")
+    public void appleCallback(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) throws IOException {
 
-        String code = request.getParameter("code");
-        String idTokenFromApple = request.getParameter("id_token");
+        System.out.println("🍎 APPLE CALLBACK CONTROLLER HIT");
+        System.out.println("METHOD = " + request.getMethod());
+        System.out.println("CONTENT TYPE = " + request.getContentType());
 
-        if (code == null || code.isBlank()) {
-            System.out.println("❌ Apple callback missing code");
-            response.sendError(400, "Missing Apple code");
-            return;
+        try {
+
+            // Apple sends form POST params
+            String code = request.getParameter("code");
+            String state = request.getParameter("state");
+            String userParam = request.getParameter("user");
+
+            System.out.println("APPLE CODE PRESENT = " + (code != null));
+            System.out.println("APPLE STATE = " + state);
+            System.out.println("APPLE USER PARAM = " + userParam);
+
+            if (code == null || code.isBlank()) {
+                System.out.println("❌ Apple callback missing code");
+                response.sendError(
+                        HttpServletResponse.SC_BAD_REQUEST,
+                        "Missing Apple authorization code"
+                );
+                return;
+            }
+
+            // Exchange code for tokens
+            AppleTokenResponse tokenResponse =
+                    appleOAuthService.exchangeCodeForToken(code);
+
+            if (tokenResponse == null) {
+                System.out.println("❌ Apple token response null");
+                response.sendError(
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        "Apple token exchange failed"
+                );
+                return;
+            }
+
+            String idToken = tokenResponse.getIdToken();
+
+            if (idToken == null || idToken.isBlank()) {
+                System.out.println("❌ Apple ID token missing");
+                response.sendError(
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        "Missing Apple ID token"
+                );
+                return;
+            }
+
+            // Decode identity token
+            DecodedJWT jwt = JWT.decode(idToken);
+
+            String appleId = jwt.getSubject();
+            String email = jwt.getClaim("email").asString();
+
+            if (appleId == null || appleId.isBlank()) {
+                System.out.println("❌ Apple subject missing");
+                response.sendError(
+                        HttpServletResponse.SC_UNAUTHORIZED,
+                        "Invalid Apple identity token"
+                );
+                return;
+            }
+
+            // Apple often only sends email first login
+            if (email == null || email.isBlank()) {
+                email = appleId + "@apple.local";
+            }
+
+            System.out.println("APPLE USER ID = " + appleId);
+            System.out.println("APPLE EMAIL = " + email);
+
+            // Create / login user
+            UserEntity user = new UserEntity();
+            user.setAppleId(appleId);
+            user.setUserEmail(email);
+
+            LoginResponse login = userService.handleOAuthLogin(user);
+
+            // Auth cookie
+            ResponseCookie cookie = ResponseCookie.from("auth_token", login.token())
+                    .httpOnly(true)
+                    .secure(true)
+                    .sameSite("None")
+                    .path("/")
+                    .maxAge(60 * 60 * 24)
+                    .build();
+
+            response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+
+            System.out.println("✅ Apple login success");
+            System.out.println("REDIRECTING TO = " + frontendRedirectUrl + "/dashboard");
+
+            response.sendRedirect(frontendRedirectUrl + "/dashboard");
+
+        } catch (Exception e) {
+
+            e.printStackTrace();
+
+            response.sendError(
+                    HttpServletResponse.SC_INTERNAL_SERVER_ERROR,
+                    "Apple login failed"
+            );
         }
-
-        AppleTokenResponse tokenResponse =
-                appleOAuthService.exchangeCodeForToken(code);
-
-        String idToken = tokenResponse.getIdToken();
-
-        if (idToken == null) {
-            System.out.println("❌ Apple token exchange failed");
-            response.sendError(401, "Apple token exchange failed");
-            return;
-        }
-
-        DecodedJWT jwt = JWT.decode(idToken);
-
-        String appleId = jwt.getSubject();
-
-        // ⚠️ Apple email is unreliable after first login
-        String email = jwt.getClaim("email").asString();
-        if (email == null) email = appleId + "@apple.local";
-
-        UserEntity user = new UserEntity();
-        user.setAppleId(appleId);
-        user.setUserEmail(email);
-
-        LoginResponse login = userService.handleOAuthLogin(user);
-
-        ResponseCookie cookie = ResponseCookie.from("auth_token", login.token())
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
-                .path("/")
-                .maxAge(60 * 60 * 24)
-                .build();
-
-        System.out.println("APPLE LOGIN REDIRECT URI = " + appleRedirectUri);
-
-        response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
-        response.sendRedirect(frontendRedirectUrl + "/dashboard");
     }
 
     @PostMapping("/logout")
