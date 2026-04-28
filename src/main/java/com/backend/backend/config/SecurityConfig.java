@@ -28,6 +28,7 @@ public class SecurityConfig {
                         .requestMatchers("/auth/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
                         .requestMatchers("/favicon.ico").permitAll()
                         .anyRequest().authenticated()
                 );
