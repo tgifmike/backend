@@ -114,7 +114,7 @@ public class AuthController {
 
 
         // ✅ Set HTTP-only cookie
-        ResponseCookie cookie = ResponseCookie.from("auth_token", login.token())
+        ResponseCookie cookie = ResponseCookie.from("accessToken", login.token())
                 .httpOnly(true)
                 .secure(true)
                 .path("/")
@@ -228,7 +228,7 @@ public class AuthController {
             LoginResponse login = userService.handleOAuthLogin(user);
 
             // Auth cookie
-            ResponseCookie cookie = ResponseCookie.from("auth_token", login.token())
+            ResponseCookie cookie = ResponseCookie.from("accessToken", login.token())
                     .httpOnly(true)
                     .secure(true)
                     .sameSite("None")
@@ -257,7 +257,7 @@ public class AuthController {
     @PostMapping("/logout")
     public ResponseEntity<Void> logout(HttpServletResponse response) {
 
-        ResponseCookie cookie = ResponseCookie.from("auth_token", "")
+        ResponseCookie cookie = ResponseCookie.from("accessToken", "")
                 .httpOnly(true)
                 .secure(true)
                 .sameSite("None")
