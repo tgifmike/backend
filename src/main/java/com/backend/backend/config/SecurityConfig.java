@@ -19,31 +19,62 @@ public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+
         http
+                // ----------------------------------------
+                // CORS + CSRF
+                // ----------------------------------------
                 .cors(Customizer.withDefaults())
                 .csrf(csrf -> csrf.disable())
+
+                // ----------------------------------------
+                // API error responses
+                // ----------------------------------------
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, authEx) -> {
                             res.setStatus(401);
                             res.setContentType("application/json");
                             res.getWriter().write("{\"error\":\"UNAUTHORIZED\"}");
                         })
-                        .accessDeniedHandler((req, res, accessDeniedEx) -> {
+                        .accessDeniedHandler((req, res, deniedEx) -> {
                             res.setStatus(403);
                             res.setContentType("application/json");
                             res.getWriter().write("{\"error\":\"FORBIDDEN\"}");
                         })
                 )
+
+                // ----------------------------------------
+                // Route security
+                // ORDER MATTERS
+                // ----------------------------------------
                 .authorizeHttpRequests(auth -> auth
+
+                        // Public auth routes
                         .requestMatchers("/auth/**").permitAll()
-                        .anyRequest().authenticated()
+
+                        // Public utility routes
+                        .requestMatchers("/favicon.ico").permitAll()
+                        .requestMatchers("/error").permitAll()
+
+                        // Public login routes
                         .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
                         .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
+
+                        // Protected routes
+                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
+                        .requestMatchers("/users/me").authenticated()
+
+                        // Everything else protected
+                        .anyRequest().authenticated()
                 );
 
-        http.addFilterBefore(jwtAuthenticationFilter,
-                UsernamePasswordAuthenticationFilter.class);
+        // ----------------------------------------
+        // JWT Filter
+        // ----------------------------------------
+        http.addFilterBefore(
+                jwtAuthenticationFilter,
+                UsernamePasswordAuthenticationFilter.class
+        );
 
         return http.build();
     }
