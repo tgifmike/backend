@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,60 +39,57 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         try {
 
-            // -------------------------------------------------
-            // Skip public routes completely
-            // -------------------------------------------------
             if (isPublicRoute(path)) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // -------------------------------------------------
-            // Already authenticated? continue
-            // -------------------------------------------------
-            if (SecurityContextHolder.getContext().getAuthentication() != null) {
+            String token = extractToken(request);
+
+            if (token == null || token.isBlank()) {
                 filterChain.doFilter(request, response);
                 return;
             }
 
-            // -------------------------------------------------
-            // Extract token
-            // -------------------------------------------------
-            String token = extractToken(request);
+            DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
+                    .build()
+                    .verify(token);
 
-            if (token != null && !token.isBlank()) {
+            String subject = jwt.getSubject();
 
-                DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
-                        .build()
-                        .verify(token);
-
-                String subject = jwt.getSubject();
-
-                if (subject != null && !subject.isBlank()) {
-
-                    UUID userId = UUID.fromString(subject);
-
-                    String accessRole = jwt.getClaim("accessRole").asString();
-
-                    if (accessRole == null || accessRole.isBlank()) {
-                        accessRole = "USER";
-                    }
-
-                    UsernamePasswordAuthenticationToken authentication =
-                            new UsernamePasswordAuthenticationToken(
-                                    userId,
-                                    null,
-                                    List.of(
-                                            new SimpleGrantedAuthority("ROLE_" + accessRole)
-                                    )
-                            );
-
-                    SecurityContextHolder.getContext()
-                            .setAuthentication(authentication);
-
-                    UserContext.setCurrentUser(userId);
-                }
+            if (subject == null || subject.isBlank()) {
+                filterChain.doFilter(request, response);
+                return;
             }
+
+            UUID userId = UUID.fromString(subject);
+
+            // -------------------------------------------------
+            // ROLE EXTRACTION (NEW STRUCTURE)
+            // -------------------------------------------------
+            String accessRole = safe(jwt.getClaim("accessRole").asString(), "USER");
+            String appRole = safe(jwt.getClaim("appRole").asString(), "MEMBER");
+
+            List<SimpleGrantedAuthority> authorities = new ArrayList<>();
+
+            // base auth
+            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+
+            // access control layer (admin, sradmin, user)
+            authorities.add(new SimpleGrantedAuthority("ACCESS_" + accessRole));
+
+            // app feature layer (member, manager, etc)
+            authorities.add(new SimpleGrantedAuthority("APP_" + appRole));
+
+            UsernamePasswordAuthenticationToken authentication =
+                    new UsernamePasswordAuthenticationToken(
+                            userId,
+                            null,
+                            authorities
+                    );
+
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            UserContext.setCurrentUser(userId);
 
             filterChain.doFilter(request, response);
 
@@ -109,7 +107,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     // -------------------------------------------------
-    // Public routes
+    // SAFE STRING HELPER
+    // -------------------------------------------------
+    private String safe(String value, String fallback) {
+        return (value == null || value.isBlank()) ? fallback : value;
+    }
+
+    // -------------------------------------------------
+    // PUBLIC ROUTES
     // -------------------------------------------------
     private boolean isPublicRoute(String path) {
         return path.startsWith("/auth/")
@@ -124,7 +129,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     // -------------------------------------------------
-    // Cookie first, then Authorization header
+    // COOKIE + HEADER TOKEN SUPPORT
     // -------------------------------------------------
     private String extractToken(HttpServletRequest request) {
 

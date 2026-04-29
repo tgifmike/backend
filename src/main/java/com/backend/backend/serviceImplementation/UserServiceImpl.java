@@ -465,6 +465,18 @@ public class UserServiceImpl implements UserService {
                 .withSubject(user.getId().toString())
                 .withClaim("email", user.getUserEmail())
                 .withClaim("name", user.getUserName())
+                // 🔥 ADD THIS
+                .withClaim("accessRole",
+                        user.getAccessRole() != null
+                                ? user.getAccessRole().name()
+                                : AccessRole.USER.name()
+                )
+                .withClaim("appRole",
+                        user.getAppRole() != null
+                                ? user.getAppRole().name()
+                                : AppRole.MEMBER.name()
+                )
+
                 .withClaim("role",
                         user.getAppRole() != null
                                 ? user.getAppRole().name()
