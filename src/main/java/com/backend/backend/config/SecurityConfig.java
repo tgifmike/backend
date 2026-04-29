@@ -49,22 +49,22 @@ public class SecurityConfig {
                 // ----------------------------------------
                 .authorizeHttpRequests(auth -> auth
 
-                        // Public auth routes
+                        // PUBLIC AUTH
                         .requestMatchers("/auth/**").permitAll()
 
-                        // Public utility routes
+                        // STATIC / ERROR
                         .requestMatchers("/favicon.ico").permitAll()
                         .requestMatchers("/error").permitAll()
 
-                        // Public login routes
+                        // LOGIN ENDPOINTS
                         .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
 
-                        // Protected routes
-                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
+                        // PROTECTED
                         .requestMatchers("/users/me").authenticated()
+                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
 
-                        // Everything else protected
+                        // EVERYTHING ELSE
                         .anyRequest().authenticated()
                 );
 
