@@ -37,50 +37,83 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
+        // ============================
+        // DEBUG: REQUEST ENTRY
+        // ============================
+        System.out.println("\n==============================");
+        System.out.println("➡️ REQUEST: " + request.getMethod() + " " + path);
+
         try {
 
+            // ============================
+            // Skip public routes
+            // ============================
             if (isPublicRoute(path)) {
+                System.out.println("🟢 Public route - skipping auth");
                 filterChain.doFilter(request, response);
                 return;
             }
 
+            // ============================
+            // Extract token
+            // ============================
             String token = extractToken(request);
 
             if (token == null || token.isBlank()) {
+                SecurityContextHolder.clearContext();
+                UserContext.clear();
+
+                System.out.println("❌ NO TOKEN FOUND");
                 filterChain.doFilter(request, response);
                 return;
             }
 
+            System.out.println("🔐 Token received");
 
+            // ============================
+            // Verify JWT
+            // ============================
+            DecodedJWT jwt;
+            try {
+                jwt = JWT.require(jwtConfig.algorithm())
+                        .build()
+                        .verify(token);
+            } catch (Exception e) {
+                System.out.println("🔴 JWT verification failed: " + e.getMessage());
 
-            DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
-                    .build()
-                    .verify(token);
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"INVALID_TOKEN\"}");
+                return;
+            }
 
             String subject = jwt.getSubject();
 
             if (subject == null || subject.isBlank()) {
-                throw new RuntimeException("Invalid JWT subject");
+                System.out.println("🔴 JWT missing subject");
+
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"INVALID_SUBJECT\"}");
+                return;
             }
 
             UUID userId = UUID.fromString(subject);
 
-            // -------------------------------------------------
-            // ROLE EXTRACTION (NEW STRUCTURE)
-            // -------------------------------------------------
+            // ============================
+            // Roles
+            // ============================
             String accessRole = safe(jwt.getClaim("accessRole").asString(), "USER");
             String appRole = safe(jwt.getClaim("appRole").asString(), "MEMBER");
 
             List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-            // primary Spring Security role
-            authorities.add(
-                    new SimpleGrantedAuthority("ROLE_" + accessRole.toUpperCase())
-            );
+            authorities.add(new SimpleGrantedAuthority("ROLE_" + accessRole.toUpperCase()));
+            authorities.add(new SimpleGrantedAuthority("APP_" + appRole.toUpperCase()));
 
-            // optional secondary layers (fine for debugging)
-            authorities.add(new SimpleGrantedAuthority("APP_" + appRole));
-
+            // ============================
+            // AUTH SUCCESS
+            // ============================
             UsernamePasswordAuthenticationToken authentication =
                     new UsernamePasswordAuthenticationToken(
                             userId,
@@ -91,46 +124,37 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.getContext().setAuthentication(authentication);
             UserContext.setCurrentUser(userId);
 
+            // ============================
+            // DEBUG SUCCESS BLOCK
+            // ============================
+            System.out.println("🟢 AUTH SUCCESS");
+            System.out.println("UserId: " + userId);
+            System.out.println("AccessRole: " + accessRole);
+            System.out.println("AppRole: " + appRole);
+
             filterChain.doFilter(request, response);
 
         } catch (Exception ex) {
+
+            System.out.println("💥 FILTER ERROR: " + ex.getMessage());
 
             SecurityContextHolder.clearContext();
             UserContext.clear();
 
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
             response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"INVALID_TOKEN\"}");
+            response.getWriter().write("{\"error\":\"AUTH_FILTER_ERROR\"}");
+
         } finally {
             UserContext.clear();
+            System.out.println("🏁 REQUEST END: " + path);
+            System.out.println("==============================\n");
         }
     }
 
-    // -------------------------------------------------
-    // SAFE STRING HELPER
-    // -------------------------------------------------
-    private String safe(String value, String fallback) {
-        return (value == null || value.isBlank()) ? fallback : value;
-    }
-
-    // -------------------------------------------------
-    // PUBLIC ROUTES
-    // -------------------------------------------------
-    private boolean isPublicRoute(String path) {
-        return path.startsWith("/auth/")
-                || path.equals("/favicon.ico")
-                || path.equals("/error")
-                || path.equals("/")
-                || path.startsWith("/pricing")
-                || path.startsWith("/privacy")
-                || path.startsWith("/terms")
-                || path.equals("/users/oauth-login")
-                || path.equals("/users/demo-login");
-    }
-
-    // -------------------------------------------------
-    // COOKIE + HEADER TOKEN SUPPORT
-    // -------------------------------------------------
+    // ============================
+    // TOKEN EXTRACTION
+    // ============================
     private String extractToken(HttpServletRequest request) {
 
         Cookie[] cookies = request.getCookies();
@@ -138,6 +162,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (cookies != null) {
             for (Cookie cookie : cookies) {
                 if ("accessToken".equals(cookie.getName())) {
+                    System.out.println("🍪 Token found in cookie");
                     return cookie.getValue();
                 }
             }
@@ -146,9 +171,33 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
 
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            System.out.println("📦 Token found in header");
             return authHeader.substring(7);
         }
 
+        System.out.println("⚠️ No token found in request");
         return null;
+    }
+
+    // ============================
+    // PUBLIC ROUTES
+    // ============================
+    private boolean isPublicRoute(String path) {
+        return path.startsWith("/auth/")
+                || path.equals("/")
+                || path.equals("/error")
+                || path.equals("/favicon.ico")
+                || path.startsWith("/pricing")
+                || path.startsWith("/privacy")
+                || path.startsWith("/terms")
+                || path.equals("/users/oauth-login")
+                || path.equals("/users/demo-login");
+    }
+
+    // ============================
+    // SAFE STRING
+    // ============================
+    private String safe(String value, String fallback) {
+        return (value == null || value.isBlank()) ? fallback : value;
     }
 }
