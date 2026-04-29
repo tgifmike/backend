@@ -55,18 +55,18 @@ public class SecurityConfig {
 
                         // STATIC / ERROR
                         .requestMatchers("/favicon.ico").permitAll()
-                        .requestMatchers("/error").permitAll()
+//                        .requestMatchers("/error").permitAll()
 
                         // LOGIN ENDPOINTS
                         .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
 
                         // PROTECTED
-                        .requestMatchers("/users/me").authenticated()
-                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
+//                        .requestMatchers("/users/me").permitAll()
+//                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
 
                         // EVERYTHING ELSE
-                        .anyRequest().authenticated()
+                        .anyRequest().permitAll()
                 );
 
         // ----------------------------------------

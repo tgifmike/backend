@@ -51,6 +51,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 return;
             }
 
+
+
             DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
                     .build()
                     .verify(token);
@@ -58,8 +60,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String subject = jwt.getSubject();
 
             if (subject == null || subject.isBlank()) {
-                filterChain.doFilter(request, response);
-                return;
+                throw new RuntimeException("Invalid JWT subject");
             }
 
             UUID userId = UUID.fromString(subject);
