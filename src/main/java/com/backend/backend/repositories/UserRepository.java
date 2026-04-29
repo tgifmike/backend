@@ -35,5 +35,14 @@ public interface UserRepository extends JpaRepository<UserEntity, UUID> {
    // Optional<UserEntity> findByUserEmail(String email);
 
 
+ List<UserEntity> findAllByDeletedAtIsNull();
+
+ Optional<UserEntity> findByIdAndDeletedAtIsNull(UUID id);
+
+ Optional<UserEntity> findByGoogleIdAndDeletedAtIsNull(String googleId);
+
+ Optional<UserEntity> findByAppleIdAndDeletedAtIsNull(String appleId);
+
+ Optional<UserEntity> findByUserEmailIgnoreCaseAndDeletedAtIsNull(String email);
 
 }
