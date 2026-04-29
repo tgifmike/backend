@@ -52,21 +52,18 @@ public class SecurityConfig {
 
                         // PUBLIC AUTH
                         .requestMatchers("/auth/**").permitAll()
-
-                        // STATIC / ERROR
                         .requestMatchers("/favicon.ico").permitAll()
-//                        .requestMatchers("/error").permitAll()
+                        .requestMatchers("/error").permitAll()
+
+                        // ADD THIS (IMPORTANT)
+                        .requestMatchers("/auth/google/callback").permitAll()
+                        .requestMatchers("/auth/apple/callback").permitAll()
 
                         // LOGIN ENDPOINTS
                         .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
 
-                        // PROTECTED
-//                        .requestMatchers("/users/me").permitAll()
-//                        .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
-
-                        // EVERYTHING ELSE
-                        .anyRequest().permitAll()
+                        .anyRequest().authenticated()
                 );
 
         // ----------------------------------------
@@ -78,7 +75,7 @@ public class SecurityConfig {
         );
 
 
-        System.out.println("AUTH = " + SecurityContextHolder.getContext().getAuthentication());
+
 
         return http.build();
     }
