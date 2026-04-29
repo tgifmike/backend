@@ -61,7 +61,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
 
                         // PROTECTED
-                        .requestMatchers("/users/me").authenticated()
+                        .requestMatchers("/users/me").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
 
                         // EVERYTHING ELSE
