@@ -18,6 +18,7 @@ import com.backend.backend.service.EmailService;
 import com.backend.backend.service.EmailTemplateService;
 import com.backend.backend.service.UserService;
 import jakarta.transaction.Transactional;
+import org.hibernate.annotations.Where;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -95,13 +96,13 @@ public class UserServiceImpl implements UserService {
     //get all users
     @Override
     public List<UserEntity> getAllUsers() {
-        return userRepository.findAll();
+        return userRepository.findAllByDeletedAtIsNull();
     }
 
     //find by id
     @Override
     public UserEntity getUserById(UUID id) {
-        return userRepository.findById(id)
+        return userRepository.findByIdAndDeletedAtIsNull(id)
                 .orElseThrow(() -> new RuntimeException("User not found with id " + id));
     }
 
@@ -131,6 +132,8 @@ public class UserServiceImpl implements UserService {
 
         user.setDeletedAt(Instant.now());
         user.setUserActive(false);
+        user.setGoogleId(null);
+        user.setAppleId(null);
 
         userRepository.save(user);
     }
@@ -255,47 +258,34 @@ public class UserServiceImpl implements UserService {
     @Override
     public UserEntity resolveUserIdentity(UserEntity incomingUser) {
 
-
         Optional<UserEntity> userOpt = Optional.empty();
 
+        // 1. Google login
         if (incomingUser.getGoogleId() != null) {
 
-            userOpt =
-                    userRepository.findByGoogleId(
-                            incomingUser.getGoogleId()
-                    );
-
-//            System.out.println("Lookup by GoogleId: " + userOpt.isPresent());
+            userOpt = userRepository
+                    .findByGoogleIdAndDeletedAtIsNull(incomingUser.getGoogleId());
         }
 
-        if (userOpt.isEmpty()
-                && incomingUser.getAppleId() != null) {
+        // 2. Apple login
+        if (userOpt.isEmpty() && incomingUser.getAppleId() != null) {
 
-            userOpt =
-                    userRepository.findByAppleId(
-                            incomingUser.getAppleId()
-                    );
-
-//            System.out.println("Lookup by AppleId: " + userOpt.isPresent());
+            userOpt = userRepository
+                    .findByAppleIdAndDeletedAtIsNull(incomingUser.getAppleId());
         }
 
-        if (userOpt.isEmpty()
-                && incomingUser.getUserEmail() != null) {
+        // 3. Email fallback
+        if (userOpt.isEmpty() && incomingUser.getUserEmail() != null) {
 
-            userOpt =
-                    userRepository.findByUserEmailIgnoreCase(
+            userOpt = userRepository
+                    .findByUserEmailIgnoreCaseAndDeletedAtIsNull(
                             incomingUser.getUserEmail()
                     );
-
-//            System.out.println("Lookup by Email: " + userOpt.isPresent());
         }
 
         if (userOpt.isEmpty()) {
 
-//            System.out.println("USER NOT FOUND IN DB");
-
             if (isAppleReviewer(incomingUser)) {
-
                 return createAppleReviewerUser();
             }
 
@@ -304,12 +294,23 @@ public class UserServiceImpl implements UserService {
             );
         }
 
-        UserEntity resolvedUser = userOpt.get();
+        UserEntity user = userOpt.get();
 
+        // optional safety check (keeps logic consistent with your validateUserStatus)
+        validateUserStatus(user);
 
-        return resolvedUser;
+        return user;
     }
 
+//    private boolean isNotDeleted(UserEntity user) {
+//        return user.getDeletedAt() == null;
+//    }
+
+//    private boolean isActiveValidUser(UserEntity user) {
+//        return user.getDeletedAt() == null
+//                && user.isUserActive()
+//                && user.isInvited();
+//    }
     /**
      * Universal OAuth login method.
      * Handles Google, Apple, or email-based login.
@@ -356,6 +357,7 @@ public class UserServiceImpl implements UserService {
             return;
         }
 
+        // MUST be first check
         if (user.getDeletedAt() != null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -364,12 +366,10 @@ public class UserServiceImpl implements UserService {
         }
 
         if (!user.isInvited()) {
-
             throw new RuntimeException("AccessDenied");
         }
 
         if (!user.isUserActive()) {
-
             throw new RuntimeException("InactiveUser");
         }
     }
