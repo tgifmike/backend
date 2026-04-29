@@ -4,6 +4,7 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
+import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
@@ -35,82 +36,112 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         String path = request.getRequestURI();
 
-        System.out.println("🔥 JWT FILTER HIT: " + path);
-
-        // ✅ ALWAYS SKIP AUTH ROUTES
-        if (path.startsWith("/auth/")) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         try {
 
+            // -------------------------------------------------
+            // Skip public routes completely
+            // -------------------------------------------------
+            if (isPublicRoute(path)) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // -------------------------------------------------
+            // Already authenticated? continue
+            // -------------------------------------------------
+            if (SecurityContextHolder.getContext().getAuthentication() != null) {
+                filterChain.doFilter(request, response);
+                return;
+            }
+
+            // -------------------------------------------------
+            // Extract token
+            // -------------------------------------------------
             String token = extractToken(request);
 
-            if (token != null) {
+            if (token != null && !token.isBlank()) {
 
                 DecodedJWT jwt = JWT.require(jwtConfig.algorithm())
                         .build()
                         .verify(token);
 
-                String userId = jwt.getSubject();
+                String subject = jwt.getSubject();
 
-                if (userId != null) {
+                if (subject != null && !subject.isBlank()) {
 
-                    UUID uuid = UUID.fromString(userId);
+                    UUID userId = UUID.fromString(subject);
 
-                    UsernamePasswordAuthenticationToken auth =
+                    String accessRole = jwt.getClaim("accessRole").asString();
+
+                    if (accessRole == null || accessRole.isBlank()) {
+                        accessRole = "USER";
+                    }
+
+                    UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
-                                    uuid,
+                                    userId,
                                     null,
-                                    List.of(new SimpleGrantedAuthority("ROLE_USER"))
+                                    List.of(
+                                            new SimpleGrantedAuthority("ROLE_" + accessRole)
+                                    )
                             );
 
-                    SecurityContextHolder.getContext().setAuthentication(auth);
-                    UserContext.setCurrentUser(uuid);
+                    SecurityContextHolder.getContext()
+                            .setAuthentication(authentication);
+
+                    UserContext.setCurrentUser(userId);
                 }
             }
 
             filterChain.doFilter(request, response);
-            System.out.println("TOKEN FOUND = " + token);
 
-        } catch (Exception e) {
-            System.out.println("❌ JWT ERROR: " + e.getMessage());
+        } catch (Exception ex) {
+
+            SecurityContextHolder.clearContext();
+            UserContext.clear();
+
             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+            response.setContentType("application/json");
+            response.getWriter().write("{\"error\":\"INVALID_TOKEN\"}");
         } finally {
             UserContext.clear();
         }
     }
 
-    // ------------------------------------------------------------
-    // PUBLIC ROUTES (OAuth + static)
-    // ------------------------------------------------------------
+    // -------------------------------------------------
+    // Public routes
+    // -------------------------------------------------
     private boolean isPublicRoute(String path) {
         return path.startsWith("/auth/")
-                || path.startsWith("/oauth2/")
-                || path.startsWith("/error")
-                || path.startsWith("/favicon");
+                || path.equals("/favicon.ico")
+                || path.equals("/error")
+                || path.equals("/")
+                || path.startsWith("/pricing")
+                || path.startsWith("/privacy")
+                || path.startsWith("/terms")
+                || path.equals("/users/oauth-login")
+                || path.equals("/users/demo-login");
     }
 
-    // ------------------------------------------------------------
-    // TOKEN EXTRACTION
-    // ------------------------------------------------------------
+    // -------------------------------------------------
+    // Cookie first, then Authorization header
+    // -------------------------------------------------
     private String extractToken(HttpServletRequest request) {
 
-        System.out.println("🍪 COOKIES:");
-        // 1. Cookie (production)
-        if (request.getCookies() != null) {
-            for (var cookie : request.getCookies()) {
+        Cookie[] cookies = request.getCookies();
+
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
                 if ("accessToken".equals(cookie.getName())) {
                     return cookie.getValue();
                 }
             }
         }
 
-        // 2. Authorization header (dev/testing)
-        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
-        if (header != null && header.startsWith("Bearer ")) {
-            return header.substring(7);
+        String authHeader = request.getHeader(HttpHeaders.AUTHORIZATION);
+
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
         }
 
         return null;
