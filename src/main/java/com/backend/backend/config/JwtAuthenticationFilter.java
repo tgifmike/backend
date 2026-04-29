@@ -60,11 +60,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             String token = extractToken(request);
 
             if (token == null || token.isBlank()) {
+
                 SecurityContextHolder.clearContext();
                 UserContext.clear();
 
                 System.out.println("❌ NO TOKEN FOUND");
-                filterChain.doFilter(request, response);
+
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"TOKEN_MISSING\"}");
                 return;
             }
 
@@ -136,7 +140,15 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (Exception ex) {
 
-            System.out.println("💥 FILTER ERROR: " + ex.getMessage());
+            System.out.println("💥 FILTER ERROR: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
+
+
+            if (!response.isCommitted()) {
+                response.resetBuffer();
+                response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
+                response.setContentType("application/json");
+                response.getWriter().write("{\"error\":\"AUTH_FILTER_ERROR\"}");
+            }
 
             SecurityContextHolder.clearContext();
             UserContext.clear();

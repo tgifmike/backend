@@ -1,6 +1,7 @@
 package com.backend.backend.controller;
 
 import com.backend.backend.config.GoogleTokenVerifier;
+import com.backend.backend.config.UserContext;
 import com.backend.backend.dto.*;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.UserRepository;
@@ -11,7 +12,7 @@ import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
+import org.springframework.web.server.ResponseStatusException;
 
 
 import java.util.*;
@@ -326,15 +327,24 @@ public class UserController {
 
     @PostMapping("/invite")
     public ResponseEntity<?> inviteUser(
-            @RequestBody InviteUserDto request,
-            @RequestHeader("Authorization") String authHeader
+            @RequestBody InviteUserDto request
     ) {
-
         try {
 
-            String token = authHeader.replace("Bearer ", "");
+            // Logged-in user comes from JWT cookie already parsed by your filter
+            UUID currentUserId = UserContext.getCurrentUser();
 
-            String inviterName = tokenService.getName(token);
+            if (currentUserId == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("error", "Unauthorized"));
+            }
+
+            UserEntity inviter = userService.getUserById(currentUserId);
+
+            String inviterName =
+                    inviter.getUserName() != null
+                            ? inviter.getUserName()
+                            : inviter.getUserEmail();
 
             UserEntity user =
                     userService.inviteUser(
@@ -352,9 +362,20 @@ public class UserController {
                             "email", user.getUserEmail()
                     ));
 
-        } catch (Exception ex) {
+        } catch (ResponseStatusException ex) {
+
+            return ResponseEntity.status(ex.getStatusCode())
+                    .body(Map.of("error", ex.getReason()));
+
+        } catch (IllegalArgumentException ex) {
+
             return ResponseEntity.badRequest()
                     .body(Map.of("error", ex.getMessage()));
+
+        } catch (Exception ex) {
+
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Failed to send invitation"));
         }
     }
 

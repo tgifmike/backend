@@ -132,7 +132,11 @@ public class UserServiceImpl implements UserService {
                         new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
                 );
 
+        UUID deletedBy = UserContext.getCurrentUser();
+
         user.setDeletedAt(Instant.now());
+        user.setDeletedBy(deletedBy);
+
         user.setUserActive(false);
         user.setGoogleId(null);
         user.setAppleId(null);
@@ -315,11 +319,52 @@ public class UserServiceImpl implements UserService {
 
         validateUserStatus(user);
 
+        boolean updated = false;
+
+        // link provider ids if needed
         updateProviderIdsIfNeeded(user, incomingUser);
+
+        // ----------------------------
+        // FIRST LOGIN PROFILE SYNC
+        // ----------------------------
+
+        // name from Google / Apple
+        if ((user.getUserName() == null || user.getUserName().isBlank())
+                && incomingUser.getUserName() != null
+                && !incomingUser.getUserName().isBlank()) {
+
+            user.setUserName(
+                    incomingUser.getUserName().trim()
+            );
+            updated = true;
+        }
+
+        // profile image
+        System.out.println("INCOMING IMAGE: " + incomingUser.getUserImage());
+        if ((user.getUserImage() == null || user.getUserImage().isBlank())
+                && incomingUser.getUserImage() != null
+                && !incomingUser.getUserImage().isBlank()) {
+
+            user.setUserImage(
+                    incomingUser.getUserImage().trim()
+            );
+            System.out.println("SAVING USER IMAGE: " + user.getUserImage());
+            updated = true;
+        }
+
+        // optional first login flag
+        if (user.isFirstLogin()) {
+            user.setFirstLogin(false);
+            updated = true;
+        }
+
+        if (updated) {
+            user.setUpdatedAt(Instant.now());
+            user = userRepository.save(user);
+        }
 
         long accountCount =
                 accountRepository.countAccounts(user.getId());
-
 
         boolean hasAccess =
                 accountCount > 0
@@ -336,7 +381,6 @@ public class UserServiceImpl implements UserService {
                 user.getAccessRole().name(),
                 hasAccess,
                 user.getUserImage()
-
         );
     }
 
@@ -532,7 +576,7 @@ public class UserServiceImpl implements UserService {
 
 
         UserEntity user =
-                userRepository.findByUserEmailIgnoreCase(email)
+                userRepository.findByUserEmailIgnoreCase(normalizedEmail)
                         .orElse(null);
 
         if (user != null && user.getDeletedAt() != null) {
@@ -540,9 +584,13 @@ public class UserServiceImpl implements UserService {
             user.setDeletedAt(null);
             user.setUserActive(true);
             user.setInvited(true);
+            user.setUpdatedAt(Instant.now());
+
+            user.setAccessRole(parsedAccessRole);
+            user.setAppRole(parsedAppRole);
         } else if (user == null) {
             user = new UserEntity();
-            user.setUserEmail(email);
+            user.setUserEmail(normalizedEmail);
             user.setInvited(true);
             user.setUserActive(true);
         }
