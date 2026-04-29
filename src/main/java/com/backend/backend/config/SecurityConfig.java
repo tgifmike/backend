@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
@@ -61,7 +62,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
 
                         // PROTECTED
-                        .requestMatchers("/users/me").permitAll()
+                        .requestMatchers("/users/me").authenticated()
                         .requestMatchers(HttpMethod.POST, "/users/invite").authenticated()
 
                         // EVERYTHING ELSE
@@ -75,6 +76,9 @@ public class SecurityConfig {
                 jwtAuthenticationFilter,
                 UsernamePasswordAuthenticationFilter.class
         );
+
+
+        System.out.println("AUTH = " + SecurityContextHolder.getContext().getAuthentication());
 
         return http.build();
     }

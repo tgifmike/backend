@@ -72,13 +72,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             List<SimpleGrantedAuthority> authorities = new ArrayList<>();
 
-            // base auth
-            authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
+            // primary Spring Security role
+            authorities.add(
+                    new SimpleGrantedAuthority("ROLE_" + accessRole.toUpperCase())
+            );
 
-            // access control layer (admin, sradmin, user)
-            authorities.add(new SimpleGrantedAuthority("ACCESS_" + accessRole));
-
-            // app feature layer (member, manager, etc)
+            // optional secondary layers (fine for debugging)
             authorities.add(new SimpleGrantedAuthority("APP_" + appRole));
 
             UsernamePasswordAuthenticationToken authentication =
