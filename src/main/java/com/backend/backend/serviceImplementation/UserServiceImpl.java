@@ -532,23 +532,20 @@ public class UserServiceImpl implements UserService {
 
 
         UserEntity user =
-                userRepository
-                        .findByUserEmailIgnoreCase(normalizedEmail)
-                        .orElseGet(() -> {
+                userRepository.findByUserEmailIgnoreCase(email)
+                        .orElse(null);
 
-                            UserEntity newUser =
-                                    new UserEntity();
-
-                            newUser.setUserEmail(normalizedEmail);
-
-                            return newUser;
-                        });
-
-
-        user.setInvited(true);
-        user.setUserActive(true);
-        user.setAccessRole(parsedAccessRole);
-        user.setAppRole(parsedAppRole);
+        if (user != null && user.getDeletedAt() != null) {
+            // revive user
+            user.setDeletedAt(null);
+            user.setUserActive(true);
+            user.setInvited(true);
+        } else if (user == null) {
+            user = new UserEntity();
+            user.setUserEmail(email);
+            user.setInvited(true);
+            user.setUserActive(true);
+        }
 
 
         userRepository.save(user);
