@@ -63,29 +63,31 @@ public class UserServiceImpl implements UserService {
     //create user from button
     @Override
     public UserEntity createUser(UserEntity user) {
-        // Prevent duplicate emails
-        if (userRepository.existsByUserEmail(user.getUserEmail())) {
+
+        if (userRepository.existsByUserEmailAndDeletedAtIsNull(user.getUserEmail())) {
             throw new RuntimeException("Email already exists");
         }
-        if (userRepository.existsByUserName(user.getUserName())) {
+
+        if (userRepository.existsByUserNameAndDeletedAtIsNull(user.getUserName())) {
             throw new IllegalArgumentException("User name already exists");
         }
 
-        // Ensure required fields
         if (user.getUserName() == null || user.getUserName().isBlank()) {
             throw new RuntimeException("Name cannot be empty");
         }
+
         if (user.getUserEmail() == null || user.getUserEmail().isBlank()) {
             throw new RuntimeException("Email cannot be empty");
         }
 
-        // Defaults (if not already set)
         if (user.getAccessRole() == null) {
             user.setAccessRole(AccessRole.USER);
         }
+
         if (user.getAppRole() == null) {
             user.setAppRole(AppRole.MEMBER);
         }
+
         user.setUserActive(true);
         user.setFirstLogin(true);
 
@@ -115,7 +117,7 @@ public class UserServiceImpl implements UserService {
     //find by email
     @Override
     public UserEntity findByEmail(String email) {
-        return userRepository.findByUserEmailIgnoreCase(email)
+        return userRepository.findByUserEmailIgnoreCaseAndDeletedAtIsNull(email)
                 .orElseThrow(() -> new RuntimeException("User not found with email " + email));
     }
 
@@ -214,44 +216,40 @@ public class UserServiceImpl implements UserService {
     //update user name an email
     @Override
     public void updateUser(UUID id, String newName, String newEmail) {
-        //validate input
+
         if (newName == null || newName.trim().isEmpty()) {
             throw new IllegalArgumentException("User name cannot be blank");
         }
+
         if (newEmail == null || newEmail.trim().isEmpty()) {
-            throw new IllegalArgumentException(("User email cannot be blank"));
+            throw new IllegalArgumentException("User email cannot be blank");
         }
 
-        // Check for duplicates
         if (isNameDuplicate(newName, id)) {
             throw new IllegalArgumentException("User name already exists");
         }
+
         if (isEmailDuplicate(newEmail, id)) {
             throw new IllegalArgumentException("User email already exists");
         }
 
-        Optional<UserEntity> userOpt = userRepository.findById(id);
+        UserEntity user = userRepository.findByIdAndDeletedAtIsNull(id)
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-        if (userOpt.isPresent()) {
-            UserEntity user = userOpt.get();
-            user.setUserName(newName);
-            user.setUserEmail(newEmail);
-            userRepository.save(user);
-        } else {
-            throw new RuntimeException("User not found with id: " + id);
-        }
+        user.setUserName(newName);
+        user.setUserEmail(newEmail);
 
-
+        userRepository.save(user);
     }
 
     @Override
     public boolean isEmailDuplicate(String email, UUID excludeId) {
-        return userRepository.existsByUserEmailAndIdNot(email, excludeId);
+        return userRepository.existsByUserEmailAndIdNotAndDeletedAtIsNull(email, excludeId);
     }
 
     @Override
     public boolean isNameDuplicate(String name, UUID excludeId) {
-        return userRepository.existsByUserNameAndIdNot(name, excludeId);
+        return userRepository.existsByUserNameAndIdNotAndDeletedAtIsNull(name, excludeId);
     }
 
 
@@ -260,27 +258,18 @@ public class UserServiceImpl implements UserService {
 
         Optional<UserEntity> userOpt = Optional.empty();
 
-        // 1. Google login
         if (incomingUser.getGoogleId() != null) {
-
-            userOpt = userRepository
-                    .findByGoogleIdAndDeletedAtIsNull(incomingUser.getGoogleId());
+            userOpt = userRepository.findByGoogleIdAndDeletedAtIsNull(incomingUser.getGoogleId());
         }
 
-        // 2. Apple login
         if (userOpt.isEmpty() && incomingUser.getAppleId() != null) {
-
-            userOpt = userRepository
-                    .findByAppleIdAndDeletedAtIsNull(incomingUser.getAppleId());
+            userOpt = userRepository.findByAppleIdAndDeletedAtIsNull(incomingUser.getAppleId());
         }
 
-        // 3. Email fallback
         if (userOpt.isEmpty() && incomingUser.getUserEmail() != null) {
-
-            userOpt = userRepository
-                    .findByUserEmailIgnoreCaseAndDeletedAtIsNull(
-                            incomingUser.getUserEmail()
-                    );
+            userOpt = userRepository.findByUserEmailIgnoreCaseAndDeletedAtIsNull(
+                    incomingUser.getUserEmail()
+            );
         }
 
         if (userOpt.isEmpty()) {
@@ -770,8 +759,7 @@ public class UserServiceImpl implements UserService {
             throw new RuntimeException("Missing authentication context");
         }
 
-        UserEntity user = userRepository
-                .findById(userId)
+        UserEntity user = userRepository.findByIdAndDeletedAtIsNull(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         return UserMeResponse.builder()

@@ -1,48 +1,50 @@
-
 package com.backend.backend.repositories;
 
-import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
-import com.backend.backend.entity.UserAccountAccessEntity;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
 public interface UserRepository extends JpaRepository<UserEntity, UUID> {
-   // Optional<UserEntity> findByUserEmail(String email);
-    Optional<UserEntity> findByUserEmailIgnoreCase(String email);
-  //  Optional<UserEntity> findByGoogleId(String googleId);
 
-
-    //checking for duplicates when updating
-    boolean existsByUserEmailAndIdNot(String email, UUID id);
-    boolean existsByUserNameAndIdNot(String userName, UUID id);
-
-    //creating user checking if user exist by email
-    boolean existsByUserEmail(String userEmail);
-    boolean existsByUserName(String name);
-
-//    List<UserEntity> findAllByUserEmail(String email);
-//    List<UserEntity> findAllByGoogleId(String googleId);
-
-    //adding appleid and changeding signin agnotstic
-    Optional<UserEntity> findByGoogleId(String googleId);
-    Optional<UserEntity> findByAppleId(String appleId);
-   // Optional<UserEntity> findByUserEmail(String email);
-
+ // =========================
+ // SOFT-DELETED SAFE READS
+ // =========================
 
  List<UserEntity> findAllByDeletedAtIsNull();
 
  Optional<UserEntity> findByIdAndDeletedAtIsNull(UUID id);
 
+ Optional<UserEntity> findByUserEmailIgnoreCaseAndDeletedAtIsNull(String email);
+
  Optional<UserEntity> findByGoogleIdAndDeletedAtIsNull(String googleId);
 
  Optional<UserEntity> findByAppleIdAndDeletedAtIsNull(String appleId);
 
- Optional<UserEntity> findByUserEmailIgnoreCaseAndDeletedAtIsNull(String email);
 
+ // =========================
+ // DUPLICATE CHECKS (ACTIVE ONLY)
+ // =========================
+
+ boolean existsByUserEmailAndDeletedAtIsNull(String email);
+
+ boolean existsByUserNameAndDeletedAtIsNull(String name);
+
+ boolean existsByUserEmailAndIdNotAndDeletedAtIsNull(String email, UUID id);
+
+ boolean existsByUserNameAndIdNotAndDeletedAtIsNull(String name, UUID id);
+
+
+ // =========================
+ // ADMIN / RAW (USE CAREFULLY)
+ // =========================
+
+ // only if you EVER need to recover deleted users
+ Optional<UserEntity> findByUserEmailIgnoreCase(String email);
+
+ Optional<UserEntity> findByGoogleId(String googleId);
+
+ Optional<UserEntity> findByAppleId(String appleId);
 }
