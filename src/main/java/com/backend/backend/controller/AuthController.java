@@ -117,8 +117,9 @@ public class AuthController {
         ResponseCookie cookie = ResponseCookie.from("accessToken", login.token())
                 .httpOnly(true)
                 .secure(true)
-                .path("/")
                 .sameSite("None")
+                .path("/")
+                .domain(".themanagerlife.com")
                 .maxAge(60 * 60 * 24)
                 .build();
 
@@ -233,6 +234,7 @@ public class AuthController {
                     .secure(true)
                     .sameSite("None")
                     .path("/")
+                    .domain(".themanagerlife.com")
                     .maxAge(60 * 60 * 24)
                     .build();
 
@@ -262,6 +264,7 @@ public class AuthController {
                 .secure(true)
                 .sameSite("None")
                 .path("/")
+                .domain(".themanagerlife.com")
                 .maxAge(0)
                 .build();
 
