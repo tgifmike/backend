@@ -35,7 +35,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain
     ) throws ServletException, IOException {
 
-        String path = request.getRequestURI();
+        String path = request.getServletPath();
 
         // ============================
         // DEBUG: REQUEST ENTRY
@@ -140,22 +140,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         } catch (Exception ex) {
 
-            System.out.println("💥 FILTER ERROR: " + ex.getClass().getSimpleName() + " - " + ex.getMessage());
+            System.out.println("💥 FILTER ERROR: " + ex.getClass().getSimpleName());
+            ex.printStackTrace();
 
+            SecurityContextHolder.clearContext();
+            UserContext.clear();
 
             if (!response.isCommitted()) {
-                response.resetBuffer();
                 response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                 response.setContentType("application/json");
                 response.getWriter().write("{\"error\":\"AUTH_FILTER_ERROR\"}");
             }
 
-            SecurityContextHolder.clearContext();
-            UserContext.clear();
-
-            response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
-            response.setContentType("application/json");
-            response.getWriter().write("{\"error\":\"AUTH_FILTER_ERROR\"}");
 
         } finally {
             UserContext.clear();
