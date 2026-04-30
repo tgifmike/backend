@@ -136,6 +136,10 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             System.out.println("AccessRole: " + accessRole);
             System.out.println("AppRole: " + appRole);
 
+            System.out.println("HOST HEADER = " + request.getHeader("host"));
+            System.out.println("ORIGIN HEADER = " + request.getHeader("origin"));
+            System.out.println("X-FORWARDED-HOST = " + request.getHeader("x-forwarded-host"));
+
             filterChain.doFilter(request, response);
 
         } catch (Exception ex) {
