@@ -30,7 +30,10 @@ public class UserEntity {
     @Column(name="user_email", unique = true)
 
     private String userEmail;
+
+    @Column(columnDefinition = "TEXT")
     private String userImage;
+
     private boolean userActive = true;
     private boolean firstLogin = true;
 
