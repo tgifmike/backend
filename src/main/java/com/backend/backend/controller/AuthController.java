@@ -119,7 +119,7 @@ public class AuthController {
                 .secure(true)
                 .sameSite("None")
                 .path("/")
-                .domain("api.themanagerlife.com")
+//                .domain("api.themanagerlife.com")
                 .maxAge(60 * 60 * 24)
                 .build();
 
@@ -234,7 +234,7 @@ public class AuthController {
                     .secure(true)
                     .sameSite("None")
                     .path("/")
-                    .domain("api.themanagerlife.com")
+//                    .domain("api.themanagerlife.com")
                     .maxAge(60 * 60 * 24)
                     .build();
 
@@ -264,7 +264,7 @@ public class AuthController {
                 .secure(true)
                 .sameSite("None")
                 .path("/")
-                .domain("api.themanagerlife.com")
+//                .domain("api.themanagerlife.com")
                 .maxAge(0)
                 .build();
 
