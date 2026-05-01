@@ -4,81 +4,75 @@ import com.auth0.jwt.JWT;
 import com.auth0.jwt.algorithms.Algorithm;
 import com.backend.backend.config.UserContext;
 import com.backend.backend.dto.LoginResponse;
+import com.backend.backend.dto.UserDto;
 import com.backend.backend.dto.UserMeResponse;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserAccountAccessEntity;
+import com.backend.backend.entity.UserEntity;
+import com.backend.backend.entity.UserHistoryEntity;
 import com.backend.backend.enums.AccessRole;
 import com.backend.backend.enums.AppRole;
-import com.backend.backend.dto.UserDto;
-import com.backend.backend.entity.UserEntity;
+import com.backend.backend.enums.HistoryType;
 import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.repositories.UserAccountAccessRepository;
+import com.backend.backend.repositories.UserHistoryRepository;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.EmailService;
 import com.backend.backend.service.EmailTemplateService;
 import com.backend.backend.service.UserService;
 import jakarta.transaction.Transactional;
-import org.hibernate.annotations.Where;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-
 import java.time.Instant;
-import java.util.Date;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 public class UserServiceImpl implements UserService {
 
-
     @Value("${jwt.secret}")
     private String secret;
+
+    private static final String APPLE_REVIEW_EMAIL = "testingtml4@gmail.com";
 
     private final UserRepository userRepository;
     private final EmailService emailService;
     private final AccountRepository accountRepository;
     private final UserAccountAccessRepository userAccountAccessRepository;
     private final EmailTemplateService emailTemplateService;
+    private final UserHistoryRepository userHistoryRepository;
 
-    private static final String APPLE_REVIEW_EMAIL = "testingtml4@gmail.com";
-
-
-    public UserServiceImpl(UserRepository userRepository,
-                           EmailService emailService,
-                           AccountRepository accountRepository,
-                           UserAccountAccessRepository userAccountAccessRepository,
-                           EmailTemplateService emailTemplateService) {
-
+    public UserServiceImpl(
+            UserRepository userRepository,
+            EmailService emailService,
+            AccountRepository accountRepository,
+            UserAccountAccessRepository userAccountAccessRepository,
+            EmailTemplateService emailTemplateService,
+            UserHistoryRepository userHistoryRepository
+    ) {
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.accountRepository = accountRepository;
         this.userAccountAccessRepository = userAccountAccessRepository;
         this.emailTemplateService = emailTemplateService;
+        this.userHistoryRepository = userHistoryRepository;
     }
 
-    //create user from button
+    // =====================================================
+    // CREATE USER
+    // =====================================================
+
     @Override
+    @Transactional
     public UserEntity createUser(UserEntity user) {
 
-        if (userRepository.existsByUserEmailAndDeletedAtIsNull(user.getUserEmail())) {
-            throw new RuntimeException("Email already exists");
-        }
+        validateCreateUser(user);
 
-        if (userRepository.existsByUserNameAndDeletedAtIsNull(user.getUserName())) {
-            throw new IllegalArgumentException("User name already exists");
-        }
+        normalizeEmail(user);
 
-        if (user.getUserName() == null || user.getUserName().isBlank()) {
-            throw new RuntimeException("Name cannot be empty");
-        }
-
-        if (user.getUserEmail() == null || user.getUserEmail().isBlank()) {
-            throw new RuntimeException("Email cannot be empty");
-        }
+        user.setUserName(user.getUserName().trim());
 
         if (user.getAccessRole() == null) {
             user.setAccessRole(AccessRole.USER);
@@ -90,144 +84,85 @@ public class UserServiceImpl implements UserService {
 
         user.setUserActive(true);
         user.setFirstLogin(true);
+        user.setInvited(true);
 
-        return userRepository.save(user);
+        UserEntity saved = userRepository.save(user);
+
+        logHistory(saved, HistoryType.CREATED, new HashMap<>());
+
+        return saved;
     }
 
+    // =====================================================
+    // READ
+    // =====================================================
 
-    //get all users
     @Override
     public List<UserEntity> getAllUsers() {
         return userRepository.findAllByDeletedAtIsNull();
     }
 
-    //find by id
     @Override
     public UserEntity getUserById(UUID id) {
         return userRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new RuntimeException("User not found with id " + id));
+                .orElseThrow(() -> new RuntimeException("User not found"));
     }
 
-    //update user name and email
     @Override
+    public UserEntity findByEmail(String email) {
+        return userRepository.findByUserEmailIgnoreCaseAndDeletedAtIsNull(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    @Override
+    public UserMeResponse getCurrentUser() {
+
+        UUID userId = UserContext.getCurrentUser();
+
+        if (userId == null) {
+            throw new RuntimeException("Missing authentication context");
+        }
+
+        UserEntity user = getUserById(userId);
+
+        return UserMeResponse.builder()
+                .id(user.getId().toString())
+                .name(user.getUserName())
+                .email(user.getUserEmail())
+                .image(user.getUserImage())
+                .appRole(user.getAppRole().name())
+                .accessRole(user.getAccessRole().name())
+                .build();
+    }
+
+    // =====================================================
+    // UPDATE GENERIC
+    // =====================================================
+
+    @Override
+    @Transactional
     public UserEntity updateUser(UserEntity user) {
         return userRepository.save(user);
     }
 
-    //find by email
-    @Override
-    public UserEntity findByEmail(String email) {
-        return userRepository.findByUserEmailIgnoreCaseAndDeletedAtIsNull(email)
-                .orElseThrow(() -> new RuntimeException("User not found with email " + email));
-    }
-
-
-    //delete user soft
     @Override
     @Transactional
-    public void deleteUser(UUID id) {
-
-        UserEntity user = userRepository.findById(id)
-                .orElseThrow(() ->
-                        new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found")
-                );
-
-        UUID deletedBy = UserContext.getCurrentUser();
-
-        user.setDeletedAt(Instant.now());
-        user.setDeletedBy(deletedBy);
-
-        user.setUserActive(false);
-        user.setGoogleId(null);
-        user.setAppleId(null);
-
-        userRepository.save(user);
-    }
-
-    //toggle active
-    @Override
-    @Transactional
-    public UserDto toggleActive(UUID id, boolean active) {
-        UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found: " + id));
-
-        user.setUserActive(active);
-        user.setUpdatedAt(Instant.now());
-
-        UserEntity saved = userRepository.save(user);
-
-        // Manually map Entity → DTO
-        return new UserDto(
-                saved.getId(),
-                saved.getUserName(),
-                saved.getUserEmail(),
-                saved.getUserImage(),
-                saved.isUserActive(),
-                saved.getAccessRole() != null ? saved.getAccessRole().name() : null,
-                saved.getAppRole() != null ? saved.getAppRole().name() : null,
-                saved.getCreatedAt(),
-                saved.getUpdatedAt()
-        );
-    }
-
-    //update user access role
-    @Override
-    public UserDto updateAccessRole(UUID id, String role) {
-        UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        try {
-            user.setAccessRole(AccessRole.valueOf(role.toUpperCase())); // convert string safely
-        } catch (IllegalArgumentException e) {
-            throw new IllegalArgumentException("Invalid access role: " + role);
-        }
-
-        UserEntity saved = userRepository.save(user);
-
-        return new UserDto(
-                saved.getId(),
-                saved.getUserName(),
-                saved.getUserEmail(),
-                saved.getUserImage(),
-                saved.isUserActive(),
-                saved.getAccessRole() != null ? saved.getAccessRole().name() : null,
-                saved.getAppRole() != null ? saved.getAppRole().name() : null,
-                saved.getCreatedAt(),
-                saved.getUpdatedAt()
-        );
-    }
-
-    //update app role
-    @Override
-    public UserDto updateAppRole(UUID id, String role) {
-        UserEntity user = userRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("User no found"));
-        user.setAppRole(AppRole.valueOf(role));
-        UserEntity saved = userRepository.save(user);
-        return new UserDto(
-                saved.getId(),
-                saved.getUserName(),
-                saved.getUserEmail(),
-                saved.getUserImage(),
-                saved.isUserActive(),
-                saved.getAccessRole() != null ? saved.getAccessRole().name() : null,
-                saved.getAppRole() != null ? saved.getAppRole().name() : null,
-                saved.getCreatedAt(),
-                saved.getUpdatedAt()
-        );
-    }
-
-    //update user name an email
-    @Override
     public void updateUser(UUID id, String newName, String newEmail) {
 
-        if (newName == null || newName.trim().isEmpty()) {
+        UserEntity user = getUserById(id);
+
+        Map<String, String> oldValues = new HashMap<>();
+
+        if (newName == null || newName.isBlank()) {
             throw new IllegalArgumentException("User name cannot be blank");
         }
 
-        if (newEmail == null || newEmail.trim().isEmpty()) {
+        if (newEmail == null || newEmail.isBlank()) {
             throw new IllegalArgumentException("User email cannot be blank");
         }
+
+        newEmail = newEmail.trim().toLowerCase();
+        newName = newName.trim();
 
         if (isNameDuplicate(newName, id)) {
             throw new IllegalArgumentException("User name already exists");
@@ -237,14 +172,119 @@ public class UserServiceImpl implements UserService {
             throw new IllegalArgumentException("User email already exists");
         }
 
-        UserEntity user = userRepository.findByIdAndDeletedAtIsNull(id)
-                .orElseThrow(() -> new RuntimeException("User not found"));
+        if (!Objects.equals(user.getUserName(), newName)) {
+            oldValues.put("userName", user.getUserName());
+            user.setUserName(newName);
+        }
 
-        user.setUserName(newName);
-        user.setUserEmail(newEmail);
+        if (!Objects.equals(user.getUserEmail(), newEmail)) {
+            oldValues.put("userEmail", user.getUserEmail());
+            user.setUserEmail(newEmail);
+        }
 
         userRepository.save(user);
+
+        if (!oldValues.isEmpty()) {
+            logHistory(user, HistoryType.UPDATED, oldValues);
+        }
     }
+
+    // =====================================================
+    // DELETE
+    // =====================================================
+
+    @Override
+    @Transactional
+    public void deleteUser(UUID id) {
+
+        UserEntity user = getUserById(id);
+
+        user.setDeletedAt(Instant.now());
+        user.setDeletedBy(currentUserId());
+        user.setUserActive(false);
+        user.setGoogleId(null);
+        user.setAppleId(null);
+
+        userRepository.save(user);
+
+        logHistory(user, HistoryType.DELETED, new HashMap<>());
+    }
+
+    // =====================================================
+    // ACTIVE TOGGLE
+    // =====================================================
+
+    @Override
+    @Transactional
+    public UserDto toggleActive(UUID id, boolean active) {
+
+        UserEntity user = getUserById(id);
+
+        Map<String, String> oldValues = Map.of(
+                "userActive",
+                String.valueOf(user.isUserActive())
+        );
+
+        user.setUserActive(active);
+
+        UserEntity saved = userRepository.save(user);
+
+        logHistory(
+                saved,
+                active ? HistoryType.ACTIVATED : HistoryType.DEACTIVATED,
+                oldValues
+        );
+
+        return toDto(saved);
+    }
+
+    // =====================================================
+    // ROLE CHANGES
+    // =====================================================
+
+    @Override
+    @Transactional
+    public UserDto updateAccessRole(UUID id, String role) {
+
+        UserEntity user = getUserById(id);
+
+        Map<String, String> oldValues = Map.of(
+                "accessRole",
+                user.getAccessRole().name()
+        );
+
+        user.setAccessRole(AccessRole.valueOf(role.toUpperCase()));
+
+        UserEntity saved = userRepository.save(user);
+
+        logHistory(saved, HistoryType.ROLE_CHANGED, oldValues);
+
+        return toDto(saved);
+    }
+
+    @Override
+    @Transactional
+    public UserDto updateAppRole(UUID id, String role) {
+
+        UserEntity user = getUserById(id);
+
+        Map<String, String> oldValues = Map.of(
+                "appRole",
+                user.getAppRole().name()
+        );
+
+        user.setAppRole(AppRole.valueOf(role.toUpperCase()));
+
+        UserEntity saved = userRepository.save(user);
+
+        logHistory(saved, HistoryType.ROLE_CHANGED, oldValues);
+
+        return toDto(saved);
+    }
+
+    // =====================================================
+    // DUPLICATES
+    // =====================================================
 
     @Override
     public boolean isEmailDuplicate(String email, UUID excludeId) {
@@ -256,61 +296,12 @@ public class UserServiceImpl implements UserService {
         return userRepository.existsByUserNameAndIdNotAndDeletedAtIsNull(name, excludeId);
     }
 
+    // =====================================================
+    // OAUTH LOGIN
+    // =====================================================
 
     @Override
-    public UserEntity resolveUserIdentity(UserEntity incomingUser) {
-
-        Optional<UserEntity> userOpt = Optional.empty();
-
-        if (incomingUser.getGoogleId() != null) {
-            userOpt = userRepository.findByGoogleIdAndDeletedAtIsNull(incomingUser.getGoogleId());
-        }
-
-        if (userOpt.isEmpty() && incomingUser.getAppleId() != null) {
-            userOpt = userRepository.findByAppleIdAndDeletedAtIsNull(incomingUser.getAppleId());
-        }
-
-        if (userOpt.isEmpty() && incomingUser.getUserEmail() != null) {
-            userOpt = userRepository.findByUserEmailIgnoreCaseAndDeletedAtIsNull(
-                    incomingUser.getUserEmail()
-            );
-        }
-
-        if (userOpt.isEmpty()) {
-
-            if (isAppleReviewer(incomingUser)) {
-                return createAppleReviewerUser();
-            }
-
-            throw new RuntimeException(
-                    "User not invited. Please contact your administrator."
-            );
-        }
-
-        UserEntity user = userOpt.get();
-
-        // optional safety check (keeps logic consistent with your validateUserStatus)
-        validateUserStatus(user);
-
-        return user;
-    }
-
-//    private boolean isNotDeleted(UserEntity user) {
-//        return user.getDeletedAt() == null;
-//    }
-
-//    private boolean isActiveValidUser(UserEntity user) {
-//        return user.getDeletedAt() == null
-//                && user.isUserActive()
-//                && user.isInvited();
-//    }
-    /**
-     * Universal OAuth login method.
-     * Handles Google, Apple, or email-based login.
-     * Returns a signed JWT if the user exists and is active.
-     */
     @Transactional
-    @Override
     public LoginResponse handleOAuthLogin(UserEntity incomingUser) {
 
         normalizeEmail(incomingUser);
@@ -321,59 +312,37 @@ public class UserServiceImpl implements UserService {
 
         boolean updated = false;
 
-        // link provider ids if needed
-        updateProviderIdsIfNeeded(user, incomingUser);
+        if (linkProvider(user, incomingUser)) {
+            updated = true;
+        }
 
-        // ----------------------------
-        // FIRST LOGIN PROFILE SYNC
-        // ----------------------------
-
-        // name from Google / Apple
         if ((user.getUserName() == null || user.getUserName().isBlank())
-                && incomingUser.getUserName() != null
-                && !incomingUser.getUserName().isBlank()) {
-
-            user.setUserName(
-                    incomingUser.getUserName().trim()
-            );
+                && incomingUser.getUserName() != null) {
+            user.setUserName(incomingUser.getUserName().trim());
             updated = true;
         }
 
-        // profile image
-        System.out.println("INCOMING IMAGE: " + incomingUser.getUserImage());
         if ((user.getUserImage() == null || user.getUserImage().isBlank())
-                && incomingUser.getUserImage() != null
-                && !incomingUser.getUserImage().isBlank()) {
-
-            user.setUserImage(
-                    incomingUser.getUserImage().trim()
-            );
-            System.out.println("SAVING USER IMAGE: " + user.getUserImage());
+                && incomingUser.getUserImage() != null) {
+            user.setUserImage(incomingUser.getUserImage());
             updated = true;
         }
 
-        // optional first login flag
         if (user.isFirstLogin()) {
             user.setFirstLogin(false);
             updated = true;
         }
 
         if (updated) {
-            user.setUpdatedAt(Instant.now());
             user = userRepository.save(user);
         }
 
-        long accountCount =
-                accountRepository.countAccounts(user.getId());
-
         boolean hasAccess =
-                accountCount > 0
-                        || isDemoUser(user);
-
-        String jwt = generateJwtForUser(user);
+                accountRepository.countAccounts(user.getId()) > 0
+                        || isSystemUser(user);
 
         return new LoginResponse(
-                jwt,
+                generateJwtForUser(user),
                 user.getId(),
                 user.getUserEmail(),
                 user.getUserName(),
@@ -384,13 +353,178 @@ public class UserServiceImpl implements UserService {
         );
     }
 
+    @Override
+    public UserEntity resolveUserIdentity(UserEntity incomingUser) {
+
+        Optional<UserEntity> userOpt = Optional.empty();
+
+        if (incomingUser.getGoogleId() != null) {
+            userOpt = userRepository.findByGoogleIdAndDeletedAtIsNull(
+                    incomingUser.getGoogleId()
+            );
+        }
+
+        if (userOpt.isEmpty() && incomingUser.getAppleId() != null) {
+            userOpt = userRepository.findByAppleIdAndDeletedAtIsNull(
+                    incomingUser.getAppleId()
+            );
+        }
+
+        if (userOpt.isEmpty() && incomingUser.getUserEmail() != null) {
+            userOpt = userRepository.findByUserEmailIgnoreCaseAndDeletedAtIsNull(
+                    incomingUser.getUserEmail()
+            );
+        }
+
+        if (userOpt.isEmpty()) {
+
+            if (isSystemUser(incomingUser)) {
+                return createDemoUser();
+            }
+
+            throw new RuntimeException(
+                    "User not invited. Please contact your administrator."
+            );
+        }
+
+        return userOpt.get();
+    }
+
+    // =====================================================
+    // INVITE USER
+    // =====================================================
+
+    @Override
+    @Transactional
+    public UserEntity inviteUser(
+            String email,
+            String appRole,
+            String accessRole,
+            String accountId,
+            String inviterName
+    ) {
+
+        String normalizedEmail = email.trim().toLowerCase();
+
+        AccessRole parsedAccess = AccessRole.valueOf(accessRole.toUpperCase());
+        AppRole parsedApp = AppRole.valueOf(appRole.toUpperCase());
+
+        UserEntity user = userRepository
+                .findByUserEmailIgnoreCase(normalizedEmail)
+                .orElse(null);
+
+        boolean restored = false;
+
+        if (user == null) {
+            user = new UserEntity();
+            user.setUserEmail(normalizedEmail);
+        } else if (user.getDeletedAt() != null) {
+            restored = true;
+            user.setDeletedAt(null);
+        }
+
+        user.setInvited(true);
+        user.setUserActive(true);
+        user.setAccessRole(parsedAccess);
+        user.setAppRole(parsedApp);
+
+        user = userRepository.save(user);
+
+        resolveAccountAccessIfPresent(accountId, user);
+
+        sendInviteEmail(
+                normalizedEmail,
+                inviterName,
+                "Your Organization",
+                parsedApp.name(),
+                parsedAccess.name()
+        );
+
+        logHistory(
+                user,
+                restored ? HistoryType.RESTORED : HistoryType.INVITED,
+                new HashMap<>()
+        );
+
+        return user;
+    }
+
+    // =====================================================
+    // JWT
+    // =====================================================
+
+    @Override
+    public String generateJwtForUser(UserEntity user) {
+
+        Algorithm algorithm = Algorithm.HMAC256(secret);
+
+        return JWT.create()
+                .withSubject(user.getId().toString())
+                .withClaim("email", user.getUserEmail())
+                .withClaim("name", user.getUserName())
+                .withClaim("accessRole", user.getAccessRole().name())
+                .withClaim("appRole", user.getAppRole().name())
+                .withClaim("role", user.getAppRole().name())
+                .withClaim("mode", isSystemUser(user) ? "demo" : "normal")
+                .withExpiresAt(
+                        new Date(System.currentTimeMillis() + 86400000)
+                )
+                .sign(algorithm);
+    }
+
+    // =====================================================
+    // DEMO USER
+    // =====================================================
+
+    @Override
+    public UserEntity createDemoUser() {
+
+        return userRepository
+                .findByUserEmailIgnoreCase(APPLE_REVIEW_EMAIL)
+                .orElseGet(() -> {
+
+                    UserEntity user = new UserEntity();
+
+                    user.setUserEmail(APPLE_REVIEW_EMAIL);
+                    user.setUserName("Apple Reviewer");
+                    user.setInvited(true);
+                    user.setUserActive(true);
+                    user.setAccessRole(AccessRole.ADMIN);
+                    user.setAppRole(AppRole.MANAGER);
+
+                    return userRepository.save(user);
+                });
+    }
+
+    // =====================================================
+    // HELPERS
+    // =====================================================
+
+    private void validateCreateUser(UserEntity user) {
+
+        if (user.getUserName() == null || user.getUserName().isBlank()) {
+            throw new RuntimeException("Name cannot be empty");
+        }
+
+        if (user.getUserEmail() == null || user.getUserEmail().isBlank()) {
+            throw new RuntimeException("Email cannot be empty");
+        }
+
+        if (userRepository.existsByUserEmailAndDeletedAtIsNull(user.getUserEmail())) {
+            throw new RuntimeException("Email already exists");
+        }
+
+        if (userRepository.existsByUserNameAndDeletedAtIsNull(user.getUserName())) {
+            throw new RuntimeException("User name already exists");
+        }
+    }
+
     private void validateUserStatus(UserEntity user) {
 
-        if (isDemoUser(user)) {
+        if (isSystemUser(user)) {
             return;
         }
 
-        // MUST be first check
         if (user.getDeletedAt() != null) {
             throw new ResponseStatusException(
                     HttpStatus.UNAUTHORIZED,
@@ -407,248 +541,119 @@ public class UserServiceImpl implements UserService {
         }
     }
 
-    private void updateProviderIdsIfNeeded(
-            UserEntity user,
-            UserEntity incomingUser
-    ) {
+    private boolean linkProvider(UserEntity user, UserEntity incoming) {
 
         boolean updated = false;
 
-
-        if (incomingUser.getGoogleId() != null
-                && user.getGoogleId() == null
-                && incomingUser.getUserEmail() != null
-                && incomingUser.getUserEmail()
-                .equalsIgnoreCase(user.getUserEmail())) {
-
-            user.setGoogleId(incomingUser.getGoogleId());
+        if (incoming.getGoogleId() != null && user.getGoogleId() == null) {
+            user.setGoogleId(incoming.getGoogleId());
             user.setProvider("google");
-
             updated = true;
         }
 
-        if (incomingUser.getAppleId() != null
-                && user.getAppleId() == null) {
-
-            user.setAppleId(incomingUser.getAppleId());
+        if (incoming.getAppleId() != null && user.getAppleId() == null) {
+            user.setAppleId(incoming.getAppleId());
             user.setProvider("apple");
-
             updated = true;
         }
 
         if (updated) {
-
-            user.setUpdatedAt(Instant.now());
-
-            userRepository.save(user);
+            logHistory(user, HistoryType.LOGIN_PROVIDER_LINKED, new HashMap<>());
         }
 
-
+        return updated;
     }
 
     private void normalizeEmail(UserEntity user) {
-
         if (user.getUserEmail() != null) {
-
             user.setUserEmail(
-                    user.getUserEmail()
-                            .toLowerCase()
-                            .trim()
+                    user.getUserEmail().trim().toLowerCase()
             );
         }
     }
 
-    private boolean isAppleReviewer(UserEntity user) {
-
+    private boolean isSystemUser(UserEntity user) {
         return user.getUserEmail() != null
-                && user.getUserEmail()
-                .equalsIgnoreCase(APPLE_REVIEW_EMAIL);
+                && user.getUserEmail().equalsIgnoreCase(APPLE_REVIEW_EMAIL);
     }
 
-    private UserEntity createAppleReviewerUser() {
+    private UserDto toDto(UserEntity user) {
 
-        return userRepository
-                .findByUserEmailIgnoreCase(APPLE_REVIEW_EMAIL)
-                .orElseGet(() -> {
-
-                    UserEntity reviewer =
-                            new UserEntity();
-
-                    reviewer.setUserEmail(APPLE_REVIEW_EMAIL);
-
-                    reviewer.setUserName("Apple Reviewer");
-
-                    reviewer.setInvited(true);
-
-                    reviewer.setUserActive(true);
-
-                    return userRepository.save(reviewer);
-                });
+        return UserDto.builder()
+                .id(user.getId())
+                .userName(user.getUserName())
+                .userEmail(user.getUserEmail())
+                .userImage(user.getUserImage())
+                .userActive(user.isUserActive())
+                .accessRole(user.getAccessRole().name())
+                .appRole(user.getAppRole().name())
+                .createdAt(user.getCreatedAt())
+                .updatedAt(user.getUpdatedAt())
+                .build();
     }
 
+    private UUID currentUserId() {
+        return UserContext.getCurrentUser() != null
+                ? UserContext.getCurrentUser()
+                : UUID.randomUUID();
+    }
 
-    @Override
-    public String generateJwtForUser(UserEntity user) {
-        if (secret == null || secret.isEmpty()) {
-            throw new IllegalStateException("JWT secret is not set!");
+    private String currentUserName() {
+
+        UUID id = UserContext.getCurrentUser();
+
+        if (id == null) {
+            return "System";
         }
-        Algorithm algorithm = Algorithm.HMAC256(secret);
 
-        return JWT.create()
-                .withSubject(user.getId().toString())
-                .withClaim("email", user.getUserEmail())
-                .withClaim("name", user.getUserName())
-                // 🔥 ADD THIS
-                .withClaim("accessRole",
-                        user.getAccessRole() != null
-                                ? user.getAccessRole().name()
-                                : AccessRole.USER.name()
-                )
-                .withClaim("appRole",
-                        user.getAppRole() != null
-                                ? user.getAppRole().name()
-                                : AppRole.MEMBER.name()
-                )
-
-                .withClaim("role",
-                        user.getAppRole() != null
-                                ? user.getAppRole().name()
-                                : AppRole.MEMBER.name()
-                )
-                .withClaim(
-                        "mode",
-                        isDemoUser(user) ? "demo" : "normal"
-                )
-                .withExpiresAt(new Date(System.currentTimeMillis() + 1000L * 60 * 60 * 24))
-                .sign(algorithm);
+        return userRepository.findById(id)
+                .map(UserEntity::getUserName)
+                .orElse("System");
     }
 
-    //----------------Create demo user
-    public UserEntity createDemoUser() {
-
-        UserEntity demo = new UserEntity();
-
-        demo.setUserEmail("testingtml4@gmail.com");
-        demo.setUserName("Demo User");
-        demo.setInvited(true);
-        demo.setUserActive(true);
-
-        demo.setAppRole(AppRole.MANAGER);
-        demo.setAccessRole(AccessRole.ADMIN);
-
-        return userRepository.save(demo);
-    }
-
-
-    //----------------Manager sends email to user to get invited to website/app
-
-
-
-
-    @Override
-    @Transactional
-    public UserEntity inviteUser(
-            String email,
-            String appRole,
-            String accessRole,
-            String accountId,
-            String inviterName
+    private void logHistory(
+            UserEntity user,
+            HistoryType type,
+            Map<String, String> oldValues
     ) {
 
-        if (email == null || email.isBlank()) {
-            throw new IllegalArgumentException("Email is required");
-        }
-
-        if (inviterName == null || inviterName.isBlank()) {
-            throw new IllegalArgumentException("Inviter name required");
-        }
-
-
-        String normalizedEmail =
-                email.trim().toLowerCase();
-
-
-        AccessRole parsedAccessRole =
-                parseAccessRole(accessRole);
-
-        AppRole parsedAppRole =
-                parseAppRole(appRole);
-
-
-        UserEntity user =
-                userRepository.findByUserEmailIgnoreCase(normalizedEmail)
-                        .orElse(null);
-
-        if (user != null && user.getDeletedAt() != null) {
-            // revive user
-            user.setDeletedAt(null);
-            user.setUserActive(true);
-            user.setInvited(true);
-            user.setUpdatedAt(Instant.now());
-
-            user.setAccessRole(parsedAccessRole);
-            user.setAppRole(parsedAppRole);
-        } else if (user == null) {
-            user = new UserEntity();
-            user.setUserEmail(normalizedEmail);
-            user.setInvited(true);
-            user.setUserActive(true);
-        }
-
-
-        userRepository.save(user);
-
-
-        String accountName =
-                resolveAccountAccessIfPresent(
-                        accountId,
-                        user
-                );
-
-
-        sendInviteEmail(
-                normalizedEmail,
-                inviterName,
-                accountName,
-                parsedAppRole.name(),
-                parsedAccessRole.name()
+        userHistoryRepository.save(
+                UserHistoryEntity.builder()
+                        .userId(user.getId())
+                        .userName(user.getUserName())
+                        .userEmail(user.getUserEmail())
+                        .userActive(user.isUserActive())
+                        .accessRole(user.getAccessRole().name())
+                        .appRole(user.getAppRole().name())
+                        .changeType(type)
+                        .changeAt(Instant.now())
+                        .changedBy(currentUserId())
+                        .changedByName(currentUserName())
+                        .oldValues(oldValues)
+                        .build()
         );
-
-
-        return user;
     }
 
-    private String resolveAccountAccessIfPresent(
+    private void resolveAccountAccessIfPresent(
             String accountId,
             UserEntity user
     ) {
 
         if (accountId == null || accountId.isBlank()) {
-            return "Your Organization";
+            return;
         }
 
-        UUID accountUuid =
-                UUID.fromString(accountId);
+        UUID uuid = UUID.fromString(accountId);
 
-        AccountEntity account =
-                accountRepository
-                        .findById(accountUuid)
-                        .orElseThrow(() ->
-                                new IllegalArgumentException(
-                                        "Account not found"
-                                )
-                        );
+        AccountEntity account = accountRepository.findById(uuid)
+                .orElseThrow(() ->
+                        new RuntimeException("Account not found")
+                );
 
-
-        boolean alreadyLinked =
-                userAccountAccessRepository
-                        .existsByUserIdAndAccountId(
-                                user.getId(),
-                                accountUuid
-                        );
-
-
-        if (!alreadyLinked) {
+        if (!userAccountAccessRepository.existsByUserIdAndAccountId(
+                user.getId(),
+                uuid
+        )) {
 
             UserAccountAccessEntity access =
                     new UserAccountAccessEntity();
@@ -657,41 +662,6 @@ public class UserServiceImpl implements UserService {
             access.setAccount(account);
 
             userAccountAccessRepository.save(access);
-        }
-
-
-        return account.getAccountName();
-    }
-
-    private AccessRole parseAccessRole(String role) {
-
-        try {
-
-            return AccessRole.valueOf(
-                    role.toUpperCase()
-            );
-
-        } catch (Exception ex) {
-
-            throw new IllegalArgumentException(
-                    "Invalid access role: " + role
-            );
-        }
-    }
-
-    private AppRole parseAppRole(String role) {
-
-        try {
-
-            return AppRole.valueOf(
-                    role.toUpperCase()
-            );
-
-        } catch (Exception ex) {
-
-            throw new IllegalArgumentException(
-                    "Invalid app role: " + role
-            );
         }
     }
 
@@ -709,112 +679,38 @@ public class UserServiceImpl implements UserService {
         String subject =
                 inviterName + " invited you to join The Manager Life";
 
-        try {
-            System.out.println("ABOUT TO BUILD TEMPLATE");
+        String html = emailTemplateService.buildInviteEmail(
+                inviterName,
+                accountName,
+                appRole,
+                accessRole,
+                email,
+                loginUrl
+        );
 
-            String htmlMessage = emailTemplateService.buildInviteEmail(
-                    inviterName,
-                    accountName,
-                    appRole,
-                    accessRole,
-                    email,
-                    loginUrl
-            );
-
-            System.out.println("TEMPLATE OK");
-
-            String plainTextMessage = buildInviteText(
-                    inviterName,
-                    accountName,
-                    appRole,
-                    accessRole,
-                    loginUrl,
-                    email
-            );
-
-            System.out.println("ABOUT TO SEND EMAIL");
-
-            emailService.sendMultipartEmail(
-                    email,
-                    subject,
-                    plainTextMessage,
-                    htmlMessage
-            );
-
-            System.out.println("EMAIL SENT CALL FINISHED");
-
-        } catch (Exception e) {
-            e.printStackTrace();
-            throw new RuntimeException("Email failed: " + e.getMessage(), e);
-        }
-    }
-
-    private String buildInviteText(
-            String inviterName,
-            String accountName,
-            String appRole,
-            String accessRole,
-            String loginUrl,
-            String email
-    ) {
-
-        return """
+        String text = """
                 %s invited you to join The Manager Life.
-                
+
                 Account: %s
-                
                 App Role: %s
                 Access Role: %s
-                
+
                 Sign in:
                 %s
-                
-                Email:
-                %s
-                
-                Invitation expires in 7 days.
                 """
                 .formatted(
                         inviterName,
                         accountName,
                         appRole,
                         accessRole,
-                        loginUrl,
-                        email
+                        loginUrl
                 );
+
+        emailService.sendMultipartEmail(
+                email,
+                subject,
+                text,
+                html
+        );
     }
-
-    private boolean isDemoUser(UserEntity user) {
-
-        if (user == null || user.getUserEmail() == null) {
-            return false;
-        }
-
-        return user.getUserEmail()
-                .equalsIgnoreCase(APPLE_REVIEW_EMAIL);
-    }
-
-    @Override
-    public UserMeResponse getCurrentUser() {
-
-        UUID userId = UserContext.getCurrentUser();
-
-        if (userId == null) {
-            System.out.println("❌ UserContext is NULL in /users/me");
-            throw new RuntimeException("Missing authentication context");
-        }
-
-        UserEntity user = userRepository.findByIdAndDeletedAtIsNull(userId)
-                .orElseThrow(() -> new RuntimeException("User not found"));
-
-        return UserMeResponse.builder()
-                .id(user.getId().toString())
-                .name(user.getUserName())
-                .email(user.getUserEmail())
-                .image(user.getUserImage())
-                .appRole(user.getAppRole().name())
-                .accessRole(user.getAccessRole().name())
-                .build();
-    }
-
 }
