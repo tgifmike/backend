@@ -4,6 +4,8 @@ import com.backend.backend.config.GoogleTokenVerifier;
 import com.backend.backend.config.UserContext;
 import com.backend.backend.dto.*;
 import com.backend.backend.entity.UserEntity;
+import com.backend.backend.entity.UserHistoryEntity;
+import com.backend.backend.repositories.UserHistoryRepository;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.TokenService;
 import com.backend.backend.service.UserService;
@@ -30,19 +32,21 @@ public class UserController {
     private final UserService userService;
     private final UserRepository userRepository;
     private final TokenService tokenService;
+    private final UserHistoryRepository userHistoryRepository;
 
 
 
     public UserController(
             UserService userService,
             UserRepository userRepository,
-            TokenService tokenService
+            TokenService tokenService,
+            UserHistoryRepository userHistoryRepository
 
     ) {
         this.userService = userService;
         this.userRepository = userRepository;
         this.tokenService = tokenService;
-
+        this.userHistoryRepository = userHistoryRepository;
     }
 
 
@@ -401,6 +405,11 @@ public class UserController {
 
     }
 
-
+    @GetMapping("/history")
+    public ResponseEntity<List<UserHistoryEntity>> getAllUserHistory() {
+        return ResponseEntity.ok(
+                userHistoryRepository.findAllByOrderByChangeAtDesc()
+        );
+    }
 
 }
