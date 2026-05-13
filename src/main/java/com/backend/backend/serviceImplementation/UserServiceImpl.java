@@ -197,17 +197,35 @@ public class UserServiceImpl implements UserService {
     @Transactional
     public void deleteUser(UUID id) {
 
-        UserEntity user = getUserById(id);
+        UUID currentUserId = UserContext.getCurrentUser();
 
-        user.setDeletedAt(Instant.now());
-        user.setDeletedBy(currentUserId());
-        user.setUserActive(false);
-        user.setGoogleId(null);
-        user.setAppleId(null);
+        if (currentUserId == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "No authenticated user"
+            );
+        }
 
-        userRepository.save(user);
+        UserEntity actor = getUserById(currentUserId);
+        UserEntity target = getUserById(id);
 
-        logHistory(user, HistoryType.DELETED, new HashMap<>());
+        // BLOCK ONLY SELF-DELETION FOR DEMO USER
+        if (isSystemUser(actor) && actor.getId().equals(target.getId())) {
+            throw new ResponseStatusException(
+                    HttpStatus.FORBIDDEN,
+                    "Demo user cannot delete their own account"
+            );
+        }
+
+        target.setDeletedAt(Instant.now());
+        target.setDeletedBy(currentUserId);
+        target.setUserActive(false);
+        target.setGoogleId(null);
+        target.setAppleId(null);
+
+        userRepository.save(target);
+
+        logHistory(target, HistoryType.DELETED, new HashMap<>());
     }
 
     // =====================================================
