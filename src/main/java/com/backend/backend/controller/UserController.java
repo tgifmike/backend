@@ -91,25 +91,17 @@ public class UserController {
     }
 
     @DeleteMapping("/delete/{id}")
-    public ResponseEntity<Void> deleteUser(
-            @PathVariable UUID id
-    ) {
+    public ResponseEntity<Void> deleteUser(@PathVariable UUID id) {
 
         try {
-
             userService.deleteUser(id);
-
-            return ResponseEntity.noContent().build();
+            return ResponseEntity.noContent().build(); // ✅ 204
 
         } catch (EmptyResultDataAccessException e) {
-
             return ResponseEntity.notFound().build();
 
         } catch (Exception e) {
-
-            return ResponseEntity
-                    .status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 
