@@ -63,6 +63,9 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
 
+                        //EMAIL
+                        .requestMatchers("/api/email/**").permitAll()
+
                         .anyRequest().authenticated()
                 );
 
