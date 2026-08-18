@@ -66,6 +66,9 @@ public class SecurityConfig {
                         //EMAIL
                         .requestMatchers("/api/email/**").permitAll()
 
+                        //AWS
+                        .requestMatchers("/api/s3/test").permitAll()
+
                         .anyRequest().authenticated()
                 );
 
