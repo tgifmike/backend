@@ -19,17 +19,6 @@ public class EmailController {
         this.emailService = emailService;
     }
 
-//    @PostMapping("/send")
-//    public ResponseEntity<?> sendEmail(@RequestBody EmailRequestDto request) {
-//
-//        emailService.sendEmail(
-//                request.getTo(),
-//                request.getSubject(),
-//                request.getMessage()
-//        );
-//
-//        return ResponseEntity.ok("Email sent successfully");
-//    }
     @PostMapping("/contact")
     public ResponseEntity<?> contact(@Valid @RequestBody ContactDto request) {
         emailService.sendContactEmail(request.getName(), request.getEmail(), request.getMessage());
