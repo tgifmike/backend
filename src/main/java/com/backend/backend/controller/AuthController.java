@@ -113,15 +113,11 @@ public class AuthController {
                 userService.handleOAuthLogin(incoming);
 
 
-        // ✅ Set HTTP-only cookie
-        ResponseCookie cookie = ResponseCookie.from("accessToken", login.token())
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
-                .path("/")
-                .domain(".themanagerlife.com")
-                .maxAge(60 * 60 * 24)
-                .build();
+        ResponseCookie cookie = createAccessTokenCookie(
+                login.token(),
+                60 * 60 * 24,
+                request
+        );
 
         response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
@@ -228,15 +224,11 @@ public class AuthController {
 
             LoginResponse login = userService.handleOAuthLogin(user);
 
-            // Auth cookie
-            ResponseCookie cookie = ResponseCookie.from("accessToken", login.token())
-                    .httpOnly(true)
-                    .secure(true)
-                    .sameSite("None")
-                    .path("/")
-                    .domain(".themanagerlife.com")
-                    .maxAge(60 * 60 * 24)
-                    .build();
+            ResponseCookie cookie = createAccessTokenCookie(
+                    login.token(),
+                    60 * 60 * 24,
+                    request
+            );
 
             response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
@@ -257,20 +249,51 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Void> logout(HttpServletResponse response) {
+    public ResponseEntity<Void> logout(
+            HttpServletRequest request,
+            HttpServletResponse response
+    ) {
 
-        ResponseCookie cookie = ResponseCookie.from("accessToken", "")
-                .httpOnly(true)
-                .secure(true)
-                .sameSite("None")
-                .path("/")
-                .domain(".themanagerlife.com")
-                .maxAge(0)
-                .build();
+        ResponseCookie cookie = createAccessTokenCookie("", 0, request);
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, cookie.toString())
                 .build();
+    }
+
+    private ResponseCookie createAccessTokenCookie(
+            String value,
+            long maxAge,
+            HttpServletRequest request
+    ) {
+
+        boolean localRequest = isLocalRequest(request);
+        boolean secure = localRequest ? cookieSecure : true;
+
+        ResponseCookie.ResponseCookieBuilder cookie =
+                ResponseCookie.from("accessToken", value)
+                        .httpOnly(true)
+                        .secure(secure)
+                        .sameSite(secure ? "None" : "Lax")
+                        .path("/")
+                        .maxAge(maxAge);
+
+        // A localhost response cannot set a cookie for the production domain.
+        if (!localRequest) {
+            cookie.domain(".themanagerlife.com");
+        }
+
+        return cookie.build();
+    }
+
+    private boolean isLocalRequest(HttpServletRequest request) {
+
+        String host = request.getServerName();
+
+        return "localhost".equalsIgnoreCase(host)
+                || "127.0.0.1".equals(host)
+                || "::1".equals(host)
+                || "[::1]".equals(host);
     }
 
 }
