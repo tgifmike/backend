@@ -57,6 +57,12 @@ public class LineCheckItemEntity {
     @Column(name = "temperature")
     private Double temperature;
 
+    @Column(name = "min_temp")
+    private Double minTemp;
+
+    @Column(name = "max_temp")
+    private Double maxTemp;
+
     @OneToMany(
             mappedBy = "lineCheckItem",
             cascade = CascadeType.ALL,

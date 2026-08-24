@@ -5,19 +5,16 @@ import com.backend.backend.dto.ItemUpdateDto;
 import com.backend.backend.entity.*;
 import com.backend.backend.enums.HistoryType;
 import com.backend.backend.enums.ItemTempCategory;
-import com.backend.backend.enums.OptionType;
 import com.backend.backend.repositories.*;
 import com.backend.backend.service.ItemService;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.hibernate.type.descriptor.java.ObjectJavaType;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
-import java.lang.reflect.Field;
 import java.time.Instant;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -31,6 +28,7 @@ public class ItemServiceImpl implements ItemService {
     private final StationRepository stationRepository;
     private final ItemHistoryRepository itemRepositoryHistory;
     private final UserRepository userRepository;
+    private final TemperatureCategoryRepository temperatureCategoryRepository;
 
     //---------Helper-------------------
     private void recordHistory(
@@ -55,6 +53,9 @@ public class ItemServiceImpl implements ItemService {
                 .isPortioned(item.getIsPortioned())
                 .isTempTaken(item.getIsTempTaken())
                 .tempCategory(item.getTempCategory())
+                .tempCategoryId(item.getTempCategoryId())
+                .minTemp(item.getMinTemp())
+                .maxTemp(item.getMaxTemp())
                 .isCheckMark(item.getIsCheckMark())
                 .templateNotes(item.getTemplateNotes())
                 .changeType(changeType)
@@ -85,34 +86,74 @@ public class ItemServiceImpl implements ItemService {
                 .orElse("Unknown User");
     }
 
-    private void applyTemperatureRules(ItemEntity item, ItemTempCategory category, Boolean isTempTaken) {
+    private void applyTemperatureRules(
+            ItemEntity item,
+            UUID tempCategoryId,
+            ItemTempCategory legacyCategory,
+            Boolean isTempTaken,
+            UUID itemLocationId
+    ) {
 
-        if (!Boolean.TRUE.equals(isTempTaken) || category == null) {
+        item.setIsTempTaken(isTempTaken);
+
+        if (!Boolean.TRUE.equals(isTempTaken)) {
             item.setTempCategory(null);
+            item.setTemperatureCategory(null);
             item.setMinTemp(null);
             item.setMaxTemp(null);
             return;
         }
 
-        item.setTempCategory(category);
+        TemperatureCategoryEntity category;
 
-        switch (category) {
-            case HOT_HOLDING -> {
-                item.setMinTemp(140.0);
-                item.setMaxTemp(200.0);
-            }
-            case REFRIGERATED -> {
-                item.setMinTemp(33.0);
-                item.setMaxTemp(41.0);
-            }
-            case FROZEN -> {
-                item.setMinTemp(-20.0);
-                item.setMaxTemp(31.0);
-            }
-            case ROOM_TEMP -> {
-                item.setMinTemp(50.0);
-                item.setMaxTemp(75.0);
-            }
+        if (tempCategoryId != null) {
+            category = temperatureCategoryRepository.findById(tempCategoryId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Temperature category not found"
+                    ));
+        } else if (legacyCategory != null) {
+            category = temperatureCategoryRepository
+                    .findByLocation_IdAndCodeIgnoreCase(
+                            itemLocationId,
+                            legacyCategory.name()
+                    )
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Temperature category not found"
+                    ));
+        } else {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "tempCategoryId is required when isTempTaken is true"
+            );
+        }
+
+        if (!category.getLocation().getId().equals(itemLocationId)) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Temperature category does not belong to the item's location"
+            );
+        }
+
+        if (!Boolean.TRUE.equals(category.getActive())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Temperature category is inactive"
+            );
+        }
+
+        item.setTemperatureCategory(category);
+        item.setTempCategory(toLegacyCategory(category.getCode()));
+        item.setMinTemp(category.getMinTemp());
+        item.setMaxTemp(category.getMaxTemp());
+    }
+
+    private ItemTempCategory toLegacyCategory(String code) {
+        try {
+            return ItemTempCategory.valueOf(code);
+        } catch (IllegalArgumentException ex) {
+            return null;
         }
     }
 
@@ -136,6 +177,7 @@ public class ItemServiceImpl implements ItemService {
 
     // ------------------- CREATE -------------------
     @Override
+    @Transactional
     public ItemEntity createItem(ItemCreateDto dto, UUID userId) {
 
         StationEntity station = stationRepository.findById(dto.getStationId())
@@ -165,8 +207,10 @@ public class ItemServiceImpl implements ItemService {
         // 🔥 APPLY TEMP RULES HERE
         applyTemperatureRules(
                 item,
+                dto.getTempCategoryId(),
                 dto.getTempCategory(),
-                dto.getIsTempTaken()
+                dto.getIsTempTaken(),
+                station.getLocation().getId()
         );
 
         ItemEntity saved = itemRepository.save(item);
@@ -188,11 +232,15 @@ public class ItemServiceImpl implements ItemService {
 
 
     @Override
+    @Transactional
     public ItemEntity updateItem(UUID stationId, UUID itemId, ItemUpdateDto dto, UUID userId) {
         ItemEntity existing = itemRepository.findById(itemId)
                 .orElseThrow(() -> new NoSuchElementException("Item not found"));
 
         Map<String, Object> oldValues = new HashMap<>();
+        Boolean oldIsTempTaken = existing.getIsTempTaken();
+        UUID oldTempCategoryId = existing.getTempCategoryId();
+        ItemTempCategory oldLegacyCategory = existing.getTempCategory();
 
         // Compare and update fields
         if (dto.getItemName() != null && !dto.getItemName().equals(existing.getItemName())) {
@@ -235,41 +283,40 @@ public class ItemServiceImpl implements ItemService {
             existing.setPortionSize(dto.getPortionSize());
         }
 
-        if (dto.getIsTempTaken() != null && !dto.getIsTempTaken().equals(existing.getIsTempTaken())) {
-            oldValues.put("isTempTaken", existing.getIsTempTaken());
-            existing.setIsTempTaken(dto.getIsTempTaken());
-        }
+        boolean tempChanged = dto.getIsTempTaken() != null
+                && !Objects.equals(dto.getIsTempTaken(), oldIsTempTaken);
 
-//        if (dto.getTempCategory() != null && !dto.getTempCategory().equals(existing.getTempCategory())) {
-//            oldValues.put("tempCategory", existing.getTempCategory());
-//            existing.setTempCategory(dto.getTempCategory());
-//        }
-
-        boolean tempChanged = false;
-
-        if (dto.getIsTempTaken() != null &&
-                !Objects.equals(dto.getIsTempTaken(), existing.getIsTempTaken())) {
-
-            oldValues.put("isTempTaken", existing.getIsTempTaken());
+        if (dto.getTempCategoryId() != null
+                && !Objects.equals(dto.getTempCategoryId(), oldTempCategoryId)) {
             tempChanged = true;
         }
 
-        if (dto.getTempCategory() != null &&
-                !Objects.equals(dto.getTempCategory(), existing.getTempCategory())) {
-
-            oldValues.put("tempCategory", existing.getTempCategory());
+        if (dto.getTempCategoryId() == null
+                && dto.getTempCategory() != null
+                && !Objects.equals(dto.getTempCategory(), oldLegacyCategory)) {
             tempChanged = true;
         }
 
         if (tempChanged) {
+            oldValues.put("isTempTaken", oldIsTempTaken);
+            oldValues.put("tempCategoryId", oldTempCategoryId);
+            oldValues.put("tempCategory", oldLegacyCategory);
+
+            UUID requestedCategoryId = dto.getTempCategoryId();
+            if (requestedCategoryId == null && dto.getTempCategory() == null) {
+                requestedCategoryId = oldTempCategoryId;
+            }
+
             applyTemperatureRules(
                     existing,
+                    requestedCategoryId,
                     dto.getTempCategory() != null
                             ? dto.getTempCategory()
-                            : existing.getTempCategory(),
+                            : oldLegacyCategory,
                     dto.getIsTempTaken() != null
                             ? dto.getIsTempTaken()
-                            : existing.getIsTempTaken()
+                            : oldIsTempTaken,
+                    existing.getStation().getLocation().getId()
             );
         }
 
@@ -324,6 +371,7 @@ public class ItemServiceImpl implements ItemService {
         oldValues.put("isPortioned", item.getIsPortioned());
         oldValues.put("portionSize", item.getPortionSize());
         oldValues.put("isTempTaken", item.getIsTempTaken());
+        oldValues.put("tempCategoryId", item.getTempCategoryId());
         oldValues.put("tempCategory", item.getTempCategory());
         oldValues.put("isCheckMark", item.getIsCheckMark());
         oldValues.put("templateNotes", item.getTemplateNotes());

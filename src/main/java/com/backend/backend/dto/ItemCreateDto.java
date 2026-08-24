@@ -29,6 +29,7 @@ public class ItemCreateDto {
     private String portionSize;
     private Boolean isPortioned;
 
+    private UUID tempCategoryId;
     private ItemTempCategory tempCategory;
     private Boolean isTempTaken;
 

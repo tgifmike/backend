@@ -2,6 +2,7 @@ package com.backend.backend.repositories;
 
 import com.backend.backend.entity.LineCheckItemEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -14,6 +15,17 @@ import java.util.UUID;
 public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEntity, UUID> {
 
     List<LineCheckItemEntity> findByLineCheckStation_Id(UUID stationId);
+
+    @Modifying
+    @Query(value = """
+            UPDATE line_check_items lci
+            SET min_temp = i.min_temp,
+                max_temp = i.max_temp
+            FROM items i
+            WHERE lci.item_id = i.id
+              AND (lci.min_temp IS NULL OR lci.max_temp IS NULL)
+            """, nativeQuery = true)
+    int backfillMissingTemperatureSnapshots();
 
 
     /*
@@ -62,7 +74,8 @@ public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEnti
         SELECT COUNT(i)
         FROM LineCheckItemEntity i
         WHERE i.temperature IS NOT NULL
-          AND (i.temperature < i.item.minTemp OR i.temperature > i.item.maxTemp)
+          AND (i.temperature < COALESCE(i.minTemp, i.item.minTemp)
+               OR i.temperature > COALESCE(i.maxTemp, i.item.maxTemp))
           AND i.isMissing = false
           AND i.lineCheckStation.lineCheck.checkTime >= :startOfDay
           AND i.lineCheckStation.lineCheck.checkTime < :endOfDay
@@ -79,7 +92,8 @@ public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEnti
         SELECT i.item.itemName
         FROM LineCheckItemEntity i
         WHERE i.temperature IS NOT NULL
-          AND (i.temperature < i.item.minTemp OR i.temperature > i.item.maxTemp)
+          AND (i.temperature < COALESCE(i.minTemp, i.item.minTemp)
+               OR i.temperature > COALESCE(i.maxTemp, i.item.maxTemp))
           AND i.isMissing = false
           AND i.lineCheckStation.lineCheck.checkTime >= :startOfDay
           AND i.lineCheckStation.lineCheck.checkTime < :endOfDay
@@ -158,7 +172,8 @@ public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEnti
         FROM LineCheckItemEntity i
         WHERE i.lineCheckStation.lineCheck.id = :lineCheckId
           AND i.temperature IS NOT NULL
-          AND (i.temperature < i.item.minTemp OR i.temperature > i.item.maxTemp)
+          AND (i.temperature < COALESCE(i.minTemp, i.item.minTemp)
+               OR i.temperature > COALESCE(i.maxTemp, i.item.maxTemp))
           AND i.isMissing = false
     """)
     List<String> findOutOfTempItemNamesByLineCheck(
@@ -242,7 +257,8 @@ JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
 JOIN line_checks lc ON lcs.line_check_id = lc.id
 JOIN stations s ON lcs.station_id = s.id
 WHERE i.temperature IS NOT NULL
-AND (i.temperature < it.min_temp OR i.temperature > it.max_temp)
+AND (i.temperature < COALESCE(i.min_temp, it.min_temp)
+     OR i.temperature > COALESCE(i.max_temp, it.max_temp))
 AND i.is_missing = false
 AND lc.check_time >= :startDate
 AND lc.check_time <= NOW()
@@ -270,7 +286,8 @@ FROM (
     JOIN line_checks lc ON lcs.line_check_id = lc.id
     JOIN stations s ON lcs.station_id = s.id
     WHERE i.temperature IS NOT NULL
-      AND (i.temperature < it.min_temp OR i.temperature > it.max_temp)
+      AND (i.temperature < COALESCE(i.min_temp, it.min_temp)
+           OR i.temperature > COALESCE(i.max_temp, it.max_temp))
       AND i.is_missing = false
       AND lc.check_time >= :startDate
       AND lc.check_time <= :endDate
@@ -400,7 +417,8 @@ JOIN line_check_stations lcs ON i.line_check_station_id = lcs.id
 JOIN line_checks lc ON lcs.line_check_id = lc.id
 JOIN stations s ON lcs.station_id = s.id
 WHERE i.temperature IS NOT NULL
-  AND (i.temperature < it.min_temp OR i.temperature > it.max_temp)
+  AND (i.temperature < COALESCE(i.min_temp, it.min_temp)
+       OR i.temperature > COALESCE(i.max_temp, it.max_temp))
   AND i.is_missing = false
   AND lc.check_time >= :startDate
   AND lc.check_time <= :endDate
