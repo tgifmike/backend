@@ -50,14 +50,12 @@ public class SecurityConfig {
                 // ----------------------------------------
                 .authorizeHttpRequests(auth -> auth
 
+                        // Browser CORS preflight requests never carry auth.
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
                         // PUBLIC AUTH
                         .requestMatchers("/auth/**").permitAll()
-                        .requestMatchers("/favicon.ico").permitAll()
-                        .requestMatchers("/error").permitAll()
-
-                        // ADD THIS (IMPORTANT)
-                        .requestMatchers("/auth/google/callback").permitAll()
-                        .requestMatchers("/auth/apple/callback").permitAll()
+                        .requestMatchers("/favicon.ico", "/error").permitAll()
 
                         // LOGIN ENDPOINTS
                         .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
@@ -68,6 +66,25 @@ public class SecurityConfig {
 
                         //AWS
                         .requestMatchers("/api/s3/test").permitAll()
+
+                        // Restaurant temperature configuration is manager-only.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/temperature-categories",
+                                "/temperature-categories/location/*/defaults"
+                        ).hasAuthority("APP_MANAGER")
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/temperature-categories/*"
+                        ).hasAuthority("APP_MANAGER")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/temperature-categories/*/active"
+                        ).hasAuthority("APP_MANAGER")
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/temperature-categories/*"
+                        ).hasAuthority("APP_MANAGER")
 
                         .anyRequest().authenticated()
                 );

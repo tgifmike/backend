@@ -14,7 +14,6 @@ import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Getter
@@ -53,8 +52,18 @@ public class ItemEntity {
     @Enumerated(EnumType.STRING)
     private ItemTempCategory tempCategory; // FROZEN, REFRIGERATED, ROOM_TEMP, HOT_HOLDING
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "temperature_category_id")
+    @JsonIgnore
+    private TemperatureCategoryEntity temperatureCategory;
+
     private Double minTemp;
     private Double maxTemp;
+
+    @JsonProperty("tempCategoryId")
+    public UUID getTempCategoryId() {
+        return temperatureCategory == null ? null : temperatureCategory.getId();
+    }
 
     @JsonProperty("isCheckMark")
     private Boolean isCheckMark;

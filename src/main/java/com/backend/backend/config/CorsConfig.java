@@ -17,7 +17,7 @@ public class CorsConfig {
 
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOriginPatterns(List.of(
+        config.setAllowedOrigins(List.of(
                 "http://localhost:3000",
                 "https://themanagerlife.com",
                 "https://www.themanagerlife.com",
@@ -35,7 +35,8 @@ public class CorsConfig {
 
         config.setAllowedHeaders(List.of(
                 "Content-Type",
-                "Authorization"
+                "Authorization",
+                "X-User-Id"
         ));
 
         config.setAllowCredentials(true);

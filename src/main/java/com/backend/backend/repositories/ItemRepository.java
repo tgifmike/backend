@@ -1,9 +1,10 @@
 package com.backend.backend.repositories;
 
 import com.backend.backend.entity.ItemEntity;
-import com.backend.backend.entity.OptionEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,8 +28,27 @@ public interface ItemRepository extends JpaRepository<ItemEntity, UUID> {
     List<ItemEntity> findByStationIdAndDeletedAtIsNull(UUID stationId);
 
     List<ItemEntity> findAllByStationIdAndDeletedAtIsNullOrderBySortOrderAsc(UUID stationId);
+
+    @Query(value = """
+            SELECT EXISTS (
+                SELECT 1
+                FROM items
+                WHERE temperature_category_id = :categoryId
+            )
+            """, nativeQuery = true)
+    boolean existsAnyByTemperatureCategoryId(@Param("categoryId") UUID categoryId);
+
+    @Modifying(flushAutomatically = true)
+    @Query("""
+            UPDATE ItemEntity i
+            SET i.minTemp = :minTemp,
+                i.maxTemp = :maxTemp
+            WHERE i.temperatureCategory.id = :categoryId
+              AND i.deletedAt IS NULL
+            """)
+    int updateTemperatureThresholds(
+            @Param("categoryId") UUID categoryId,
+            @Param("minTemp") Double minTemp,
+            @Param("maxTemp") Double maxTemp
+    );
 }
-
-
-
-

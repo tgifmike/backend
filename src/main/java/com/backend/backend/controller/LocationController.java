@@ -133,11 +133,15 @@ public class LocationController {
      */
     @GetMapping("/history")
     public ResponseEntity<List<LocationHistoryEntity>> getLocationHistory(
+            @RequestParam(required = false) UUID locationId,
             @RequestParam(required = false) UUID accountId) {
 
         List<LocationHistoryEntity> history;
 
-        if (accountId != null) {
+        if (locationId != null) {
+            history = locationHistoryRepository
+                    .findByLocation_IdOrderByChangeAtDesc(locationId);
+        } else if (accountId != null) {
             // history for all locations under the account
             history = locationHistoryRepository.findByLocation_Account_IdOrderByChangeAtDesc(accountId);
         } else {

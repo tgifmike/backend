@@ -50,6 +50,8 @@ public class ItemHistoryEntity {
     @Enumerated(EnumType.STRING)
     private ItemTempCategory tempCategory; // FROZEN, REFRIGERATED, ROOM_TEMP, HOT_HOLDING
 
+    private UUID tempCategoryId;
+
     private Double minTemp;
     private Double maxTemp;
 

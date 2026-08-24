@@ -81,6 +81,8 @@ public class LineCheckServiceImpl implements LineCheckService {
                 lci.setItemNotes("");
                 lci.setObservations("");
                 lci.setTemperature(null);
+                lci.setMinTemp(item.getMinTemp());
+                lci.setMaxTemp(item.getMaxTemp());
 
 
                 lcs.getLineCheckItems().add(lci);
@@ -247,8 +249,8 @@ public class LineCheckServiceImpl implements LineCheckService {
         dto.setPortioned(item.getIsPortioned());
         dto.setPortionSize(item.getPortionSize());
         dto.setCheckMark(item.getIsCheckMark());  // ✅ template flag
-        dto.setMinTemp(item.getMinTemp());
-        dto.setMaxTemp(item.getMaxTemp());
+        dto.setMinTemp(e.getMinTemp() != null ? e.getMinTemp() : item.getMinTemp());
+        dto.setMaxTemp(e.getMaxTemp() != null ? e.getMaxTemp() : item.getMaxTemp());
         dto.setTemplateNotes(item.getTemplateNotes());
         dto.setSortOrder(item.getSortOrder());
 

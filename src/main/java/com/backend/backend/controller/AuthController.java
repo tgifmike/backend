@@ -7,6 +7,7 @@ import com.backend.backend.dto.apple.AppleTokenResponse;
 import com.backend.backend.dto.google.GoogleTokenResponse;
 import com.backend.backend.dto.google.GoogleUserInfo;
 import com.backend.backend.entity.UserEntity;
+import com.backend.backend.exception.OAuthUserNotRegisteredException;
 import com.backend.backend.service.UserService;
 import com.backend.backend.service.apple.AppleOAuthService;
 import com.backend.backend.service.google.GoogleOAuthService;
@@ -109,8 +110,14 @@ public class AuthController {
         incoming.setGoogleId(userInfo.getSub());
         incoming.setUserImage(userInfo.getPicture());
 
-        LoginResponse login =
-                userService.handleOAuthLogin(incoming);
+        LoginResponse login;
+
+        try {
+            login = userService.handleOAuthLogin(incoming);
+        } catch (OAuthUserNotRegisteredException ex) {
+            response.sendRedirect(frontendRedirectUrl + "/unauthorized");
+            return;
+        }
 
 
         ResponseCookie cookie = createAccessTokenCookie(
@@ -236,6 +243,10 @@ public class AuthController {
             System.out.println("REDIRECTING TO = " + frontendRedirectUrl + "/dashboard");
 
             response.sendRedirect(frontendRedirectUrl + "/dashboard");
+
+        } catch (OAuthUserNotRegisteredException e) {
+
+            response.sendRedirect(frontendRedirectUrl + "/unauthorized");
 
         } catch (Exception e) {
 

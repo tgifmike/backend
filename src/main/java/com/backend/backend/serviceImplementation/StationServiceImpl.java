@@ -28,6 +28,7 @@ public class StationServiceImpl implements StationService {
     private final StationHistoryRepository stationHistoryRepository;
     private final LocationRepository locationRepository;
     private final ItemRepository itemRepository;
+    private final TemperatureCategoryRepository temperatureCategoryRepository;
 
     private void recordHistory(
             StationEntity station,
@@ -304,9 +305,35 @@ public class StationServiceImpl implements StationService {
             newItem.setIsPortioned(sourceItem.getIsPortioned());
             newItem.setItemTemperature(sourceItem.getItemTemperature());
             newItem.setIsTempTaken(sourceItem.getIsTempTaken());
-            newItem.setTempCategory(sourceItem.getTempCategory());
-            newItem.setMinTemp(sourceItem.getMinTemp());
-            newItem.setMaxTemp(sourceItem.getMaxTemp());
+
+            if (Boolean.TRUE.equals(sourceItem.getIsTempTaken())) {
+                String categoryCode = sourceItem.getTemperatureCategory() != null
+                        ? sourceItem.getTemperatureCategory().getCode()
+                        : sourceItem.getTempCategory() != null
+                                ? sourceItem.getTempCategory().name()
+                                : null;
+
+                if (categoryCode == null) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Source item has no temperature category"
+                    );
+                }
+
+                TemperatureCategoryEntity targetCategory = temperatureCategoryRepository
+                        .findByLocation_IdAndCodeIgnoreCase(locationUuid, categoryCode)
+                        .filter(category -> Boolean.TRUE.equals(category.getActive()))
+                        .orElseThrow(() -> new ResponseStatusException(
+                                HttpStatus.BAD_REQUEST,
+                                "Active temperature category " + categoryCode
+                                        + " not found in target location"
+                        ));
+
+                newItem.setTemperatureCategory(targetCategory);
+                newItem.setTempCategory(sourceItem.getTempCategory());
+                newItem.setMinTemp(targetCategory.getMinTemp());
+                newItem.setMaxTemp(targetCategory.getMaxTemp());
+            }
             newItem.setIsCheckMark(sourceItem.getIsCheckMark());
             newItem.setItemChecked(sourceItem.getItemChecked());
             newItem.setTemplateNotes(sourceItem.getTemplateNotes());
@@ -330,4 +357,3 @@ public class StationServiceImpl implements StationService {
     }
 
 }
-

@@ -13,6 +13,7 @@ import com.backend.backend.entity.UserHistoryEntity;
 import com.backend.backend.enums.AccessRole;
 import com.backend.backend.enums.AppRole;
 import com.backend.backend.enums.HistoryType;
+import com.backend.backend.exception.OAuthUserNotRegisteredException;
 import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.repositories.UserAccountAccessRepository;
 import com.backend.backend.repositories.UserHistoryRepository;
@@ -400,9 +401,7 @@ public class UserServiceImpl implements UserService {
                 return createDemoUser();
             }
 
-            throw new RuntimeException(
-                    "User not invited. Please contact your administrator."
-            );
+            throw new OAuthUserNotRegisteredException();
         }
 
         return userOpt.get();

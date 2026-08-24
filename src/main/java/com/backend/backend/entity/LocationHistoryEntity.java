@@ -1,6 +1,7 @@
 package com.backend.backend.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.Instant;
@@ -27,6 +28,19 @@ public class LocationHistoryEntity {
     @JsonIgnore
     private LocationEntity location;
 
+    @Column(name = "entity_type")
+    private String entityType;
+
+    @Column(name = "entity_id")
+    private UUID entityId;
+
+    @Column(name = "entity_name")
+    private String entityName;
+
+    @JsonProperty("locationId")
+    public UUID getLocationId() {
+        return location == null ? null : location.getId();
+    }
 
     @Column(name = "change_type", nullable = false)
     private String changeType; // "CREATED", "UPDATED", "DELETED"
@@ -46,7 +60,6 @@ public class LocationHistoryEntity {
     @Column(name = "new_values", columnDefinition = "TEXT")
     private String newValues; // JSON string
 }
-
 
 
 
