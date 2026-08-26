@@ -45,6 +45,9 @@ public class LineCheckPhotoEntity {
     @Column(name = "notes")
     private String notes;
 
+    @Column(name = "criterion_response_id")
+    private UUID criterionResponseId;
+
     @Column(name = "created_at", nullable = false)
     private Instant createdAt;
 

@@ -1,12 +1,14 @@
 package com.backend.backend.dto;
 
 
+import com.backend.backend.enums.ItemType;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.UUID;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -17,6 +19,7 @@ public class LineCheckItemDto {
 
     // From ItemEntity
     private String itemName;
+    private ItemType itemType;
     private String shelfLife;
     private String panSize;
     private boolean tool;
@@ -39,4 +42,5 @@ public class LineCheckItemDto {
     private String observations;
     private String templateNotes;
     private Integer sortOrder;
+    private List<LineCheckCriterionResponseDto> criterionResponses;
 }

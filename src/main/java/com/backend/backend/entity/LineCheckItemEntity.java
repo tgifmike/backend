@@ -71,6 +71,15 @@ public class LineCheckItemEntity {
     @JsonManagedReference
     private List<LineCheckPhotoEntity> photos = new ArrayList<>();
 
+    @OneToMany(
+            mappedBy = "lineCheckItem",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true
+    )
+    @OrderBy("sortOrder ASC")
+    @JsonManagedReference("line-check-item-criterion-responses")
+    private List<LineCheckCriterionResponseEntity> criterionResponses = new ArrayList<>();
+
     @Column(name = "corrective_action")
     private String correctiveAction;
 

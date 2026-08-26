@@ -62,6 +62,8 @@ public class UserAccountAccessController {
                         access.getUser().getUserEmail(),
                         access.getUser().getUserImage(),
                         access.getUser().isUserActive(),
+                        access.getUser().isFirstLogin(),
+                        access.getUser().isInvited(),
                         access.getUser().getAccessRole().name(),
                         access.getUser().getAppRole().name(),
                         access.getUser().getCreatedAt(),

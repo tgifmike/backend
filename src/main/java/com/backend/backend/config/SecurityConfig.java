@@ -61,6 +61,10 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/users/oauth-login").permitAll()
                         .requestMatchers(HttpMethod.POST, "/users/demo-login").permitAll()
 
+                        // Only managers may invite users.
+                        .requestMatchers(HttpMethod.POST, "/users/invite")
+                        .hasAuthority("APP_MANAGER")
+
                         //EMAIL
                         .requestMatchers("/api/email/**").permitAll()
 
@@ -84,6 +88,24 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.DELETE,
                                 "/temperature-categories/*"
+                        ).hasAuthority("APP_MANAGER")
+
+                        // Item criterion templates are configured on the website by managers.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/items/*/criteria/**"
+                        ).hasAuthority("APP_MANAGER")
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/items/*/criteria/**"
+                        ).hasAuthority("APP_MANAGER")
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/items/*/criteria/**"
+                        ).hasAuthority("APP_MANAGER")
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/items/*/criteria/**"
                         ).hasAuthority("APP_MANAGER")
 
                         .anyRequest().authenticated()

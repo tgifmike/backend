@@ -2,6 +2,7 @@ package com.backend.backend.entity;
 
 import com.backend.backend.enums.HistoryType;
 import com.backend.backend.enums.ItemTempCategory;
+import com.backend.backend.enums.ItemType;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
@@ -32,6 +33,10 @@ public class ItemHistoryEntity {
 
 
     private String itemName;
+
+    @Enumerated(EnumType.STRING)
+    private ItemType itemType;
+
     private String shelfLife;
     private String panSize;
 

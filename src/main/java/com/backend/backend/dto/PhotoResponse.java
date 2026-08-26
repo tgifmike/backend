@@ -12,6 +12,7 @@ public record PhotoResponse(
         String contentType,
         PhotoType photoType,
         String notes,
+        UUID criterionResponseId,
         Instant createdAt,
         UUID createdBy,
         String url

@@ -1,19 +1,24 @@
 package com.backend.backend.entity;
 
 import com.backend.backend.enums.ItemTempCategory;
+import com.backend.backend.enums.ItemType;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLDelete;
 import org.hibernate.annotations.Where;
+import org.hibernate.annotations.ColumnDefault;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -34,6 +39,13 @@ public class ItemEntity {
 
     @Column(nullable = false)
     private String itemName;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @ColumnDefault("'FOOD_PREP'")
+    @Column(name = "item_type", nullable = false)
+    private ItemType itemType = ItemType.FOOD_PREP;
+
     private String shelfLife;
     private String panSize;
 
@@ -56,6 +68,12 @@ public class ItemEntity {
     @JoinColumn(name = "temperature_category_id")
     @JsonIgnore
     private TemperatureCategoryEntity temperatureCategory;
+
+    @Builder.Default
+    @OneToMany(mappedBy = "item", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OrderBy("sortOrder ASC")
+    @JsonManagedReference("item-criteria")
+    private List<ItemCriterionEntity> criteria = new ArrayList<>();
 
     private Double minTemp;
     private Double maxTemp;

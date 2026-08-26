@@ -129,7 +129,10 @@ public class AuthController {
         response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
         // ✅ Redirect without exposing token
-        response.sendRedirect(frontendRedirectUrl + "/dashboard");
+        String destination = frontendRedirectUrl + "/dashboard"
+                + (login.firstLogin() ? "?welcome=1" : "");
+
+        response.sendRedirect(destination);
     }
 
     @GetMapping("/apple/login")
@@ -239,10 +242,13 @@ public class AuthController {
 
             response.setHeader(HttpHeaders.SET_COOKIE, cookie.toString());
 
-            System.out.println("✅ Apple login success");
-            System.out.println("REDIRECTING TO = " + frontendRedirectUrl + "/dashboard");
+            String destination = frontendRedirectUrl + "/dashboard"
+                    + (login.firstLogin() ? "?welcome=1" : "");
 
-            response.sendRedirect(frontendRedirectUrl + "/dashboard");
+            System.out.println("✅ Apple login success");
+            System.out.println("REDIRECTING TO = " + destination);
+
+            response.sendRedirect(destination);
 
         } catch (OAuthUserNotRegisteredException e) {
 
