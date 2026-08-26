@@ -16,9 +16,10 @@ public class UserDto {
     private String userEmail;
     private String userImage;
     private boolean userActive;
+    private boolean firstLogin;
+    private boolean invited;
     private String accessRole;
     private String appRole;
     private Instant createdAt;
     private Instant updatedAt;
 }
-

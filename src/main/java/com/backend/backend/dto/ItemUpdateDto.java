@@ -1,6 +1,7 @@
 package com.backend.backend.dto;
 
 import com.backend.backend.enums.ItemTempCategory;
+import com.backend.backend.enums.ItemType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -14,6 +15,7 @@ import java.util.UUID;
 @NoArgsConstructor
 public class ItemUpdateDto {
     private String itemName;
+    private ItemType itemType;
     private Boolean itemActive;
     private String shelfLife;
     private String panSize;

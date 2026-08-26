@@ -37,11 +37,15 @@ public class ItemController {
     /**
      * Create a new item tied to a specific station.
      */
-    @PostMapping("{stationId}/createItem")
+    @PostMapping("/{stationId}/createItem")
     public ResponseEntity<ItemEntity> createItem(
+            @PathVariable UUID stationId,
             @RequestBody @Valid ItemCreateDto dto,
             @RequestHeader("X-User-Id") UUID userId
-            ) {
+    ) {
+        // The URL is the authoritative station.
+        dto.setStationId(stationId);
+
         return ResponseEntity.ok(itemService.createItem(dto, userId));
     }
 
@@ -126,4 +130,3 @@ public class ItemController {
 
 
 }
-

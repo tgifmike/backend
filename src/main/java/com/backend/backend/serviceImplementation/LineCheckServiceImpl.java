@@ -1,6 +1,8 @@
 package com.backend.backend.serviceImplementation;
 
 import com.backend.backend.enums.StartOfWeek;
+import com.backend.backend.enums.ItemType;
+import com.backend.backend.enums.ResponseType;
 import com.backend.backend.dto.*;
 import com.backend.backend.entity.*;
 import com.backend.backend.repositories.*;
@@ -8,6 +10,8 @@ import com.backend.backend.service.LineCheckService;
 import org.springframework.transaction.annotation.Transactional;
 
 import org.springframework.stereotype.Service;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.time.*;
 import java.time.temporal.ChronoUnit;
@@ -84,6 +88,26 @@ public class LineCheckServiceImpl implements LineCheckService {
                 lci.setMinTemp(item.getMinTemp());
                 lci.setMaxTemp(item.getMaxTemp());
 
+                List<LineCheckCriterionResponseEntity> criterionResponses = item.getCriteria()
+                        .stream()
+                        .filter(criterion -> Boolean.TRUE.equals(criterion.getActive()))
+                        .map(criterion -> LineCheckCriterionResponseEntity.builder()
+                                .lineCheckItem(lci)
+                                .itemCriterionId(criterion.getId())
+                                .label(criterion.getLabel())
+                                .responseType(criterion.getResponseType())
+                                .required(Boolean.TRUE.equals(criterion.getRequired()))
+                                .requireNotesOnFailure(
+                                        Boolean.TRUE.equals(criterion.getRequireNotesOnFailure())
+                                )
+                                .minValue(criterion.getMinValue())
+                                .maxValue(criterion.getMaxValue())
+                                .unit(criterion.getUnit())
+                                .sortOrder(criterion.getSortOrder())
+                                .build())
+                        .toList();
+                lci.setCriterionResponses(new ArrayList<>(criterionResponses));
+
 
                 lcs.getLineCheckItems().add(lci);
             }
@@ -132,6 +156,14 @@ public class LineCheckServiceImpl implements LineCheckService {
             LineCheckStationEntity stationEntity = lineCheckStationRepository.findById(stationDto.getId())
                     .orElseThrow(() -> new RuntimeException("LineCheckStation not found: " + stationDto.getId()));
 
+            if (stationEntity.getLineCheck() == null
+                    || !lineCheck.getId().equals(stationEntity.getLineCheck().getId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Line check station does not belong to line check " + lineCheck.getId()
+                );
+            }
+
             if (stationDto.getItems() == null || stationDto.getItems().isEmpty()) continue;
 
             for (LineCheckItemDto itemDto : stationDto.getItems()) {
@@ -140,12 +172,21 @@ public class LineCheckServiceImpl implements LineCheckService {
                 LineCheckItemEntity itemEntity = lineCheckItemRepository.findById(itemDto.getId())
                         .orElseThrow(() -> new RuntimeException("LineCheckItem not found: " + itemDto.getId()));
 
+                if (itemEntity.getLineCheckStation() == null
+                        || !stationEntity.getId().equals(itemEntity.getLineCheckStation().getId())) {
+                    throw new ResponseStatusException(
+                            HttpStatus.BAD_REQUEST,
+                            "Line check item does not belong to line check station "
+                                    + stationEntity.getId()
+                    );
+                }
+
                 // ✅ Update entity fields
                 itemEntity.setItemChecked(itemDto.isItemChecked());
                 itemEntity.setChecked(itemDto.isItemChecked());
-                itemEntity.setMissing(itemDto.getMissing());
+                itemEntity.setMissing(Boolean.TRUE.equals(itemDto.getMissing()));
 
-                if (itemDto.getMissing()) {
+                if (Boolean.TRUE.equals(itemDto.getMissing())) {
                     itemEntity.setTemperature(null);
                 } else {
                     itemEntity.setTemperature(itemDto.getTemperature());
@@ -157,6 +198,15 @@ public class LineCheckServiceImpl implements LineCheckService {
                 if (itemDto.getObservations() != null) {
                     itemEntity.setObservations(itemDto.getObservations());
                 }
+
+                // A null collection identifies an older iPad payload. Preserve its
+                // legacy save behavior until that client begins sending criteria.
+                if (itemDto.getCriterionResponses() != null) {
+                    applyCriterionResponses(itemEntity, itemDto.getCriterionResponses());
+                    validateCriterionResponses(itemEntity);
+                }
+
+                itemEntity.setRequiresCorrection(requiresCorrection(itemEntity));
 
                 lineCheckItemRepository.save(itemEntity);
             }
@@ -242,6 +292,7 @@ public class LineCheckServiceImpl implements LineCheckService {
 
         // Template fields
         dto.setItemName(item.getItemName());
+        dto.setItemType(item.getItemType() == null ? ItemType.FOOD_PREP : item.getItemType());
         dto.setShelfLife(item.getShelfLife());
         dto.setPanSize(item.getPanSize());
         dto.setTool(item.getIsTool());
@@ -260,8 +311,170 @@ public class LineCheckServiceImpl implements LineCheckService {
         dto.setTemperature(e.getTemperature());  // ✅ user-entered
         dto.setObservations(e.getObservations()); // ✅ user-entered
         dto.setMissing(e.isMissing());
+        dto.setCriterionResponses(e.getCriterionResponses()
+                .stream()
+                .map(response -> convertCriterionResponseToDto(e, response))
+                .toList());
 
         return dto;
+    }
+
+    private LineCheckCriterionResponseDto convertCriterionResponseToDto(
+            LineCheckItemEntity item,
+            LineCheckCriterionResponseEntity response
+    ) {
+        LineCheckCriterionResponseDto dto = new LineCheckCriterionResponseDto();
+        dto.setId(response.getId());
+        dto.setItemCriterionId(response.getItemCriterionId());
+        dto.setLabel(response.getLabel());
+        dto.setResponseType(response.getResponseType());
+        dto.setRequired(response.getRequired());
+        dto.setRequireNotesOnFailure(response.getRequireNotesOnFailure());
+        dto.setMinValue(response.getMinValue());
+        dto.setMaxValue(response.getMaxValue());
+        dto.setUnit(response.getUnit());
+        dto.setSortOrder(response.getSortOrder());
+        dto.setBooleanValue(response.getBooleanValue());
+        dto.setNumberValue(response.getNumberValue());
+        dto.setTextValue(response.getTextValue());
+        dto.setNotes(response.getNotes());
+        dto.setFailed(isFailure(response));
+        dto.setPhotoIds(item.getPhotos()
+                .stream()
+                .filter(photo -> response.getId() != null
+                        && response.getId().equals(photo.getCriterionResponseId()))
+                .map(LineCheckPhotoEntity::getId)
+                .toList());
+        return dto;
+    }
+
+    private void applyCriterionResponses(
+            LineCheckItemEntity item,
+            List<LineCheckCriterionResponseDto> submittedResponses
+    ) {
+        Map<UUID, LineCheckCriterionResponseEntity> byId = item.getCriterionResponses()
+                .stream()
+                .filter(response -> response.getId() != null)
+                .collect(Collectors.toMap(
+                        LineCheckCriterionResponseEntity::getId,
+                        response -> response
+                ));
+
+        Set<UUID> submittedIds = new HashSet<>();
+        for (LineCheckCriterionResponseDto submitted : submittedResponses) {
+            if (submitted.getId() == null || !submittedIds.add(submitted.getId())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Each criterion response must have a unique response ID"
+                );
+            }
+
+            LineCheckCriterionResponseEntity response = byId.get(submitted.getId());
+            if (response == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Criterion response does not belong to line check item " + item.getId()
+                );
+            }
+
+            switch (response.getResponseType()) {
+                case PASS_FAIL, CHECKBOX -> {
+                    response.setBooleanValue(submitted.getBooleanValue());
+                    response.setNumberValue(null);
+                    response.setTextValue(null);
+                }
+                case TEMPERATURE, NUMBER -> {
+                    response.setBooleanValue(null);
+                    response.setNumberValue(submitted.getNumberValue());
+                    response.setTextValue(null);
+                }
+                case TEXT -> {
+                    response.setBooleanValue(null);
+                    response.setNumberValue(null);
+                    response.setTextValue(submitted.getTextValue());
+                }
+                case PHOTO -> {
+                    response.setBooleanValue(null);
+                    response.setNumberValue(null);
+                    response.setTextValue(null);
+                }
+            }
+            response.setNotes(submitted.getNotes());
+        }
+    }
+
+    private void validateCriterionResponses(LineCheckItemEntity item) {
+        if (item.isMissing()) {
+            return;
+        }
+
+        for (LineCheckCriterionResponseEntity response : item.getCriterionResponses()) {
+            if (Boolean.TRUE.equals(response.getRequired()) && !hasAnswer(item, response)) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Required criterion is unanswered: " + response.getLabel()
+                );
+            }
+
+            if (Boolean.TRUE.equals(response.getRequireNotesOnFailure())
+                    && isFailure(response)
+                    && (response.getNotes() == null || response.getNotes().isBlank())) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Notes are required when criterion fails: " + response.getLabel()
+                );
+            }
+        }
+    }
+
+    private boolean hasAnswer(
+            LineCheckItemEntity item,
+            LineCheckCriterionResponseEntity response
+    ) {
+        return switch (response.getResponseType()) {
+            case PASS_FAIL, CHECKBOX -> response.getBooleanValue() != null;
+            case TEMPERATURE, NUMBER -> response.getNumberValue() != null;
+            case TEXT -> response.getTextValue() != null && !response.getTextValue().isBlank();
+            case PHOTO -> item.getPhotos().stream()
+                    .anyMatch(photo -> response.getId() != null
+                            && response.getId().equals(photo.getCriterionResponseId()));
+        };
+    }
+
+    private boolean isFailure(LineCheckCriterionResponseEntity response) {
+        if ((response.getResponseType() == ResponseType.PASS_FAIL
+                || response.getResponseType() == ResponseType.CHECKBOX)
+                && response.getBooleanValue() != null) {
+            return !response.getBooleanValue();
+        }
+
+        if ((response.getResponseType() == ResponseType.TEMPERATURE
+                || response.getResponseType() == ResponseType.NUMBER)
+                && response.getNumberValue() != null) {
+            return (response.getMinValue() != null
+                    && response.getNumberValue() < response.getMinValue())
+                    || (response.getMaxValue() != null
+                    && response.getNumberValue() > response.getMaxValue());
+        }
+
+        return false;
+    }
+
+    private boolean requiresCorrection(LineCheckItemEntity item) {
+        if (item.isMissing()) {
+            return true;
+        }
+
+        boolean legacyCheckFailed = Boolean.TRUE.equals(item.getItem().getIsCheckMark())
+                && !item.isChecked();
+        boolean legacyTemperatureFailed = item.getTemperature() != null
+                && ((item.getMinTemp() != null && item.getTemperature() < item.getMinTemp())
+                || (item.getMaxTemp() != null && item.getTemperature() > item.getMaxTemp()));
+        boolean criterionFailed = item.getCriterionResponses()
+                .stream()
+                .anyMatch(this::isFailure);
+
+        return legacyCheckFailed || legacyTemperatureFailed || criterionFailed;
     }
 
 

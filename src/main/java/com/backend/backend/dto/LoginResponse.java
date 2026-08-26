@@ -10,5 +10,6 @@ public record LoginResponse(
         String appRole,
         String accessRole,
         boolean hasAccountAccess,
-        String userImage
+        String userImage,
+        boolean firstLogin
 ) {}

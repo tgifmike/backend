@@ -3,6 +3,7 @@ package com.backend.backend.serviceImplementation;
 import com.backend.backend.dto.StationDto;
 import com.backend.backend.entity.*;
 import com.backend.backend.enums.HistoryType;
+import com.backend.backend.enums.ItemType;
 import com.backend.backend.repositories.*;
 import com.backend.backend.service.StationService;
 import jakarta.transaction.Transactional;
@@ -297,6 +298,9 @@ public class StationServiceImpl implements StationService {
             ItemEntity newItem = new ItemEntity();
 
             newItem.setItemName(sourceItem.getItemName());
+            newItem.setItemType(sourceItem.getItemType() == null
+                    ? ItemType.FOOD_PREP
+                    : sourceItem.getItemType());
             newItem.setShelfLife(sourceItem.getShelfLife());
             newItem.setPanSize(sourceItem.getPanSize());
             newItem.setToolName(sourceItem.getToolName());
@@ -342,6 +346,25 @@ public class StationServiceImpl implements StationService {
             newItem.setSortOrder(index++);
             newItem.setStation(newStation);
             newItem.setCreatedBy(userUuid);
+
+            List<ItemCriterionEntity> clonedCriteria = sourceItem.getCriteria().stream()
+                    .map(sourceCriterion -> ItemCriterionEntity.builder()
+                            .item(newItem)
+                            .label(sourceCriterion.getLabel())
+                            .responseType(sourceCriterion.getResponseType())
+                            .required(Boolean.TRUE.equals(sourceCriterion.getRequired()))
+                            .requireNotesOnFailure(
+                                    Boolean.TRUE.equals(sourceCriterion.getRequireNotesOnFailure())
+                            )
+                            .minValue(sourceCriterion.getMinValue())
+                            .maxValue(sourceCriterion.getMaxValue())
+                            .unit(sourceCriterion.getUnit())
+                            .sortOrder(sourceCriterion.getSortOrder())
+                            .active(sourceCriterion.getActive() == null
+                                    || sourceCriterion.getActive())
+                            .build())
+                    .toList();
+            newItem.setCriteria(new ArrayList<>(clonedCriteria));
 
             itemRepository.save(newItem);
         }

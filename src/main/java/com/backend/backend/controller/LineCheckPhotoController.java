@@ -3,12 +3,16 @@ package com.backend.backend.controller;
 import com.backend.backend.entity.LineCheckItemEntity;
 import com.backend.backend.entity.LineCheckPhotoEntity;
 import com.backend.backend.enums.PhotoType;
+import com.backend.backend.enums.ResponseType;
 import com.backend.backend.repositories.LineCheckItemRepository;
 import com.backend.backend.repositories.LineCheckPhotoRepository;
+import com.backend.backend.repositories.LineCheckCriterionResponseRepository;
 import com.backend.backend.service.S3Service;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.web.server.ResponseStatusException;
 import com.backend.backend.dto.PhotoResponse;
 
 import java.io.IOException;
@@ -21,15 +25,18 @@ public class LineCheckPhotoController {
     private final S3Service s3Service;
     private final LineCheckItemRepository lineCheckItemRepository;
     private final LineCheckPhotoRepository lineCheckPhotoRepository;
+    private final LineCheckCriterionResponseRepository criterionResponseRepository;
 
     public LineCheckPhotoController(
             S3Service s3Service,
             LineCheckItemRepository lineCheckItemRepository,
-            LineCheckPhotoRepository lineCheckPhotoRepository
+            LineCheckPhotoRepository lineCheckPhotoRepository,
+            LineCheckCriterionResponseRepository criterionResponseRepository
     ) {
         this.s3Service = s3Service;
         this.lineCheckItemRepository = lineCheckItemRepository;
         this.lineCheckPhotoRepository = lineCheckPhotoRepository;
+        this.criterionResponseRepository = criterionResponseRepository;
     }
 
     @PostMapping("/{lineCheckItemId}/photos")
@@ -37,7 +44,9 @@ public class LineCheckPhotoController {
             @PathVariable UUID lineCheckItemId,
             @RequestParam("file") MultipartFile file,
             @RequestParam("photoType") PhotoType photoType,
-            @RequestParam(value = "notes", required = false) String notes
+            @RequestParam(value = "notes", required = false) String notes,
+            @RequestParam(value = "criterionResponseId", required = false)
+            UUID criterionResponseId
     ) throws IOException {
 
         // =====================================================
@@ -63,6 +72,35 @@ public class LineCheckPhotoController {
                                                 + lineCheckItemId
                                 )
                         );
+
+        if (photoType == PhotoType.CRITERION && criterionResponseId == null) {
+            return ResponseEntity.badRequest()
+                    .body("criterionResponseId is required for a criterion photo");
+        }
+
+        if (criterionResponseId != null && photoType != PhotoType.CRITERION) {
+            return ResponseEntity.badRequest()
+                    .body("photoType must be CRITERION when criterionResponseId is provided");
+        }
+
+        if (criterionResponseId != null) {
+            var criterionResponse = criterionResponseRepository
+                    .findById(criterionResponseId)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Criterion response not found"
+                    ));
+
+            if (!lineCheckItemId.equals(criterionResponse.getLineCheckItem().getId())) {
+                return ResponseEntity.badRequest()
+                        .body("Criterion response does not belong to the line check item");
+            }
+
+            if (criterionResponse.getResponseType() != ResponseType.PHOTO) {
+                return ResponseEntity.badRequest()
+                        .body("Criterion response is not configured for a photo");
+            }
+        }
 
         // =====================================================
         // 2. Validate file
@@ -115,6 +153,7 @@ public class LineCheckPhotoController {
         photo.setPhotoType(photoType);
 
         photo.setNotes(notes);
+        photo.setCriterionResponseId(criterionResponseId);
 
         // =====================================================
         // 5. Save database record
@@ -175,6 +214,7 @@ public class LineCheckPhotoController {
                                     photo.getContentType(),
                                     photo.getPhotoType(),
                                     photo.getNotes(),
+                                    photo.getCriterionResponseId(),
                                     photo.getCreatedAt(),
                                     photo.getCreatedBy(),
                                     url

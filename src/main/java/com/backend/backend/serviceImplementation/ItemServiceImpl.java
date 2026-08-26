@@ -5,6 +5,7 @@ import com.backend.backend.dto.ItemUpdateDto;
 import com.backend.backend.entity.*;
 import com.backend.backend.enums.HistoryType;
 import com.backend.backend.enums.ItemTempCategory;
+import com.backend.backend.enums.ItemType;
 import com.backend.backend.repositories.*;
 import com.backend.backend.service.ItemService;
 import jakarta.persistence.EntityNotFoundException;
@@ -43,6 +44,7 @@ public class ItemServiceImpl implements ItemService {
                 .itemId(item.getId())
                 .station(item.getStation())
                 .itemName(item.getItemName())
+                .itemType(item.getItemType())
                 .sortOrder(item.getSortOrder())
                 .itemActive(item.getItemActive())
                 .shelfLife(item.getShelfLife())
@@ -189,6 +191,7 @@ public class ItemServiceImpl implements ItemService {
 
         ItemEntity item = ItemEntity.builder()
                 .itemName(dto.getItemName())
+                .itemType(dto.getItemType() == null ? ItemType.FOOD_PREP : dto.getItemType())
                 .itemActive(dto.getItemActive())
                 .shelfLife(dto.getShelfLife())
                 .panSize(dto.getPanSize())
@@ -246,6 +249,11 @@ public class ItemServiceImpl implements ItemService {
         if (dto.getItemName() != null && !dto.getItemName().equals(existing.getItemName())) {
             oldValues.put("itemName", existing.getItemName());
             existing.setItemName(dto.getItemName());
+        }
+
+        if (dto.getItemType() != null && !dto.getItemType().equals(existing.getItemType())) {
+            oldValues.put("itemType", existing.getItemType());
+            existing.setItemType(dto.getItemType());
         }
 
         if (dto.getItemActive() != null && !dto.getItemActive().equals(existing.getItemActive())) {

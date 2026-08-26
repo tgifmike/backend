@@ -1,6 +1,7 @@
 package com.backend.backend.dto;
 
 import com.backend.backend.enums.ItemTempCategory;
+import com.backend.backend.enums.ItemType;
 import jakarta.validation.constraints.NotNull;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -17,6 +18,8 @@ public class ItemCreateDto {
 
     @NotNull
     private String ItemName;
+
+    private ItemType itemType = ItemType.FOOD_PREP;
 
     private Boolean itemActive = true;
     private String shelfLife;

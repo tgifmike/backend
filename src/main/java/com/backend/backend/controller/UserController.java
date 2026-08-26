@@ -5,11 +5,13 @@ import com.backend.backend.config.UserContext;
 import com.backend.backend.dto.*;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.entity.UserHistoryEntity;
+import com.backend.backend.enums.AccessRole;
 import com.backend.backend.repositories.UserHistoryRepository;
 import com.backend.backend.repositories.UserRepository;
 import com.backend.backend.service.TokenService;
 import com.backend.backend.service.UserService;
 import com.nimbusds.jwt.SignedJWT;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,6 +27,7 @@ import java.util.*;
 })
 @RestController
 @RequestMapping("/users")
+@Slf4j
 public class UserController {
 
 
@@ -346,7 +349,7 @@ public class UserController {
                     userService.inviteUser(
                             request.getEmail(),
                             request.getAppRole(),
-                            request.getAccessRole(),
+                            AccessRole.USER.name(),
                             request.getAccountId(),
                             inviterName
                     );
@@ -355,20 +358,33 @@ public class UserController {
                     .body(Map.of(
                             "message", "Invitation sent successfully",
                             "userId", user.getId(),
-                            "email", user.getUserEmail()
+                            "email", user.getUserEmail(),
+                            "firstLogin", user.isFirstLogin(),
+                            "invited", user.isInvited()
                     ));
 
         } catch (ResponseStatusException ex) {
+
+            log.warn(
+                    "Invitation failed for {}: {}",
+                    request.getEmail(),
+                    ex.getReason(),
+                    ex
+            );
 
             return ResponseEntity.status(ex.getStatusCode())
                     .body(Map.of("error", ex.getReason()));
 
         } catch (IllegalArgumentException ex) {
 
+            log.warn("Invalid invitation request for {}", request.getEmail(), ex);
+
             return ResponseEntity.badRequest()
                     .body(Map.of("error", ex.getMessage()));
 
         } catch (Exception ex) {
+
+            log.error("Unexpected invitation failure for {}", request.getEmail(), ex);
 
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Failed to send invitation"));

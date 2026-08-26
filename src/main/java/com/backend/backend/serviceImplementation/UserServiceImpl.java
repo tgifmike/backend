@@ -22,19 +22,27 @@ import com.backend.backend.service.EmailService;
 import com.backend.backend.service.EmailTemplateService;
 import com.backend.backend.service.UserService;
 import jakarta.transaction.Transactional;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.UriComponentsBuilder;
+import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 import java.util.*;
 
 @Service
+@Slf4j
 public class UserServiceImpl implements UserService {
 
     @Value("${jwt.secret}")
     private String secret;
+
+    @Value("${frontend.redirect.url:http://localhost:3000}")
+    private String frontendRedirectUrl;
 
     private static final String APPLE_REVIEW_EMAIL = "testingtml4@gmail.com";
 
@@ -330,6 +338,7 @@ public class UserServiceImpl implements UserService {
         validateUserStatus(user);
 
         boolean updated = false;
+        boolean firstLogin = user.isFirstLogin();
 
         if (linkProvider(user, incomingUser)) {
             updated = true;
@@ -347,7 +356,7 @@ public class UserServiceImpl implements UserService {
             updated = true;
         }
 
-        if (user.isFirstLogin()) {
+        if (firstLogin) {
             user.setFirstLogin(false);
             updated = true;
         }
@@ -368,7 +377,8 @@ public class UserServiceImpl implements UserService {
                 user.getAppRole().name(),
                 user.getAccessRole().name(),
                 hasAccess,
-                user.getUserImage()
+                user.getUserImage(),
+                firstLogin
         );
     }
 
@@ -426,6 +436,13 @@ public class UserServiceImpl implements UserService {
         AccessRole parsedAccess = AccessRole.valueOf(accessRole.toUpperCase());
         AppRole parsedApp = AppRole.valueOf(appRole.toUpperCase());
 
+        if (parsedApp != AppRole.MANAGER && parsedApp != AppRole.MEMBER) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invited users must be Manager or Member"
+            );
+        }
+
         UserEntity user = userRepository
                 .findByUserEmailIgnoreCase(normalizedEmail)
                 .orElse(null);
@@ -447,12 +464,12 @@ public class UserServiceImpl implements UserService {
 
         user = userRepository.save(user);
 
-        resolveAccountAccessIfPresent(accountId, user);
+        AccountEntity account = resolveAccountAccessIfPresent(accountId, user);
 
         sendInviteEmail(
                 normalizedEmail,
                 inviterName,
-                "Your Organization",
+                account != null ? account.getAccountName() : "No account assigned",
                 parsedApp.name(),
                 parsedAccess.name()
         );
@@ -602,6 +619,8 @@ public class UserServiceImpl implements UserService {
                 .userEmail(user.getUserEmail())
                 .userImage(user.getUserImage())
                 .userActive(user.isUserActive())
+                .firstLogin(user.isFirstLogin())
+                .invited(user.isInvited())
                 .accessRole(user.getAccessRole().name())
                 .appRole(user.getAppRole().name())
                 .createdAt(user.getCreatedAt())
@@ -651,13 +670,13 @@ public class UserServiceImpl implements UserService {
         );
     }
 
-    private void resolveAccountAccessIfPresent(
+    private AccountEntity resolveAccountAccessIfPresent(
             String accountId,
             UserEntity user
     ) {
 
         if (accountId == null || accountId.isBlank()) {
-            return;
+            return null;
         }
 
         UUID uuid = UUID.fromString(accountId);
@@ -678,8 +697,10 @@ public class UserServiceImpl implements UserService {
             access.setUser(user);
             access.setAccount(account);
 
-            userAccountAccessRepository.save(access);
+            userAccountAccessRepository.saveAndFlush(access);
         }
+
+        return account;
     }
 
     private void sendInviteEmail(
@@ -690,8 +711,14 @@ public class UserServiceImpl implements UserService {
             String accessRole
     ) {
 
-        String loginUrl =
-                "https://www.themanagerlife.com/login?email=" + email;
+        String frontendBaseUrl = frontendRedirectUrl.replaceAll("/+$", "");
+        String loginUrl = UriComponentsBuilder
+                .fromUriString(frontendBaseUrl)
+                .path("/login")
+                .queryParam("email", email)
+                .build()
+                .encode()
+                .toUriString();
 
         String subject =
                 inviterName + " invited you to join The Manager Life";
@@ -723,11 +750,52 @@ public class UserServiceImpl implements UserService {
                         loginUrl
                 );
 
-        emailService.sendMultipartEmail(
-                email,
-                subject,
-                text,
-                html
-        );
+        try {
+            emailService.sendMultipartEmail(
+                    email,
+                    subject,
+                    text,
+                    html
+            );
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == HttpStatus.UNAUTHORIZED.value()
+                    && "Forbidden".equalsIgnoreCase(ex.getResponseBodyAsString().trim())) {
+                log.warn(
+                        "Mailgun rejected the HTML invitation for {}; retrying once as plain text",
+                        email
+                );
+
+                try {
+                    emailService.sendEmail(
+                            email,
+                            subject,
+                            text
+                    );
+                    return;
+                } catch (RestClientException fallbackEx) {
+                    ex.addSuppressed(fallbackEx);
+                }
+            }
+
+            log.error(
+                    "Email provider rejected invitation for {} with status {}: {}",
+                    email,
+                    ex.getStatusCode(),
+                    ex.getResponseBodyAsString(),
+                    ex
+            );
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Invitation email provider rejected the request",
+                    ex
+            );
+        } catch (RestClientException ex) {
+            log.error("Email provider request failed for invitation to {}", email, ex);
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_GATEWAY,
+                    "Invitation email provider is unavailable",
+                    ex
+            );
+        }
     }
 }
