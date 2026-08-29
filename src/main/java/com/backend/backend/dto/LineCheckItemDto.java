@@ -7,6 +7,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+import java.time.Instant;
 import java.util.UUID;
 import java.util.List;
 
@@ -43,4 +44,15 @@ public class LineCheckItemDto {
     private String templateNotes;
     private Integer sortOrder;
     private List<LineCheckCriterionResponseDto> criterionResponses;
+
+    // Both names are supported for compatibility with existing clients.
+    @JsonProperty("isCorrected")
+    private Boolean isCorrected;
+    private Boolean corrected;
+    private String correctiveNotes;
+
+    // Set by the server when the item is first marked corrected.
+    private Instant correctedAt;
+    private UUID correctedBy;
+    private String correctedByName;
 }

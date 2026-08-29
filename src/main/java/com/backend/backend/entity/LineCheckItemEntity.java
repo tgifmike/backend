@@ -83,6 +83,9 @@ public class LineCheckItemEntity {
     @Column(name = "corrective_action")
     private String correctiveAction;
 
+    @Column(name = "corrective_notes", columnDefinition = "TEXT")
+    private String correctiveNotes;
+
     @Column(name = "corrected_at")
     private Instant correctedAt;
 
@@ -94,6 +97,6 @@ public class LineCheckItemEntity {
     private boolean requiresCorrection = false;
 
     @Column(name = "is_corrected", nullable = false)
-    private boolean isCorrected = false;
+    private Boolean isCorrected = false;
 
 }
