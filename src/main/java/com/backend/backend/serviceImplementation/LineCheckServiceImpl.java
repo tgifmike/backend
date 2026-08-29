@@ -1,5 +1,6 @@
 package com.backend.backend.serviceImplementation;
 
+import com.backend.backend.config.UserContext;
 import com.backend.backend.enums.StartOfWeek;
 import com.backend.backend.enums.ItemType;
 import com.backend.backend.enums.ResponseType;
@@ -207,6 +208,7 @@ public class LineCheckServiceImpl implements LineCheckService {
                 }
 
                 itemEntity.setRequiresCorrection(requiresCorrection(itemEntity));
+                applyCorrectionUpdate(itemEntity, itemDto);
 
                 lineCheckItemRepository.save(itemEntity);
             }
@@ -311,12 +313,62 @@ public class LineCheckServiceImpl implements LineCheckService {
         dto.setTemperature(e.getTemperature());  // ✅ user-entered
         dto.setObservations(e.getObservations()); // ✅ user-entered
         dto.setMissing(e.isMissing());
+        dto.setIsCorrected(Boolean.TRUE.equals(e.getIsCorrected()));
+        dto.setCorrected(Boolean.TRUE.equals(e.getIsCorrected()));
+        dto.setCorrectiveNotes(e.getCorrectiveNotes());
+        dto.setCorrectedAt(e.getCorrectedAt());
+        dto.setCorrectedBy(e.getCorrectedBy());
+        if (e.getCorrectedBy() != null) {
+            dto.setCorrectedByName(userRepository.findById(e.getCorrectedBy())
+                    .map(UserEntity::getUserName)
+                    .orElse(null));
+        }
         dto.setCriterionResponses(e.getCriterionResponses()
                 .stream()
                 .map(response -> convertCriterionResponseToDto(e, response))
                 .toList());
 
         return dto;
+    }
+
+    private void applyCorrectionUpdate(
+            LineCheckItemEntity entity,
+            LineCheckItemDto dto
+    ) {
+        Boolean corrected = dto.getIsCorrected();
+        if (corrected == null) {
+            corrected = dto.getCorrected();
+        }
+
+        // An omitted correction flag is an older-client payload. Preserve the
+        // existing status and audit data instead of accidentally reopening it.
+        if (corrected == null) {
+            if (dto.getCorrectiveNotes() != null) {
+                entity.setCorrectiveNotes(dto.getCorrectiveNotes());
+            }
+            return;
+        }
+
+        boolean wasCorrected = Boolean.TRUE.equals(entity.getIsCorrected());
+        boolean isNowCorrected = Boolean.TRUE.equals(corrected);
+
+        entity.setIsCorrected(isNowCorrected);
+        entity.setCorrectiveNotes(dto.getCorrectiveNotes());
+
+        if (isNowCorrected && !wasCorrected) {
+            UUID currentUserId = UserContext.getCurrentUser();
+            if (currentUserId == null) {
+                throw new ResponseStatusException(
+                        HttpStatus.UNAUTHORIZED,
+                        "An authenticated user is required to correct an item"
+                );
+            }
+            entity.setCorrectedBy(currentUserId);
+            entity.setCorrectedAt(Instant.now());
+        } else if (!isNowCorrected) {
+            entity.setCorrectedBy(null);
+            entity.setCorrectedAt(null);
+        }
     }
 
     private LineCheckCriterionResponseDto convertCriterionResponseToDto(
