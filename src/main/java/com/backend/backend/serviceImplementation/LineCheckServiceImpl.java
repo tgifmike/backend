@@ -1,6 +1,5 @@
 package com.backend.backend.serviceImplementation;
 
-import com.backend.backend.config.UserContext;
 import com.backend.backend.enums.StartOfWeek;
 import com.backend.backend.enums.ItemType;
 import com.backend.backend.enums.ResponseType;
@@ -208,7 +207,6 @@ public class LineCheckServiceImpl implements LineCheckService {
                 }
 
                 itemEntity.setRequiresCorrection(requiresCorrection(itemEntity));
-                applyCorrectionUpdate(itemEntity, itemDto);
 
                 lineCheckItemRepository.save(itemEntity);
             }
@@ -331,44 +329,37 @@ public class LineCheckServiceImpl implements LineCheckService {
         return dto;
     }
 
-    private void applyCorrectionUpdate(
-            LineCheckItemEntity entity,
-            LineCheckItemDto dto
+    @Override
+    @Transactional
+    public LineCheckItemDto updateCorrection(
+            UUID itemId,
+            LineCheckItemCorrectionRequestDto request,
+            UserEntity currentUser
     ) {
-        Boolean corrected = dto.getIsCorrected();
-        if (corrected == null) {
-            corrected = dto.getCorrected();
+        LineCheckItemEntity item = lineCheckItemRepository.findById(itemId)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Line check item not found"
+                ));
+
+        if (currentUser == null || currentUser.getId() == null) {
+            throw new ResponseStatusException(
+                    HttpStatus.UNAUTHORIZED,
+                    "An authenticated user is required to update a correction"
+            );
         }
 
-        // An omitted correction flag is an older-client payload. Preserve the
-        // existing status and audit data instead of accidentally reopening it.
-        if (corrected == null) {
-            if (dto.getCorrectiveNotes() != null) {
-                entity.setCorrectiveNotes(dto.getCorrectiveNotes());
-            }
-            return;
+        boolean corrected = Boolean.TRUE.equals(request.getCorrected());
+        item.setIsCorrected(corrected);
+        item.setCorrectiveNotes(request.getCorrectiveNotes());
+
+        // Reopening an item must not erase evidence of its previous correction.
+        if (corrected) {
+            item.setCorrectedBy(currentUser.getId());
+            item.setCorrectedAt(Instant.now());
         }
 
-        boolean wasCorrected = Boolean.TRUE.equals(entity.getIsCorrected());
-        boolean isNowCorrected = Boolean.TRUE.equals(corrected);
-
-        entity.setIsCorrected(isNowCorrected);
-        entity.setCorrectiveNotes(dto.getCorrectiveNotes());
-
-        if (isNowCorrected && !wasCorrected) {
-            UUID currentUserId = UserContext.getCurrentUser();
-            if (currentUserId == null) {
-                throw new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED,
-                        "An authenticated user is required to correct an item"
-                );
-            }
-            entity.setCorrectedBy(currentUserId);
-            entity.setCorrectedAt(Instant.now());
-        } else if (!isNowCorrected) {
-            entity.setCorrectedBy(null);
-            entity.setCorrectedAt(null);
-        }
+        return convertItemToDto(lineCheckItemRepository.save(item));
     }
 
     private LineCheckCriterionResponseDto convertCriterionResponseToDto(

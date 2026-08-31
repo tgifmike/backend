@@ -2,7 +2,10 @@ package com.backend.backend.service;
 
 import com.backend.backend.dto.DashboardMetricsDto;
 import com.backend.backend.dto.LineCheckDto;
+import com.backend.backend.dto.LineCheckItemCorrectionRequestDto;
+import com.backend.backend.dto.LineCheckItemDto;
 import com.backend.backend.entity.LineCheckEntity;
+import com.backend.backend.entity.UserEntity;
 
 import java.util.List;
 import java.util.UUID;
@@ -28,5 +31,10 @@ public interface LineCheckService {
     //void updateLineCheck(LineCheckSaveDto dto);
     List<LineCheckDto> getCompletedLineChecksByLocation(UUID locationId);
     DashboardMetricsDto getDashboardMetrics(UUID locationId);
-}
 
+    LineCheckItemDto updateCorrection(
+            UUID itemId,
+            LineCheckItemCorrectionRequestDto request,
+            UserEntity currentUser
+    );
+}
