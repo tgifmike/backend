@@ -1,8 +1,8 @@
 package com.backend.backend.serviceImplementation;
 
-import com.backend.backend.config.UserContext;
 import com.backend.backend.dto.LineCheckCriterionResponseDto;
 import com.backend.backend.dto.LineCheckDto;
+import com.backend.backend.dto.LineCheckItemCorrectionRequestDto;
 import com.backend.backend.dto.LineCheckItemDto;
 import com.backend.backend.dto.LineCheckStationDto;
 import com.backend.backend.entity.ItemCriterionEntity;
@@ -31,7 +31,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,83 +39,96 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 class LineCheckCriteriaServiceImplTest {
 
     @Test
-    void saveCorrectionRecordsAuthenticatedUserAndServerTime() {
-        UUID lineCheckId = UUID.randomUUID();
-        UUID stationCheckId = UUID.randomUUID();
-        UUID lineCheckItemId = UUID.randomUUID();
-        UUID correctingUserId = UUID.randomUUID();
+    void updateCorrectionStoresCurrentUserAndReturnsAuditDetails() {
+        UUID itemId = UUID.randomUUID();
+        UUID currentUserId = UUID.randomUUID();
 
-        UserEntity correctingUser = new UserEntity();
-        correctingUser.setId(correctingUserId);
-        correctingUser.setUserName("Shift Manager");
+        LineCheckItemEntity item = new LineCheckItemEntity();
+        item.setId(itemId);
+        item.setItem(item(ItemType.EQUIPMENT));
+        item.setPhotos(new ArrayList<>());
+        item.setCriterionResponses(new ArrayList<>());
 
-        LineCheckEntity lineCheck = new LineCheckEntity();
-        lineCheck.setId(lineCheckId);
-        lineCheck.setCheckTime(Instant.now().minusSeconds(60));
-
-        StationEntity station = new StationEntity();
-        station.setId(UUID.randomUUID());
-        station.setStationName("Walk-in cooler");
-
-        LineCheckStationEntity stationCheck = new LineCheckStationEntity();
-        stationCheck.setId(stationCheckId);
-        stationCheck.setLineCheck(lineCheck);
-        stationCheck.setStation(station);
-
-        LineCheckItemEntity lineCheckItem = new LineCheckItemEntity();
-        lineCheckItem.setId(lineCheckItemId);
-        lineCheckItem.setLineCheckStation(stationCheck);
-        lineCheckItem.setItem(item(ItemType.EQUIPMENT));
-        lineCheckItem.setPhotos(new ArrayList<>());
-        lineCheckItem.setCriterionResponses(new ArrayList<>());
-        stationCheck.setLineCheckItems(new ArrayList<>(List.of(lineCheckItem)));
-        lineCheck.setStations(Set.of(stationCheck));
-
-        LineCheckItemDto itemDto = new LineCheckItemDto();
-        itemDto.setId(lineCheckItemId);
-        itemDto.setIsCorrected(true);
-        itemDto.setCorrectiveNotes("Temperature adjusted and verified");
-        LineCheckStationDto stationDto = new LineCheckStationDto();
-        stationDto.setId(stationCheckId);
-        stationDto.setItems(List.of(itemDto));
-        LineCheckDto lineCheckDto = new LineCheckDto();
-        lineCheckDto.setId(lineCheckId);
-        lineCheckDto.setStations(List.of(stationDto));
+        UserEntity currentUser = new UserEntity();
+        currentUser.setId(currentUserId);
+        currentUser.setUserName("Closing Manager");
 
         LineCheckServiceImpl service = service(
-                proxy(LineCheckRepository.class, findByIdAndSave(lineCheckId, lineCheck)),
-                proxy(UserRepository.class, findById(correctingUserId, correctingUser)),
+                unsupported(LineCheckRepository.class),
+                proxy(UserRepository.class, findById(currentUserId, currentUser)),
                 unsupported(StationRepository.class),
-                proxy(
-                        LineCheckStationRepository.class,
-                        findById(stationCheckId, stationCheck)
-                ),
-                proxy(
-                        LineCheckItemRepository.class,
-                        findByIdAndSave(lineCheckItemId, lineCheckItem)
-                )
+                unsupported(LineCheckStationRepository.class),
+                proxy(LineCheckItemRepository.class, findByIdAndSave(itemId, item))
         );
 
-        Instant beforeSave = Instant.now();
-        UserContext.setCurrentUser(correctingUserId);
-        LineCheckDto result;
-        try {
-            result = service.saveLineCheck(lineCheckDto);
-        } finally {
-            UserContext.clear();
-        }
+        Instant beforeUpdate = Instant.now();
+        LineCheckItemDto result = service.updateCorrection(
+                itemId,
+                new LineCheckItemCorrectionRequestDto(
+                        true,
+                        "Reheated to the required temperature"
+                ),
+                currentUser
+        );
 
-        LineCheckItemDto savedItem = result.getStations().getFirst().getItems().getFirst();
-        assertThat(lineCheckItem.getIsCorrected()).isTrue();
-        assertThat(lineCheckItem.getCorrectedBy()).isEqualTo(correctingUserId);
-        assertThat(lineCheckItem.getCorrectedAt()).isAfterOrEqualTo(beforeSave);
-        assertThat(savedItem.getIsCorrected()).isTrue();
-        assertThat(savedItem.getCorrected()).isTrue();
-        assertThat(savedItem.getCorrectiveNotes())
-                .isEqualTo("Temperature adjusted and verified");
-        assertThat(savedItem.getCorrectedBy()).isEqualTo(correctingUserId);
-        assertThat(savedItem.getCorrectedByName()).isEqualTo("Shift Manager");
-        assertThat(savedItem.getCorrectedAt()).isNotNull();
+        assertThat(item.getIsCorrected()).isTrue();
+        assertThat(item.getCorrectiveNotes())
+                .isEqualTo("Reheated to the required temperature");
+        assertThat(item.getCorrectedBy()).isEqualTo(currentUserId);
+        assertThat(item.getCorrectedAt()).isAfterOrEqualTo(beforeUpdate);
+        assertThat(result.getCorrected()).isTrue();
+        assertThat(result.getCorrectedBy()).isEqualTo(currentUserId);
+        assertThat(result.getCorrectedByName()).isEqualTo("Closing Manager");
+        assertThat(result.getCorrectedAt()).isNotNull();
+    }
+
+    @Test
+    void updateCorrectionPreservesAuditDetailsWhenMarkedUncorrected() {
+        UUID itemId = UUID.randomUUID();
+        UUID originalCorrectingUserId = UUID.randomUUID();
+        UUID currentUserId = UUID.randomUUID();
+        Instant originalCorrectedAt = Instant.now().minusSeconds(300);
+
+        LineCheckItemEntity item = new LineCheckItemEntity();
+        item.setId(itemId);
+        item.setItem(item(ItemType.EQUIPMENT));
+        item.setPhotos(new ArrayList<>());
+        item.setCriterionResponses(new ArrayList<>());
+        item.setIsCorrected(true);
+        item.setCorrectedBy(originalCorrectingUserId);
+        item.setCorrectedAt(originalCorrectedAt);
+
+        UserEntity originalCorrectingUser = new UserEntity();
+        originalCorrectingUser.setId(originalCorrectingUserId);
+        originalCorrectingUser.setUserName("Opening Manager");
+
+        UserEntity currentUser = new UserEntity();
+        currentUser.setId(currentUserId);
+
+        LineCheckServiceImpl service = service(
+                unsupported(LineCheckRepository.class),
+                proxy(
+                        UserRepository.class,
+                        findById(originalCorrectingUserId, originalCorrectingUser)
+                ),
+                unsupported(StationRepository.class),
+                unsupported(LineCheckStationRepository.class),
+                proxy(LineCheckItemRepository.class, findByIdAndSave(itemId, item))
+        );
+
+        LineCheckItemDto result = service.updateCorrection(
+                itemId,
+                new LineCheckItemCorrectionRequestDto(false, "Needs another check"),
+                currentUser
+        );
+
+        assertThat(item.getIsCorrected()).isFalse();
+        assertThat(item.getCorrectedBy()).isEqualTo(originalCorrectingUserId);
+        assertThat(item.getCorrectedAt()).isEqualTo(originalCorrectedAt);
+        assertThat(result.getCorrected()).isFalse();
+        assertThat(result.getCorrectedBy()).isEqualTo(originalCorrectingUserId);
+        assertThat(result.getCorrectedByName()).isEqualTo("Opening Manager");
+        assertThat(result.getCorrectedAt()).isEqualTo(originalCorrectedAt);
     }
 
     @Test

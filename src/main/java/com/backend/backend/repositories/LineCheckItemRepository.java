@@ -9,10 +9,14 @@ import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface LineCheckItemRepository extends JpaRepository<LineCheckItemEntity, UUID> {
+
+    @Override
+    Optional<LineCheckItemEntity> findById(UUID id);
 
     List<LineCheckItemEntity> findByLineCheckStation_Id(UUID stationId);
 
@@ -455,6 +459,5 @@ LIMIT 5
             @Param("startDate") Instant startDate,
             @Param("endDate") Instant endDate
     );
-
 
 }

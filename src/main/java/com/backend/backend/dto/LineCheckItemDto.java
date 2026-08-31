@@ -46,13 +46,18 @@ public class LineCheckItemDto {
     private List<LineCheckCriterionResponseDto> criterionResponses;
 
     // Both names are supported for compatibility with existing clients.
-    @JsonProperty("isCorrected")
+    @JsonProperty(value = "isCorrected", access = JsonProperty.Access.READ_ONLY)
     private Boolean isCorrected;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Boolean corrected;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String correctiveNotes;
 
-    // Set by the server when the item is first marked corrected.
+    // Audit values are set by the dedicated correction endpoint.
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private Instant correctedAt;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private UUID correctedBy;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String correctedByName;
 }
