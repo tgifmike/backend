@@ -5,10 +5,13 @@ import com.backend.backend.dto.LineCheckDto;
 import com.backend.backend.service.LineCheckService;
 import com.backend.backend.repositories.StationRepository;
 import com.backend.backend.repositories.UserRepository;
+import com.backend.backend.security.PinActionPrincipal;
+import com.backend.backend.service.PinActionAuthorizationService;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
 
 import java.util.List;
 import java.util.UUID;
@@ -21,6 +24,7 @@ public class LineCheckController {
     private final LineCheckService lineCheckService;
     private final UserRepository userRepository;
     private final StationRepository stationRepository;
+    private final PinActionAuthorizationService pinActionAuthorizationService;
 
         // ---------------------------------------------------------
         // CREATE INITIAL LINE CHECK (before user fills items)
@@ -28,9 +32,18 @@ public class LineCheckController {
         @PostMapping("/create")
         public ResponseEntity<LineCheckDto> createLineCheck(
                 @RequestParam("userId") UUID userId,
-                @RequestBody List<UUID> stationIds
+                @RequestBody List<UUID> stationIds,
+                Authentication authentication
         ) {
-            LineCheckDto saved = lineCheckService.createLineCheck(userId, stationIds);
+            PinActionPrincipal pinPrincipal = pinPrincipal(authentication);
+            UUID effectiveUserId = pinPrincipal != null ? pinPrincipal.userId() : userId;
+            if (pinPrincipal != null) {
+                pinActionAuthorizationService.validateCreate(pinPrincipal, effectiveUserId, stationIds);
+            }
+            LineCheckDto saved = lineCheckService.createLineCheck(effectiveUserId, stationIds);
+            if (pinPrincipal != null) {
+                pinActionAuthorizationService.recordOnlineAuthentication(saved.getId(), pinPrincipal);
+            }
             return ResponseEntity.ok(saved);
         }
 
@@ -60,9 +73,19 @@ public class LineCheckController {
         // SAVE COMPLETED LINE CHECK (mobile app submit)
         // ---------------------------------------------------------
     @PostMapping("/save")
-    public ResponseEntity<LineCheckDto> saveLineCheck(@RequestBody LineCheckDto dto) {
+    public ResponseEntity<LineCheckDto> saveLineCheck(@RequestBody LineCheckDto dto, Authentication authentication) {
+        PinActionPrincipal pinPrincipal = pinPrincipal(authentication);
+        if (pinPrincipal != null) {
+            pinActionAuthorizationService.validateSave(pinPrincipal, dto.getId(), dto.getUserId());
+        }
         LineCheckDto saved = lineCheckService.saveLineCheck(dto);
         return ResponseEntity.ok(saved);
+    }
+
+    private static PinActionPrincipal pinPrincipal(Authentication authentication) {
+        return authentication != null && authentication.getPrincipal() instanceof PinActionPrincipal principal
+                ? principal
+                : null;
     }
 
         //get linecheck complted and by locaion
@@ -100,7 +123,5 @@ public class LineCheckController {
     }
 
 }
-
-
 
 

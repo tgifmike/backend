@@ -1,7 +1,6 @@
 package com.backend.backend.controller;
 
-import com.auth0.jwt.JWT;
-import com.auth0.jwt.interfaces.DecodedJWT;
+import com.backend.backend.config.AppleIdTokenVerifier;
 import com.backend.backend.dto.LoginResponse;
 import com.backend.backend.dto.apple.AppleTokenResponse;
 import com.backend.backend.dto.google.GoogleTokenResponse;
@@ -54,13 +53,15 @@ public class AuthController {
     private final GoogleUserInfoService googleUserInfoService;
     private final UserService userService;
     private final AppleOAuthService appleOAuthService;
+    private final AppleIdTokenVerifier appleIdTokenVerifier;
 
     public AuthController(
 
             GoogleOAuthService googleOAuthService,
             GoogleUserInfoService googleUserInfoService,
             UserService userService,
-            AppleOAuthService appleOAuthService
+            AppleOAuthService appleOAuthService,
+            AppleIdTokenVerifier appleIdTokenVerifier
 
     ) {
 
@@ -68,6 +69,7 @@ public class AuthController {
         this.googleUserInfoService = googleUserInfoService;
         this.userService = userService;
         this.appleOAuthService = appleOAuthService;
+        this.appleIdTokenVerifier = appleIdTokenVerifier;
     }
 
 
@@ -147,7 +149,6 @@ public class AuthController {
                         + "&scope=name email";
 
         response.sendRedirect(url);
-        System.out.println("APPLE TOKEN REDIRECT URI = " + appleRedirectUri);
     }
 
     @PostMapping("/apple/callback")
@@ -156,23 +157,12 @@ public class AuthController {
             HttpServletResponse response
     ) throws IOException {
 
-        System.out.println("🍎 APPLE CALLBACK CONTROLLER HIT");
-        System.out.println("METHOD = " + request.getMethod());
-        System.out.println("CONTENT TYPE = " + request.getContentType());
-
         try {
 
             // Apple sends form POST params
             String code = request.getParameter("code");
-            String state = request.getParameter("state");
-            String userParam = request.getParameter("user");
-
-            System.out.println("APPLE CODE PRESENT = " + (code != null));
-            System.out.println("APPLE STATE = " + state);
-            System.out.println("APPLE USER PARAM = " + userParam);
 
             if (code == null || code.isBlank()) {
-                System.out.println("❌ Apple callback missing code");
                 response.sendError(
                         HttpServletResponse.SC_BAD_REQUEST,
                         "Missing Apple authorization code"
@@ -185,7 +175,6 @@ public class AuthController {
                     appleOAuthService.exchangeCodeForToken(code);
 
             if (tokenResponse == null) {
-                System.out.println("❌ Apple token response null");
                 response.sendError(
                         HttpServletResponse.SC_UNAUTHORIZED,
                         "Apple token exchange failed"
@@ -196,7 +185,6 @@ public class AuthController {
             String idToken = tokenResponse.getIdToken();
 
             if (idToken == null || idToken.isBlank()) {
-                System.out.println("❌ Apple ID token missing");
                 response.sendError(
                         HttpServletResponse.SC_UNAUTHORIZED,
                         "Missing Apple ID token"
@@ -204,14 +192,11 @@ public class AuthController {
                 return;
             }
 
-            // Decode identity token
-            DecodedJWT jwt = JWT.decode(idToken);
-
-            String appleId = jwt.getSubject();
-            String email = jwt.getClaim("email").asString();
+            var claims = appleIdTokenVerifier.verify(idToken);
+            String appleId = claims.getSubject();
+            String email = (String) claims.getClaim("email");
 
             if (appleId == null || appleId.isBlank()) {
-                System.out.println("❌ Apple subject missing");
                 response.sendError(
                         HttpServletResponse.SC_UNAUTHORIZED,
                         "Invalid Apple identity token"
@@ -223,9 +208,6 @@ public class AuthController {
             if (email == null || email.isBlank()) {
                 email = appleId + "@apple.local";
             }
-
-            System.out.println("APPLE USER ID = " + appleId);
-            System.out.println("APPLE EMAIL = " + email);
 
             // Create / login user
             UserEntity user = new UserEntity();
@@ -245,9 +227,6 @@ public class AuthController {
             String destination = frontendRedirectUrl + "/dashboard"
                     + (login.firstLogin() ? "?welcome=1" : "");
 
-            System.out.println("✅ Apple login success");
-            System.out.println("REDIRECTING TO = " + destination);
-
             response.sendRedirect(destination);
 
         } catch (OAuthUserNotRegisteredException e) {
@@ -255,8 +234,6 @@ public class AuthController {
             response.sendRedirect(frontendRedirectUrl + "/unauthorized");
 
         } catch (Exception e) {
-
-            e.printStackTrace();
 
             response.sendError(
                     HttpServletResponse.SC_INTERNAL_SERVER_ERROR,

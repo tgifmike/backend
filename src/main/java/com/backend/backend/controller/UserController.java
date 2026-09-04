@@ -1,6 +1,8 @@
 package com.backend.backend.controller;
 
 import com.backend.backend.config.GoogleTokenVerifier;
+import com.backend.backend.config.AppleIdTokenVerifier;
+import com.backend.backend.service.AccountAuthorizationService;
 import com.backend.backend.config.UserContext;
 import com.backend.backend.dto.*;
 import com.backend.backend.entity.UserEntity;
@@ -8,9 +10,7 @@ import com.backend.backend.entity.UserHistoryEntity;
 import com.backend.backend.enums.AccessRole;
 import com.backend.backend.repositories.UserHistoryRepository;
 import com.backend.backend.repositories.UserRepository;
-import com.backend.backend.service.TokenService;
 import com.backend.backend.service.UserService;
-import com.nimbusds.jwt.SignedJWT;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.http.HttpStatus;
@@ -34,22 +34,25 @@ public class UserController {
 
     private final UserService userService;
     private final UserRepository userRepository;
-    private final TokenService tokenService;
     private final UserHistoryRepository userHistoryRepository;
+    private final AppleIdTokenVerifier appleIdTokenVerifier;
+    private final AccountAuthorizationService accountAuthorizationService;
 
 
 
     public UserController(
             UserService userService,
             UserRepository userRepository,
-            TokenService tokenService,
-            UserHistoryRepository userHistoryRepository
+            UserHistoryRepository userHistoryRepository,
+            AppleIdTokenVerifier appleIdTokenVerifier,
+            AccountAuthorizationService accountAuthorizationService
 
     ) {
         this.userService = userService;
         this.userRepository = userRepository;
-        this.tokenService = tokenService;
         this.userHistoryRepository = userHistoryRepository;
+        this.appleIdTokenVerifier = appleIdTokenVerifier;
+        this.accountAuthorizationService = accountAuthorizationService;
     }
 
 
@@ -204,19 +207,9 @@ public class UserController {
                 }
 
                 case "apple" -> {
-
-                    var jwt =
-                            SignedJWT.parse(idToken);
-
-                    oauthUser.setAppleId(
-                            jwt.getJWTClaimsSet().getSubject()
-                    );
-
-                    oauthUser.setUserEmail(
-                            (String)
-                                    jwt.getJWTClaimsSet()
-                                            .getClaim("email")
-                    );
+                    var claims = appleIdTokenVerifier.verify(idToken);
+                    oauthUser.setAppleId(claims.getSubject());
+                    oauthUser.setUserEmail((String) claims.getClaim("email"));
                 }
 
                 default -> throw new RuntimeException(
@@ -226,9 +219,6 @@ public class UserController {
 
             LoginResponse response =
                     userService.handleOAuthLogin(oauthUser);
-
-            System.out.println("PROVIDER = " + provider);
-            System.out.println("TOKEN = " + idToken.substring(0,30));
 
             return ResponseEntity.ok(response);
 
@@ -336,6 +326,13 @@ public class UserController {
             if (currentUserId == null) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                         .body(Map.of("error", "Unauthorized"));
+            }
+
+            if (request.getAccountId() != null && !request.getAccountId().isBlank()) {
+                accountAuthorizationService.requireCanManageAccount(
+                        currentUserId,
+                        UUID.fromString(request.getAccountId())
+                );
             }
 
             UserEntity inviter = userService.getUserById(currentUserId);

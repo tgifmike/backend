@@ -8,10 +8,14 @@ import com.backend.backend.entity.UserEntity;
 import com.backend.backend.repositories.LocationHistoryRepository;
 import com.backend.backend.service.LocationService;
 import com.backend.backend.service.UserService;
+import com.backend.backend.service.UserLocationAccessService;
+import com.backend.backend.security.PinActionPrincipal;
+import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
+import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 import java.util.Map;
@@ -24,13 +28,24 @@ public class LocationController {
     private final LocationService locationService;
     private final UserService userService;
     private final LocationHistoryRepository locationHistoryRepository;
+    private final UserLocationAccessService userLocationAccessService;
 
+    @Autowired
     public LocationController(LocationService locationService,
                               UserService userService,
-                              LocationHistoryRepository locationHistoryRepository) {
+                              LocationHistoryRepository locationHistoryRepository,
+                              UserLocationAccessService userLocationAccessService) {
         this.locationService = locationService;
         this.userService = userService;
         this.locationHistoryRepository = locationHistoryRepository;
+        this.userLocationAccessService = userLocationAccessService;
+    }
+
+    /** Compatibility constructor for lightweight controller tests. */
+    public LocationController(LocationService locationService,
+                              UserService userService,
+                              LocationHistoryRepository locationHistoryRepository) {
+        this(locationService, userService, locationHistoryRepository, null);
     }
 
     @GetMapping("/getAllLocations")
@@ -39,7 +54,16 @@ public class LocationController {
     }
 
     @GetMapping("/accounts/{accountId}/locations")
-    public ResponseEntity<List<LocationEntity>> getLocationsForAccount(@PathVariable UUID accountId) {
+    public ResponseEntity<List<LocationEntity>> getLocationsForAccount(
+            @PathVariable UUID accountId, Authentication authentication) {
+        if (authentication != null && authentication.getPrincipal() instanceof PinActionPrincipal principal) {
+            if (!principal.accountId().equals(accountId)) {
+                throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Account access denied");
+            }
+            return ResponseEntity.ok(userLocationAccessService.getLocationsForUser(principal.userId()).stream()
+                    .filter(location -> location.getAccount() != null && accountId.equals(location.getAccount().getId()))
+                    .toList());
+        }
         return ResponseEntity.ok(locationService.getLocationByAccount(accountId));
     }
 

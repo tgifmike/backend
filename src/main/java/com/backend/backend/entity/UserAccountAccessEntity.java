@@ -11,7 +11,13 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@Table(name = "user_account_access")
+@Table(
+        name = "user_account_access",
+        uniqueConstraints = @UniqueConstraint(
+                name = "uk_user_account_access_user_account",
+                columnNames = {"user_id", "account_id"}
+        )
+)
 public class UserAccountAccessEntity {
 
     @Id
@@ -44,4 +50,3 @@ public class UserAccountAccessEntity {
         updatedAt = LocalDateTime.now();
     }
 }
-
