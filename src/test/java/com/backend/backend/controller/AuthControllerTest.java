@@ -55,6 +55,7 @@ class AuthControllerTest {
                 googleOAuthService,
                 googleUserInfoService,
                 userService,
+                null,
                 null
         );
         ReflectionTestUtils.setField(

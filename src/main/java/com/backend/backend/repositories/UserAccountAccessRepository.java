@@ -12,7 +12,8 @@ import java.util.UUID;
 
 public interface UserAccountAccessRepository extends JpaRepository<UserAccountAccessEntity, UUID> {
     List<UserAccountAccessEntity> findByUser(UserEntity user);
-    List<UserAccountAccessEntity> findByAccount(AccountEntity account);
+    @Query("SELECT access FROM UserAccountAccessEntity access JOIN FETCH access.user WHERE access.account = :account")
+    List<UserAccountAccessEntity> findByAccount(@Param("account") AccountEntity account);
     boolean existsByUserAndAccount(UserEntity user, AccountEntity account);
     boolean existsByUserIdAndAccountId(UUID userId, UUID accountId);
 

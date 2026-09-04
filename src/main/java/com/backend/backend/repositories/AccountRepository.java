@@ -3,15 +3,21 @@ package com.backend.backend.repositories;
 import com.backend.backend.entity.AccountEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import jakarta.persistence.LockModeType;
 
 @Repository
 public interface AccountRepository extends JpaRepository<AccountEntity, UUID> {
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT a FROM AccountEntity a WHERE a.id = :id")
+    Optional<AccountEntity> findByIdForUpdate(@Param("id") UUID id);
 
     // Find by account name
     Optional<AccountEntity> findByAccountName(String accountName);

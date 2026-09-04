@@ -3,12 +3,15 @@ package com.backend.backend.controller;
 import com.backend.backend.dto.AccountDto;
 import com.backend.backend.dto.LocationDto;
 import com.backend.backend.dto.UserDto;
+import com.backend.backend.dto.AccountUserDto;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserAccountAccessEntity;
 import com.backend.backend.entity.UserEntity;
 import com.backend.backend.service.AccountService;
 import com.backend.backend.service.UserAccountAccessService;
 import com.backend.backend.service.UserService;
+import com.backend.backend.service.UserAccountPinService;
+import com.backend.backend.service.AccountAuthorizationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -28,11 +31,21 @@ public class UserAccountAccessController {
     private final UserAccountAccessService userAccountAccessService;
     private final UserService userService;
     private final AccountService accountService;
+    private final UserAccountPinService pinService;
+    private final AccountAuthorizationService authorizationService;
 
-    public UserAccountAccessController(UserAccountAccessService userAccountAccessService, UserService userService, AccountService accountService) {
+    public UserAccountAccessController(
+            UserAccountAccessService userAccountAccessService,
+            UserService userService,
+            AccountService accountService,
+            UserAccountPinService pinService,
+            AccountAuthorizationService authorizationService
+    ) {
         this.userAccountAccessService = userAccountAccessService;
         this.userService = userService;
         this.accountService = accountService;
+        this.pinService = pinService;
+        this.authorizationService = authorizationService;
     }
 
     @GetMapping("/{userId}/accounts")
@@ -52,25 +65,8 @@ public class UserAccountAccessController {
 
 
     @GetMapping("/{accountId}/getUsersForAccount")
-    public ResponseEntity<List<UserDto>> getUsersForAccount(@PathVariable UUID accountId){
-        AccountEntity account = accountService.getAccountById(accountId);
-        List<UserDto> users = userAccountAccessService.getUsersForAccount(account)
-                .stream()
-                .map( access -> new UserDto(
-                        access.getUser().getId(),
-                        access.getUser().getUserName(),
-                        access.getUser().getUserEmail(),
-                        access.getUser().getUserImage(),
-                        access.getUser().isUserActive(),
-                        access.getUser().isFirstLogin(),
-                        access.getUser().isInvited(),
-                        access.getUser().getAccessRole().name(),
-                        access.getUser().getAppRole().name(),
-                        access.getUser().getCreatedAt(),
-                        access.getUser().getUpdatedAt()
-                ))
-                .toList();
-        return  ResponseEntity.ok(users);
+    public ResponseEntity<List<AccountUserDto>> getUsersForAccount(@PathVariable UUID accountId){
+        return ResponseEntity.ok(pinService.getAccountUsers(accountId, authorizationService.currentActorId()));
     }
 
 
@@ -80,6 +76,7 @@ public class UserAccountAccessController {
     @PostMapping("/{userId}/accounts/{accountId}")
     public UserAccountAccessEntity grantAccess(@PathVariable UUID userId,
                                                @PathVariable UUID accountId) {
+        authorizationService.requireCanManageAccount(authorizationService.currentActorId(), accountId);
         UserEntity user = userService.getUserById(userId);
         AccountEntity account = accountService.getAccountById(accountId);
         return userAccountAccessService.grantAccess(user, account);
@@ -88,6 +85,7 @@ public class UserAccountAccessController {
     @DeleteMapping("/{userId}/accounts/{accountId}")
     public void revokeAccess(@PathVariable UUID userId,
                              @PathVariable UUID accountId) {
+        authorizationService.requireCanManageAccount(authorizationService.currentActorId(), accountId);
         UserEntity user = userService.getUserById(userId);
         AccountEntity account = accountService.getAccountById(accountId);
         userAccountAccessService.revokeAccess(user, account);

@@ -36,7 +36,9 @@ public class CorsConfig {
         config.setAllowedHeaders(List.of(
                 "Content-Type",
                 "Authorization",
-                "X-User-Id"
+                "X-User-Id",
+                "X-Device-Id",
+                "X-Correlation-Id"
         ));
 
         config.setAllowCredentials(true);

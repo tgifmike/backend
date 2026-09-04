@@ -16,11 +16,18 @@ public class UserLocationAccessController {
     private final UserLocationAccessService userLocationAccessService;
     private final UserService userService;
     private final LocationService locationService;
+    private final AccountAuthorizationService authorizationService;
 
-    public UserLocationAccessController(UserLocationAccessService userLocationAccessService, UserService userService, LocationService locationService) {
+    public UserLocationAccessController(
+            UserLocationAccessService userLocationAccessService,
+            UserService userService,
+            LocationService locationService,
+            AccountAuthorizationService authorizationService
+    ) {
         this.userLocationAccessService = userLocationAccessService;
         this.userService = userService;
         this.locationService = locationService;
+        this.authorizationService = authorizationService;
     }
 
 //    @GetMapping("/{userId}/locations")
@@ -53,6 +60,9 @@ public class UserLocationAccessController {
                                                 @PathVariable UUID locationId) {
         UserEntity user = userService.getUserById(userId);
         LocationEntity location = locationService.getLocationById(locationId);
+        authorizationService.requireCanManageAccount(
+                authorizationService.currentActorId(), location.getAccount().getId()
+        );
         return userLocationAccessService.grantAccess(user, location);
     }
 
@@ -61,6 +71,9 @@ public class UserLocationAccessController {
                              @PathVariable UUID locationId) {
         UserEntity user = userService.getUserById(userId);
         LocationEntity location = locationService.getLocationById(locationId);
+        authorizationService.requireCanManageAccount(
+                authorizationService.currentActorId(), location.getAccount().getId()
+        );
         userLocationAccessService.revokeAccess(user, location);
     }
 

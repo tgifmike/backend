@@ -54,16 +54,6 @@ public class LineCheckPhotoController {
         // =====================================================
 
 
-        System.out.println("================================");
-        System.out.println("UPLOAD PHOTO DEBUG");
-        System.out.println("file object = " + file);
-        System.out.println("file name = " + file.getOriginalFilename());
-        System.out.println("file size = " + file.getSize());
-        System.out.println("file empty = " + file.isEmpty());
-        System.out.println("content type = " + file.getContentType());
-        System.out.println("photo type = " + photoType);
-        System.out.println("================================");
-
         LineCheckItemEntity lineCheckItem =
                 lineCheckItemRepository.findById(lineCheckItemId)
                         .orElseThrow(() ->

@@ -41,6 +41,12 @@ public class UserServiceImpl implements UserService {
     @Value("${jwt.secret}")
     private String secret;
 
+    @Value("${jwt.issuer:the-manager-life}")
+    private String jwtIssuer;
+
+    @Value("${jwt.audience:the-manager-life-api}")
+    private String jwtAudience;
+
     @Value("${frontend.redirect.url:http://localhost:3000}")
     private String frontendRedirectUrl;
 
@@ -490,10 +496,17 @@ public class UserServiceImpl implements UserService {
     @Override
     public String generateJwtForUser(UserEntity user) {
 
+        if (secret == null || secret.length() < 32) {
+            throw new IllegalStateException("JWT_SECRET must contain at least 32 characters");
+        }
+
         Algorithm algorithm = Algorithm.HMAC256(secret);
 
         return JWT.create()
                 .withSubject(user.getId().toString())
+                .withIssuer(jwtIssuer)
+                .withAudience(jwtAudience)
+                .withIssuedAt(new Date())
                 .withClaim("email", user.getUserEmail())
                 .withClaim("name", user.getUserName())
                 .withClaim("accessRole", user.getAccessRole().name())

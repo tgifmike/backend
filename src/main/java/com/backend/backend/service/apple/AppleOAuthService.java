@@ -50,8 +50,6 @@ public class AppleOAuthService {
         form.add("grant_type", "authorization_code");
         form.add("redirect_uri", appleRedirectUri);
 
-        System.out.println("APPLE TOKEN REDIRECT URI = " + appleRedirectUri);
-
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_FORM_URLENCODED);
 
@@ -106,4 +104,3 @@ public class AppleOAuthService {
         return (ECPrivateKey) keyFactory.generatePrivate(spec);
     }
 }
-

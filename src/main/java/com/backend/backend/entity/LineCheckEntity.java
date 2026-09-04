@@ -1,5 +1,6 @@
 package com.backend.backend.entity;
 
+import com.backend.backend.enums.OfflineVerificationStatus;
 import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -46,6 +47,31 @@ public class LineCheckEntity {
     @Column(name = "updated_at")
     private Instant updatedAt;
 
+    @Column(name = "auth_device_id")
+    private UUID authDeviceId;
+
+    @Column(name = "auth_account_id")
+    private UUID authAccountId;
+
+    @Column(name = "auth_location_id")
+    private UUID authLocationId;
+
+    @Column(name = "auth_user_id")
+    private UUID authUserId;
+
+    @Column(name = "auth_credential_version")
+    private Long authCredentialVersion;
+
+    @Column(name = "auth_verified_at")
+    private Instant authVerifiedAt;
+
+    @Column(name = "auth_local_event_id", unique = true)
+    private UUID authLocalEventId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "verification_status", length = 32)
+    private OfflineVerificationStatus verificationStatus;
+
     @PrePersist
     protected void onCreate() {
         Instant now = Instant.now(); // always UTC
@@ -59,4 +85,3 @@ public class LineCheckEntity {
         updatedAt = Instant.now();
     }
 }
-

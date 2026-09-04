@@ -64,12 +64,9 @@ public class UserLocationAccessServiceImpl implements UserLocationAccessService 
 
     @Override
     public List<LocationEntity> getLocationsForUser(UUID userId) {
-        List<UUID> accountIds = userAccountAccessRepository.findAccountIdsByUserId(userId);
-
-        if (accountIds.isEmpty()) {
-            return List.of(); // No accounts = no locations
-        }
-
-        return locationRepository.findByAccount_IdIn(accountIds);
+        return userLocationAccessRepository.findByUserId(userId).stream()
+                .map(UserLocationAccessEntity::getLocation)
+                .filter(location -> location != null && location.getDeletedAt() == null)
+                .toList();
     }
 }
