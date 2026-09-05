@@ -72,7 +72,8 @@ public class PinActionTokenFilter extends OncePerRequestFilter {
             } catch (PinApiException exception) {
                 response.setStatus(exception.getStatus().value());
                 response.setContentType("application/json");
-                response.getWriter().write("{\"error\":\"" + exception.getCode() + "\"}");
+                response.getWriter().write("{\"error\":\"" + exception.getCode()
+                        + "\",\"message\":\"" + exception.getMessage() + "\"}");
                 return;
             } catch (JWTVerificationException | IllegalArgumentException ignored) {
                 // It may be a manager OAuth JWT; the OAuth filter verifies it next.

@@ -95,15 +95,16 @@ public class PinActionAuthorizationService {
 
     @Transactional(readOnly = true)
     public void validateLocationSelection(PinActionPrincipal principal, UUID locationId) {
-        if (locationId == null
-                || !locationRepository.findById(locationId)
-                    .filter(location -> location.getAccount() != null
-                            && location.getAccount().getId().equals(principal.accountId())
-                            && Boolean.TRUE.equals(location.getLocationActive())
-                            && location.getDeletedAt() == null)
-                    .isPresent()
-                || !locationAccessRepository.existsByUserIdAndLocationId(principal.userId(), locationId)) {
-            throw forbidden();
+        if (locationId == null || !locationRepository.findById(locationId)
+                .filter(location -> location.getAccount() != null
+                        && location.getAccount().getId().equals(principal.accountId())
+                        && Boolean.TRUE.equals(location.getLocationActive())
+                        && location.getDeletedAt() == null)
+                .isPresent()) {
+            throw forbidden("PIN_LOCATION_INVALID", "Selected location is invalid or inactive");
+        }
+        if (!locationAccessRepository.existsByUserIdAndLocationId(principal.userId(), locationId)) {
+            throw forbidden("PIN_LOCATION_ACCESS_REQUIRED", "Employee is not assigned to the selected location");
         }
         if (principal.locationId() != null && !principal.locationId().equals(locationId)) {
             throw forbidden();
@@ -182,5 +183,9 @@ public class PinActionAuthorizationService {
 
     private PinApiException forbidden() {
         return new PinApiException(HttpStatus.FORBIDDEN, "PIN_TOKEN_SCOPE_FORBIDDEN", "PIN action token is no longer valid");
+    }
+
+    private PinApiException forbidden(String code, String message) {
+        return new PinApiException(HttpStatus.FORBIDDEN, code, message);
     }
 }
