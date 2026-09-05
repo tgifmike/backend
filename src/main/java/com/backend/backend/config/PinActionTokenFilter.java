@@ -114,7 +114,8 @@ public class PinActionTokenFilter extends OncePerRequestFilter {
                     return false;
                 }
             }
-            String stationPrefix = "/stations/by-location/";
+            String stationPrefix = path.startsWith("/api/stations/by-location/")
+                    ? "/api/stations/by-location/" : "/stations/by-location/";
             if (path.startsWith(stationPrefix)) {
                 try {
                     UUID.fromString(path.substring(stationPrefix.length()));
@@ -154,7 +155,8 @@ public class PinActionTokenFilter extends OncePerRequestFilter {
             return null;
         }
         String path = normalizedPath(request);
-        String[] prefixes = {"/stations/by-location/", "/line-checks/completed/by-location/"};
+        String[] prefixes = {"/stations/by-location/", "/api/stations/by-location/",
+                "/line-checks/completed/by-location/", "/api/line-checks/completed/by-location/"};
         for (String prefix : prefixes) {
             if (path.startsWith(prefix)) {
                 try {
