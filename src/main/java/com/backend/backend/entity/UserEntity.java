@@ -2,6 +2,7 @@ package com.backend.backend.entity;
 
 import com.backend.backend.enums.AccessRole;
 import com.backend.backend.enums.AppRole;
+import com.backend.backend.enums.AuthenticationMode;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
@@ -58,6 +59,10 @@ public class UserEntity {
     @Enumerated(EnumType.STRING)
     @Column()
     private AppRole appRole = AppRole.MEMBER;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "authentication_mode", nullable = false)
+    private AuthenticationMode authenticationMode = AuthenticationMode.OAUTH;
 
     @Column(name = "created_at", updatable = false)
     //private LocalDateTime createdAt;

@@ -87,6 +87,8 @@ public class SecurityConfig {
                         .hasAnyAuthority("APP_MANAGER", "ROLE_ADMIN", "ROLE_SRADMIN")
                         .requestMatchers("/accounts/*/users/*/pin/**")
                         .hasAnyAuthority("APP_MANAGER", "ROLE_ADMIN", "ROLE_SRADMIN")
+                        .requestMatchers(HttpMethod.POST, "/accounts/*/pin-employees")
+                        .hasAnyAuthority("APP_MANAGER", "ROLE_ADMIN", "ROLE_SRADMIN")
                         .requestMatchers(HttpMethod.GET, "/user-access/*/getUsersForAccount")
                         .hasAnyAuthority("APP_MANAGER", "ROLE_ADMIN", "ROLE_SRADMIN")
                         .requestMatchers(HttpMethod.POST, "/user-access/*/accounts/*")

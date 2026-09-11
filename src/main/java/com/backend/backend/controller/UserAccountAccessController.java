@@ -4,6 +4,8 @@ import com.backend.backend.dto.AccountDto;
 import com.backend.backend.dto.LocationDto;
 import com.backend.backend.dto.UserDto;
 import com.backend.backend.dto.AccountUserDto;
+import com.backend.backend.dto.CreatePinEmployeeRequest;
+import com.backend.backend.dto.PinEmployeeResponse;
 import com.backend.backend.entity.AccountEntity;
 import com.backend.backend.entity.UserAccountAccessEntity;
 import com.backend.backend.entity.UserEntity;
@@ -12,6 +14,8 @@ import com.backend.backend.service.UserAccountAccessService;
 import com.backend.backend.service.UserService;
 import com.backend.backend.service.UserAccountPinService;
 import com.backend.backend.service.AccountAuthorizationService;
+import com.backend.backend.service.PinEmployeeService;
+import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,19 +37,30 @@ public class UserAccountAccessController {
     private final AccountService accountService;
     private final UserAccountPinService pinService;
     private final AccountAuthorizationService authorizationService;
+    private final PinEmployeeService pinEmployeeService;
 
     public UserAccountAccessController(
             UserAccountAccessService userAccountAccessService,
             UserService userService,
             AccountService accountService,
             UserAccountPinService pinService,
-            AccountAuthorizationService authorizationService
+            AccountAuthorizationService authorizationService,
+            PinEmployeeService pinEmployeeService
     ) {
         this.userAccountAccessService = userAccountAccessService;
         this.userService = userService;
         this.accountService = accountService;
         this.pinService = pinService;
         this.authorizationService = authorizationService;
+        this.pinEmployeeService = pinEmployeeService;
+    }
+
+    @PostMapping("/accounts/{accountId}/pin-employees")
+    public ResponseEntity<PinEmployeeResponse> createPinEmployee(
+            @PathVariable UUID accountId,
+            @Valid @RequestBody CreatePinEmployeeRequest request) {
+        return ResponseEntity.ok(pinEmployeeService.create(
+                accountId, request, authorizationService.currentActorId()));
     }
 
     @GetMapping("/{userId}/accounts")

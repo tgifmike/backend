@@ -12,6 +12,7 @@ import com.backend.backend.entity.UserEntity;
 import com.backend.backend.entity.UserHistoryEntity;
 import com.backend.backend.enums.AccessRole;
 import com.backend.backend.enums.AppRole;
+import com.backend.backend.enums.AuthenticationMode;
 import com.backend.backend.enums.HistoryType;
 import com.backend.backend.exception.OAuthUserNotRegisteredException;
 import com.backend.backend.repositories.AccountRepository;
@@ -342,6 +343,9 @@ public class UserServiceImpl implements UserService {
         UserEntity user = resolveUserIdentity(incomingUser);
 
         validateUserStatus(user);
+        if (user.getAuthenticationMode() == AuthenticationMode.PIN_ONLY) {
+            throw new RuntimeException("PinOnlyUser");
+        }
 
         boolean updated = false;
         boolean firstLogin = user.isFirstLogin();
@@ -636,6 +640,7 @@ public class UserServiceImpl implements UserService {
                 .invited(user.isInvited())
                 .accessRole(user.getAccessRole().name())
                 .appRole(user.getAppRole().name())
+                .authenticationMode(user.getAuthenticationMode())
                 .createdAt(user.getCreatedAt())
                 .updatedAt(user.getUpdatedAt())
                 .build();
