@@ -4,7 +4,6 @@ import com.backend.backend.enums.AuthenticationMode;
 import lombok.*;
 
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Data
