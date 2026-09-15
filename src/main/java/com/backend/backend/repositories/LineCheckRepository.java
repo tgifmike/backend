@@ -92,7 +92,7 @@ SELECT new com.backend.backend.dto.EmployeeCheckCountDto(
     COUNT(lc)
 )
 FROM LineCheckEntity lc
-WHERE lc.checkTime BETWEEN :start AND :end
+WHERE lc.checkTime >= :start AND lc.checkTime < :end
 AND lc.completedAt IS NOT NULL
 AND EXISTS (
     SELECT s
@@ -114,7 +114,7 @@ SELECT DISTINCT lc
 FROM LineCheckEntity lc
 JOIN lc.stations s
 WHERE lc.completedAt IS NOT NULL
-AND lc.checkTime BETWEEN :start AND :end
+AND lc.checkTime >= :start AND lc.checkTime < :end
 AND s.station.location.id = :locationId
 """)
     List<LineCheckEntity> employeePerformance(
@@ -166,7 +166,7 @@ JOIN line_check_stations lcs ON lcs.line_check_id = lc.id
 JOIN stations s ON s.id = lcs.station_id
 WHERE lc.completed_at IS NOT NULL
 AND lc.check_time >= :startDate
-AND lc.check_time <= NOW()
+AND lc.check_time < :endDate
 AND s.location_id = :locationId
 GROUP BY dayOfWeek
 ORDER BY count ASC

@@ -10,6 +10,7 @@ import com.backend.backend.service.LocationService;
 import com.backend.backend.service.UserService;
 import com.backend.backend.service.UserLocationAccessService;
 import com.backend.backend.security.PinActionPrincipal;
+import com.backend.backend.config.UserContext;
 import org.springframework.security.core.Authentication;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -87,13 +88,15 @@ public class LocationController {
     @PatchMapping("/{id}/updateLocation")
     public ResponseEntity<LocationEntity> updateLocation(
             @PathVariable UUID id,
-            @RequestParam UUID userId,
+            @RequestParam(required = false) UUID userId,
             @RequestBody Map<String, Object> updates) {
 
-        UserEntity user = userService.getUserById(userId);
+        UUID effectiveUserId = userId != null ? userId : UserContext.getCurrentUser();
+        if (effectiveUserId == null) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authenticated user is required");
+        }
+        UserEntity user = userService.getUserById(effectiveUserId);
         LocationEntity updated = locationService.partialUpdate(id, updates, user);
-
-        locationService.updateGeocodeForLocation(updated.getAccount().getId(), updated.getId());
 
         return ResponseEntity.ok(updated);
     }

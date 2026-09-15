@@ -541,40 +541,40 @@ public class LineCheckServiceImpl implements LineCheckService {
                 .orElseThrow(() -> new RuntimeException("Location not found"));
 
         String tz = location.getLocationTimeZone();
-        ZoneId zone;
-        try {
-            zone = tz != null ? ZoneId.of(tz) : ZoneId.systemDefault();
-        } catch (DateTimeException e) {
-            // fallback to a default or map manually
-            switch (tz) {
-                case "Eastern Time (GMT-5)" -> zone = ZoneId.of("America/New_York");
-                case "Central Time (GMT-6)" -> zone = ZoneId.of("America/Chicago");
-                default -> zone = ZoneId.systemDefault();
-            }
-        }
-
-        LocalDate today = LocalDate.now(zone);
-        DayOfWeek startDay = location.getStartOfWeek() == StartOfWeek.SUNDAY
-                ? DayOfWeek.SUNDAY
-                : DayOfWeek.MONDAY;
-
-        // -------------------------------
-        // Date boundaries
-        // -------------------------------
-        Instant startOfDay = today.atStartOfDay(zone).toInstant();
-        Instant endOfDay = startOfDay.plus(1, ChronoUnit.DAYS);
-
-        Instant startOfYesterday = startOfDay.minus(1, ChronoUnit.DAYS);
-        Instant startOfWeek = today.with(TemporalAdjusters.previousOrSame(startDay))
-                .atStartOfDay(zone).toInstant();
-        Instant startOfMonth = today.withDayOfMonth(1).atStartOfDay(zone).toInstant();
+        ZoneId zone = resolveDashboardZone(tz);
+        LocalTime cutoff = location.getEndOfDay() != null
+                ? location.getEndOfDay()
+                : LocalTime.MIDNIGHT;
         Instant now = Instant.now();
+        ZonedDateTime localNow = now.atZone(zone);
+        LocalDate operationalDate = localNow.toLocalTime().isBefore(cutoff)
+                ? localNow.toLocalDate().minusDays(1)
+                : localNow.toLocalDate();
+        DayOfWeek startDay = DayOfWeek.valueOf(
+                (location.getStartOfWeek() != null ? location.getStartOfWeek() : StartOfWeek.MONDAY).name());
+
+        // Boundaries are operational-day boundaries, not calendar-midnight boundaries.
+        Instant startOfDay = operationalDate.atTime(cutoff).atZone(zone).toInstant();
+        Instant endOfDay = operationalDate.plusDays(1).atTime(cutoff).atZone(zone).toInstant();
+        Instant startOfYesterday = operationalDate.minusDays(1).atTime(cutoff).atZone(zone).toInstant();
+        Instant startOfWeek = operationalDate.with(TemporalAdjusters.previousOrSame(startDay))
+                .atTime(cutoff).atZone(zone).toInstant();
+        Instant startOfMonth = operationalDate.withDayOfMonth(1)
+                .atTime(cutoff).atZone(zone).toInstant();
 //        Instant last30Days =
 //                today.minusDays(30)
 //                        .atStartOfDay(zone)
 //                        .toInstant();
-        Instant start = today.minusDays(30).atStartOfDay(zone).toInstant();
+        Instant start = operationalDate.minusDays(30).atTime(cutoff).atZone(zone).toInstant();
         Instant end = now; // Instant.now() in same zone conversion if needed
+
+        dto.setOperationalDate(operationalDate);
+        dto.setTimeZone(zone.getId());
+        dto.setEndOfDay(cutoff);
+        dto.setStartOfWeek(startDay.name());
+        dto.setDaysElapsedWeek((int) ChronoUnit.DAYS.between(
+                operationalDate.with(TemporalAdjusters.previousOrSame(startDay)), operationalDate) + 1);
+        dto.setDaysElapsedMonth(operationalDate.getDayOfMonth());
 
         // -------------------------------
         // Line check totals
@@ -758,6 +758,23 @@ public class LineCheckServiceImpl implements LineCheckService {
         // -------------------------------
 
         return dto;
+    }
+
+    private ZoneId resolveDashboardZone(String timeZone) {
+        if (timeZone == null || timeZone.isBlank()) {
+            return ZoneId.systemDefault();
+        }
+        try {
+            return ZoneId.of(timeZone);
+        } catch (DateTimeException ignored) {
+            return switch (timeZone) {
+                case "Eastern Time (GMT-5)" -> ZoneId.of("America/New_York");
+                case "Central Time (GMT-6)" -> ZoneId.of("America/Chicago");
+                case "Mountain Time (GMT-7)" -> ZoneId.of("America/Denver");
+                case "Pacific Time (GMT-8)" -> ZoneId.of("America/Los_Angeles");
+                default -> ZoneId.systemDefault();
+            };
+        }
     }
 
     private String extractTopDay(List<Object[]> results) {

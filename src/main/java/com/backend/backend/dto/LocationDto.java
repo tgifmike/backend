@@ -1,6 +1,7 @@
 package com.backend.backend.dto;
 
 import com.backend.backend.enums.StartOfWeek;
+import com.backend.backend.enums.LocationTimeZoneMode;
 import com.backend.backend.entity.LocationEntity;
 import lombok.*;
 
@@ -20,6 +21,7 @@ public class LocationDto {
     private String locationState;
     private String locationZipCode;
     private String locationTimeZone;
+    private LocationTimeZoneMode locationTimeZoneMode;
 
     private Boolean locationActive;
 
@@ -43,6 +45,7 @@ public class LocationDto {
                 .locationState(loc.getLocationState())
                 .locationZipCode(loc.getLocationZipCode())
                 .locationTimeZone(loc.getLocationTimeZone())
+                .locationTimeZoneMode(loc.getLocationTimeZoneMode())
                 .locationLatitude(loc.getLocationLatitude())
                 .locationLongitude(loc.getLocationLongitude())
                 .geocodedFromZipFallback(loc.getGeocodedFromZipFallback())

@@ -1,6 +1,7 @@
 package com.backend.backend.entity;
 
 import com.backend.backend.enums.StartOfWeek;
+import com.backend.backend.enums.LocationTimeZoneMode;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
@@ -17,6 +18,7 @@ import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.UUID;
 
 @Getter
@@ -44,7 +46,12 @@ public class LocationEntity {
     private String locationState;
     private String locationZipCode;
 
+    @Column(length = 64)
     private String locationTimeZone;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "location_time_zone_mode", nullable = false)
+    private LocationTimeZoneMode locationTimeZoneMode = LocationTimeZoneMode.AUTO;
 
     private Double locationLatitude;
     private Double locationLongitude;
@@ -60,6 +67,10 @@ public class LocationEntity {
 
     @Column(nullable = false)
     private Integer lineCheckDailyGoal = 1;
+
+    /** Business-day boundary for line-check reporting; midnight by default. */
+    @Column(name = "end_of_day", nullable = false)
+    private LocalTime endOfDay = LocalTime.MIDNIGHT;
 
     // ---------- RELATIONSHIP ----------
 

@@ -1,6 +1,7 @@
 package com.backend.backend.serviceImplementation;
 
 import com.backend.backend.enums.StartOfWeek;
+import com.backend.backend.enums.LocationTimeZoneMode;
 import com.backend.backend.dto.LineCheckSettingsDto;
 import com.backend.backend.dto.LocationDto;
 import com.backend.backend.entity.AccountEntity;
@@ -11,6 +12,7 @@ import com.backend.backend.repositories.AccountRepository;
 import com.backend.backend.repositories.LocationHistoryRepository;
 import com.backend.backend.repositories.LocationRepository;
 import com.backend.backend.service.GeocodingService;
+import com.backend.backend.service.CoordinateTimeZoneResolver;
 import com.backend.backend.service.LocationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
@@ -19,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -31,15 +34,18 @@ public class LocationServiceImpl implements LocationService {
     private final AccountRepository accountRepository;
     private final LocationHistoryRepository locationHistoryRepository;
     private final ObjectMapper objectMapper = new ObjectMapper();
+    private final CoordinateTimeZoneResolver timeZoneResolver;
 
     public LocationServiceImpl(LocationRepository locationRepository,
                                GeocodingService geocodingService,
                                AccountRepository accountRepository,
-                               LocationHistoryRepository locationHistoryRepository) {
+                               LocationHistoryRepository locationHistoryRepository,
+                               CoordinateTimeZoneResolver timeZoneResolver) {
         this.locationRepository = locationRepository;
         this.geocodingService = geocodingService;
         this.accountRepository = accountRepository;
         this.locationHistoryRepository = locationHistoryRepository;
+        this.timeZoneResolver = timeZoneResolver;
     }
 
     // ---------------- CREATE ----------------
@@ -71,7 +77,12 @@ public class LocationServiceImpl implements LocationService {
         location.setLocationTown(locationDto.getLocationTown());
         location.setLocationState(locationDto.getLocationState());
         location.setLocationZipCode(locationDto.getLocationZipCode());
-        location.setLocationTimeZone(locationDto.getLocationTimeZone());
+        LocationTimeZoneMode mode = locationDto.getLocationTimeZoneMode() == null
+                ? LocationTimeZoneMode.AUTO : locationDto.getLocationTimeZoneMode();
+        location.setLocationTimeZoneMode(mode);
+        if (mode == LocationTimeZoneMode.MANUAL) {
+            location.setLocationTimeZone(validateZone(locationDto.getLocationTimeZone()));
+        }
         location.setCreatedBy(user != null ? user.getId() : null);
         location.setUpdatedBy(user != null ? user.getId() : null);
 
@@ -79,8 +90,9 @@ public class LocationServiceImpl implements LocationService {
 
         System.out.println("[CREATE LOCATION] Saved locationId=" + saved.getId());
 
-        saveLocationHistory(saved, null, extractLocationFields(saved), "CREATED", user);
         updateGeocodeForLocation(accountId, saved.getId());
+        saved = getLocationById(saved.getId());
+        saveLocationHistory(saved, null, extractLocationFields(saved), "CREATED", user);
 
         return saved;
     }
@@ -174,6 +186,11 @@ public class LocationServiceImpl implements LocationService {
                         existing::setLocationTimeZone,
                         key, oldVals, newVals
                 );
+                case "locationTimeZoneMode" -> updateIfChanged(
+                        existing.getLocationTimeZoneMode(),
+                        value == null ? null : LocationTimeZoneMode.valueOf(value.toString().toUpperCase()),
+                        existing::setLocationTimeZoneMode, key, oldVals, newVals
+                );
                 case "locationActive" -> updateIfChanged(
                         existing.getLocationActive(),
                         value != null ? (Boolean) value : null,
@@ -213,12 +230,30 @@ public class LocationServiceImpl implements LocationService {
             }
         });
 
+        LocationTimeZoneMode mode = existing.getLocationTimeZoneMode() == null
+                ? LocationTimeZoneMode.AUTO : existing.getLocationTimeZoneMode();
+        existing.setLocationTimeZoneMode(mode);
+        if (mode == LocationTimeZoneMode.MANUAL) {
+            if (existing.getLocationTimeZone() == null || existing.getLocationTimeZone().isBlank()) {
+                throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Manual time zone is required");
+            }
+            existing.setLocationTimeZone(validateZone(existing.getLocationTimeZone()));
+        }
+
         // Update timestamps and user
         existing.setUpdatedBy(user != null ? user.getId() : null);
         existing.setUpdatedAt(Instant.now());
 
         // Save changes
         LocationEntity saved = locationRepository.save(existing);
+
+        if (hasAddressChange(updates)) {
+            updateGeocodeForLocation(existing.getAccount().getId(), existing.getId());
+            saved = getLocationById(existing.getId());
+        } else if (mode == LocationTimeZoneMode.AUTO && updates.containsKey("locationTimeZoneMode")) {
+            resolveTimeZoneFromCoordinates(saved);
+            saved = locationRepository.save(saved);
+        }
 
         // Save history only if there were actual changes
         if (!oldVals.isEmpty()) {
@@ -324,12 +359,51 @@ public class LocationServiceImpl implements LocationService {
 
         String fullAddress = buildFullAddress(location);
         geocodingService.getLatLongFromAddressWithFallback(fullAddress, location.getLocationZipCode())
-                .ifPresent(result -> {
+                .ifPresentOrElse(result -> {
                     location.setLocationLatitude(result.latitude());
                     location.setLocationLongitude(result.longitude());
                     location.setGeocodedFromZipFallback(result.fromZipFallback());
+                    if (location.getLocationTimeZoneMode() == null || location.getLocationTimeZoneMode() == LocationTimeZoneMode.AUTO) {
+                        String zone = timeZoneResolver.resolve(result.latitude(), result.longitude())
+                                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Unable to resolve time zone"));
+                        location.setLocationTimeZone(zone);
+                        location.setLocationTimeZoneMode(LocationTimeZoneMode.AUTO);
+                    }
                     locationRepository.save(location);
+                }, () -> {
+                    if (location.getLocationTimeZoneMode() == null
+                            || location.getLocationTimeZoneMode() == LocationTimeZoneMode.AUTO) {
+                        throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY,
+                                "Unable to geocode location and resolve time zone");
+                    }
                 });
+    }
+
+    private void resolveTimeZoneFromCoordinates(LocationEntity location) {
+        if (location.getLocationLatitude() == null || location.getLocationLongitude() == null) {
+            updateGeocodeForLocation(location.getAccount().getId(), location.getId());
+            return;
+        }
+        location.setLocationTimeZone(timeZoneResolver.resolve(
+                        location.getLocationLatitude(), location.getLocationLongitude())
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Unable to resolve time zone")));
+    }
+
+    private static boolean hasAddressChange(Map<String, Object> updates) {
+        return updates.keySet().stream().anyMatch(key -> Set.of(
+                "locationStreet", "locationTown", "locationState", "locationZipCode").contains(key));
+    }
+
+    private static String validateZone(String value) {
+        if (value == null || value.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Valid IANA time zone is required");
+        }
+        try {
+            java.time.ZoneId.of(value);
+            return value;
+        } catch (Exception e) {
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Invalid IANA time zone");
+        }
     }
 
     @Override
@@ -355,6 +429,7 @@ public class LocationServiceImpl implements LocationService {
         LineCheckSettingsDto dto = new LineCheckSettingsDto();
         dto.setDayOfWeek(location.getStartOfWeek() != null ? location.getStartOfWeek().name() : StartOfWeek.MONDAY.name());
         dto.setDailyGoal(location.getLineCheckDailyGoal() != null ? location.getLineCheckDailyGoal() : 1);
+        dto.setEndOfDay(location.getEndOfDay() != null ? location.getEndOfDay() : LocalTime.MIDNIGHT);
         return dto;
     }
 
@@ -371,6 +446,13 @@ public class LocationServiceImpl implements LocationService {
         Map<String, String> newValues = new HashMap<>();
 
         boolean changed = false;
+
+        if (dto.getEndOfDay() != null && !Objects.equals(location.getEndOfDay(), dto.getEndOfDay())) {
+            oldValues.put("endOfDay", location.getEndOfDay() == null ? null : location.getEndOfDay().toString());
+            newValues.put("endOfDay", dto.getEndOfDay().toString());
+            location.setEndOfDay(dto.getEndOfDay());
+            changed = true;
+        }
 
         // ---- Start of Week ----
         if (dto.getDayOfWeek() != null && !dto.getDayOfWeek().isBlank()) {
@@ -472,6 +554,8 @@ public class LocationServiceImpl implements LocationService {
         values.put("locationState", loc.getLocationState());
         values.put("locationZipCode", loc.getLocationZipCode());
         values.put("locationTimeZone", loc.getLocationTimeZone());
+        values.put("locationTimeZoneMode", loc.getLocationTimeZoneMode() != null
+                ? loc.getLocationTimeZoneMode().name() : null);
 
         values.put("locationLatitude",
                 loc.getLocationLatitude() != null ? loc.getLocationLatitude().toString() : null);

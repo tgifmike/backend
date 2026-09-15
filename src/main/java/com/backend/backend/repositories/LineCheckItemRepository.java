@@ -212,7 +212,7 @@ JOIN line_checks lc ON lcs.line_check_id = lc.id
 JOIN stations s ON lcs.station_id = s.id
 WHERE i.is_missing = true
 AND lc.check_time >= :startDate
-AND lc.check_time <= NOW()
+AND lc.check_time < :endDate
 AND s.location_id = :locationId
 GROUP BY dayOfWeek
 ORDER BY count DESC
@@ -237,7 +237,7 @@ FROM (
     JOIN stations s ON lcs.station_id = s.id
     WHERE i.is_missing = true
       AND lc.check_time >= :startDate
-      AND lc.check_time <= :endDate
+AND lc.check_time < :endDate
       AND s.location_id = :locationId
     GROUP BY day, dayOfWeek
 ) daily
@@ -265,7 +265,7 @@ AND (i.temperature < COALESCE(i.min_temp, it.min_temp)
      OR i.temperature > COALESCE(i.max_temp, it.max_temp))
 AND i.is_missing = false
 AND lc.check_time >= :startDate
-AND lc.check_time <= NOW()
+AND lc.check_time < :endDate
 AND s.location_id = :locationId
 GROUP BY dayOfWeek
 ORDER BY count DESC
@@ -294,7 +294,7 @@ FROM (
            OR i.temperature > COALESCE(i.max_temp, it.max_temp))
       AND i.is_missing = false
       AND lc.check_time >= :startDate
-      AND lc.check_time <= :endDate
+      AND lc.check_time < :endDate
       AND s.location_id = :locationId
     GROUP BY day, dayOfWeek
 ) daily
@@ -319,7 +319,7 @@ JOIN stations s ON lcs.station_id = s.id
 WHERE i.is_checked = false
 AND i.is_missing = false
 AND lc.check_time >= :startDate
-AND lc.check_time <= NOW()
+AND lc.check_time < :endDate
 AND s.location_id = :locationId
 GROUP BY dayOfWeek
 ORDER BY count DESC
@@ -345,7 +345,7 @@ FROM (
     WHERE i.is_checked = false
       AND i.is_missing = false
       AND lc.check_time >= :startDate
-      AND lc.check_time <= :endDate
+      AND lc.check_time < :endDate
       AND s.location_id = :locationId
     GROUP BY day, dayOfWeek
 ) daily
@@ -376,7 +376,7 @@ FROM (
     JOIN line_checks lc ON lcs.line_check_id = lc.id
     JOIN stations s ON lcs.station_id = s.id
     WHERE lc.check_time >= :startDate
-      AND lc.check_time <= :endDate
+      AND lc.check_time < :endDate
       AND s.location_id = :locationId
     GROUP BY day, dayOfWeek
 ) daily
@@ -400,7 +400,7 @@ JOIN line_checks lc ON lcs.line_check_id = lc.id
 JOIN stations s ON lcs.station_id = s.id
 WHERE i.is_missing = true
   AND lc.check_time >= :startDate
-  AND lc.check_time <= :endDate
+  AND lc.check_time < :endDate
   AND s.location_id = :locationId
 GROUP BY it.item_name
 ORDER BY count DESC
@@ -425,7 +425,7 @@ WHERE i.temperature IS NOT NULL
        OR i.temperature > COALESCE(i.max_temp, it.max_temp))
   AND i.is_missing = false
   AND lc.check_time >= :startDate
-  AND lc.check_time <= :endDate
+  AND lc.check_time < :endDate
   AND s.location_id = :locationId
 GROUP BY it.item_name
 ORDER BY count DESC
@@ -448,7 +448,7 @@ JOIN stations s ON lcs.station_id = s.id
 WHERE i.is_checked = false
   AND i.is_missing = false
   AND lc.check_time >= :startDate
-  AND lc.check_time <= :endDate
+  AND lc.check_time < :endDate
   AND s.location_id = :locationId
 GROUP BY it.item_name
 ORDER BY count DESC
