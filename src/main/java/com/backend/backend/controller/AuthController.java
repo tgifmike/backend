@@ -95,10 +95,22 @@ public class AuthController {
     //new call back with cookies
     @GetMapping("/google/callback")
     public void googleCallback(
-            @RequestParam String code,
+            @RequestParam(required = false) String code,
+            @RequestParam(required = false) String error,
+            @RequestParam(required = false) String state,
             HttpServletRequest request,
             HttpServletResponse response
     ) throws IOException {
+
+        if ("access_denied".equals(error)) {
+            response.sendRedirect(frontendRedirectUrl + "/login?authError=cancelled");
+            return;
+        }
+
+        if (error != null || code == null || code.isBlank()) {
+            response.sendRedirect(frontendRedirectUrl + "/login?authError=oauth_failed");
+            return;
+        }
 
         GoogleTokenResponse token =
                 googleOAuthService.exchangeCodeForToken(code);
